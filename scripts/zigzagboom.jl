@@ -15,7 +15,7 @@ T = 300.0
 out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.2π, ZigZag())
 
 # Example: Boomerang
-B = Boomerang(0.75, 0.2)
+B = Boomerang(0.0, 0.2)
 out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
 
 

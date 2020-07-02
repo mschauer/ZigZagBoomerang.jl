@@ -25,10 +25,10 @@ Dynamics preserving the Lebesgue measure (ZigZag sampler)
 
 struct ZigZag <: ContinuousDynamics  end
 """
-    Boomerang(λref) <: ContinuousDynamics
+    Boomerang(μ, λ) <: ContinuousDynamics
 
-Dynamics preserving the standard Gaussian measure (Boomerang)
-with refreshment time `λref`
+Dynamics preserving the N(μ, 1) measure (Boomerang)
+with refreshment time `λ`
 """
 struct Boomerang{T} <: ContinuousDynamics
     μ::T

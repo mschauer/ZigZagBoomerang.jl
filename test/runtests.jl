@@ -15,7 +15,8 @@ Random.seed!(1)
 x0, θ0 = 0.01, 1.0
 T = 5000.0
 out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag())
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, Boomerang(1.0, 0.5))
+B = Boomerang(2.0, 0.5)
+out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, B)
 
 @testset "ZigZag" begin
     @test T/10 < length(out1) < T*10
@@ -31,7 +32,7 @@ end
 @testset "Boomerang" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
-    traj = ZigZagBoomerang.discretization(out2, Boomerang(NaN), dt)
+    traj = ZigZagBoomerang.discretization(out2, B, dt)
     est = mean(traj.x)
     @test abs(est-pi) < 2/sqrt(length(out2))
 end

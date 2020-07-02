@@ -2,7 +2,7 @@
 """
     poisson_time(a, b, u)
 
-obtaining waiting time for inhomogeneous Poisson Process
+Obtaining waiting time for inhomogeneous Poisson Process
 with rate of the form λ(t) = (a + b*t)^+, `a`,`b` ∈ R, `u` uniform random variable
 """
 function poisson_time(a, b, u)
@@ -30,8 +30,9 @@ function poisson_time(a, b, u)
 end
 
 """
-    h_poisson_time(a, u)
-obtaining waiting time for homogeneous Poisson Process
+    poisson_time(a, u)
+
+Obtaining waiting time for homogeneous Poisson Process
 with rate of the form λ(t) = a, `a` ≥ 0, `u` uniform random variable
 """
 function poisson_time(a,u)
