@@ -1,7 +1,7 @@
 # ZigZagBoomerang
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/dev)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/dev/index.html)
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
 
 ## Example
@@ -17,11 +17,13 @@ using ZigZagBoomerang
 x0, θ0 = randn(), 1.0
 T = 100.0
 
+c = 2π # parameter for the upper bound of the Poisson rate, will error if too small
+
 # ZigZag
-out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 2π, ZigZag())
+out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, ZigZag())
 
 # Boomerang with refreshment rate 0.5
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 2π, Boomerang(0.5))
+out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, Boomerang(0.5))
 ```
 
 ## Literature
