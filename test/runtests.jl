@@ -1,10 +1,11 @@
 using ZigZagBoomerang
 using Test
 using Statistics
-
+using Random
 
 using ZigZagBoomerang
 
+Random.seed!(1)
 # negative log-density with respect to Lebesgue
 # ϕ(x) =  (x - π)^2/2 # not needed
 
@@ -21,5 +22,5 @@ out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, Boomerang(0.1))
 
 @testset "ZigZag" begin
     est = 1/T*sum((eventposition.(out1)[1:end-1] + eventposition.(out1)[2:end])/2 .* diff(eventtime.(out1)))
-    @test abs(est-pi) < 1/sqrt(length(out1))
+    @test abs(est-pi) < 2/sqrt(length(out1))
 end
