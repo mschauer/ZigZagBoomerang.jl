@@ -34,6 +34,7 @@ struct Boomerang{T} <: ContinuousDynamics
     μ::T
     λref::T
 end
+Boomerang(λ) = Boomerang(0.0, λ)
 
 # ZigZag dynamics (time, space, velocity)
 function move_forward(τ, t, x, θ, ::ZigZag)
