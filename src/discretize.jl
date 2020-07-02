@@ -7,7 +7,7 @@ using Trajectories
 Tansform the output of the algorithm (a skeleton of points) to
 a trajectory.
 """
-function discretization(x::Vector, Flow::Boomerang, dt)
+function discretization(x::Vector, Flow, dt)
     k = 1
     _, ξ, θ = x[k]
     τ = x[k+1][1]
