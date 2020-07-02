@@ -31,6 +31,7 @@ Dynamics preserving the standard Gaussian measure (Boomerang)
 with refreshment time `λref`
 """
 struct Boomerang{T} <: ContinuousDynamics
+    μ::T
     λref::T
 end
 
@@ -41,27 +42,29 @@ end
 
 # Boomerang dynamics (time, space, velocity)
 # dx = -x dt; dv = -v dt
-function move_forward(τ, t, x, θ, ::Boomerang)
-    x_new = x*cos(τ) + θ*sin(τ)
-    θ = -x*sin(τ) + θ*cos(τ)
+function move_forward(τ, t, x, θ, B::Boomerang)
+    x_new = (x - B.μ)*cos(τ) + θ*sin(τ) + B.μ
+    θ = -(x - B.μ)*sin(τ) + θ*cos(τ)
     t + τ, x_new, θ
 end
 
 
+
+
 λ(∇ϕ, x, θ, F::ZigZag) = max(zero(x), θ*∇ϕ(x))
-λ(∇ϕ, x, θ, F::Boomerang) = max(zero(x), θ*(∇ϕ(x) - x))
+λ(∇ϕ, x, θ, B::Boomerang) = max(zero(x), θ*(∇ϕ(x) - (x - B.μ)))
 
 # affine bounds for Zig-Zag
 λ_bar(x, θ, c, ::ZigZag) = max(zero(x), c + θ*x)
 
 # constant bound for Boomerang with global bounded |∇ϕ(x)|
 # suppose |∇ϕ(x, :Boomerang)| ≤ C. Then λ(x(t),θ(t)) ≤ C*sqrt(x(0)^2 + θ(0)^2)
-λ_bar(x, θ, c, ::Boomerang) = sqrt(θ^2 + x^2)*c #Global bound
+λ_bar(x, θ, c, B::Boomerang) = sqrt(θ^2 + (x - B.μ)^2)*c #Global bound
 
 
 # waiting times
 ab(x, θ, c, ::ZigZag) = (c + θ*x, one(x))
-ab(x, θ, c, ::Boomerang) = (sqrt(x^2 + θ^2)*c, zero(x))
+ab(x, θ, c, B::Boomerang) = (sqrt(θ^2 + (x - B.μ)^2)*c, zero(x))
 
 waiting_time(x, θ, c, Flow::ContinuousDynamics) = poisson_time(ab(x, θ, c, Flow)..., rand())
 waiting_time_ref(::ZigZag) = Inf

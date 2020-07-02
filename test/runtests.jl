@@ -16,7 +16,7 @@ Random.seed!(1)
 x0, θ0 = 0.01, 1.0
 T = 5000.0
 out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag())
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, Boomerang(0.1))
+out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, Boomerang(1.0, 0.1))
 
 @show length(out1)
 
