@@ -4,6 +4,25 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/dev)
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
 
+## Example
+```julia
+using ZigZagBoomerang
+
+# negative log-density with respect to Lebesgue
+ϕ(x) = cos(2pi*x) + x^2/2 # not needed
+
+# gradient of ϕ(x)
+∇ϕ(x) = -2*pi*sin(2*π*x) + x
+
+x0, θ0 = randn(), 1.0
+T = 100.0
+
+# ZigZag
+out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 2π, ZigZag())
+
+# Boomerang with refreshment rate 0.5
+out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 2π, Boomerang(0.5))
+```
 
 ## Literature
 
