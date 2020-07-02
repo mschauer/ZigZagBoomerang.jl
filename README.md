@@ -5,6 +5,8 @@
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
 
 ## Example
+See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
+
 ```julia
 using ZigZagBoomerang
 
