@@ -1,5 +1,5 @@
 using DataStructures
-
+using Statistics
 struct LocalZigZag{T,S} <: ContinuousDynamics
     Γ::T
     μ::S
@@ -31,7 +31,9 @@ function λ(G, ∇ϕ, i, x, θ, Z::LocalZigZag)
 end
 
 #ab(G, i, x, θ, c, Z::LocalZigZag) = Z.Γ[:,i]'*(x-Z.μ)*θ[i] + c[i]*sqrt(sum(abs2(x[j]-Z.μ[j]) for j in neighbours(G, i))), 1.0
-ab(G, i, x, θ, c, Z::LocalZigZag) = c[i]*sqrt(sum(abs2(x[j]-Z.μ[j]) for j in neighbours(G, i))), 1.0
+#ab(G, i, x, θ, c, Z::LocalZigZag) = c[i]*sqrt(sum(abs2(x[j]-Z.μ[j]) for j in neighbours(G, i))), 1.0
+#ab(G, i, x, θ, c, Z::LocalZigZag) = c[i] + mean(θ[j]*(x[j] - Z.μ[j]) for j in neighbours(G, i)), 1.0
+ab(G, i, x, θ, c, Z::LocalZigZag) = c[i] + θ[i]*sum(Z.Γ[i, :][j]*(x[j] - Z.μ[j]) for j in neighbours(G, i)), θ[i]*sum(Z.Γ[i, :][j]*θ[j] for j in neighbours(G, i))
 
 λ_bar(G, i, x, θ, c, Z::LocalZigZag) = pos(ab(G, i, x, θ, c, Z::LocalZigZag)[1])
 
@@ -54,7 +56,7 @@ function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=fal
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
     end
-    Ξ, (t, x, θ), (num, acc)
+    Ξ, (t, x, θ), (acc, num)
 end
 
 function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag; factor=1.5, adapt=false)

@@ -35,7 +35,8 @@ end
 # gradient of ϕ(x)
 ∇ϕ(x) = x - π
 
-x0, θ0 = 0.01, 1.0
+
+x0, θ0 = 0.01, -1.0
 T = 5000.0
 out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag())
 B = Boomerang(2.0, 0.5)
@@ -49,6 +50,11 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, B)
     traj = ZigZagBoomerang.discretization(out1, ZigZag(), dt)
     est = mean(traj.x)
     @test abs(est-pi) < 2/sqrt(length(out1))
+    c = 10.0
+    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag())
+    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag()) ≈ a + b*0.3
+    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag())
+    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag()) ≈ a + b*0.3
 
 end
 
@@ -72,26 +78,25 @@ G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in 1:d]
 ∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
 
 
+@testset "LocalBoomerang" begin
 
 t0 = 0.0
 x0 = rand(d)
 θ0 = rand([-1,1], d)
 
 
-c = 1.01*[norm(Γ[:, i], 2) for i in 1:d]
+c = .5*[norm(Γ[:, i], 2) for i in 1:d]
 
-Z = LocalZigZag(Γ, x0*0)
+Z = LocalZigZag(0.9Γ, x0*0)
 T = 1000.0
 
-Ξ, _ = @time pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
-
+Ξ, _, acc = @time pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
+@show acc[1]/acc[2]
 t, x, θ = deepcopy((t0, x0, θ0))
 xs = [x0]
 ts = [t0]
 dt = 0.5
 for ξ in Ξ
-    global t, x, θ
-    local i
     i, ti, xi = ξ
     while t + dt < ti
         t, x, θ = ZigZagBoomerang.move_forward!(dt, t, x, θ, Z)
@@ -99,15 +104,20 @@ for ξ in Ξ
         push!(xs, copy(x))
     end
     r = dt - (ti - t)
-    @test r > 0
     t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
-    @test x[i] ≈ xi atol=1e-7
+    t < T/10 && @test x[i] ≈ xi atol=1e-7
     θ[i] = -θ[i]
     t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
     push!(ts, t)
     push!(xs, copy(x))
 end
+for i in 1:d
+    a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
+    @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+end
+
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 0.08
 #display(round.(cov(xs) - inv(Matrix(Γ)), digits=3))
 #display(round.(cov(xs), digits=3))
 #display(round.( inv(Matrix(Γ)), digits=3))
+end
