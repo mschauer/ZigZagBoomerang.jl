@@ -3,7 +3,7 @@ module ZigZagBoomerang
 
 # Zig zag and Boomerang reference implementation
 
-export poisson_time, ZigZag, Boomerang, pdmp, eventtime, eventposition
+export poisson_time, ZigZag, Boomerang, LocalZigZag, pdmp, eventtime, eventposition
 
 eventtime(x) = x[1]
 eventposition(x) = x[2]
@@ -119,5 +119,5 @@ end
 
 include("discretize.jl")
 
-#include("localzigzag.jl")
+include("localzigzag.jl")
 end
