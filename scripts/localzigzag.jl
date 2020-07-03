@@ -23,13 +23,6 @@ end
 
 Γ = sparse(S * S')
 
-# Based on sparsity pattern from Gamma
-G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in 1:n]
-
-for i in 1:n
-    @test i in G[i].second
-end
-
 ϕ(x) = 0.5*x'*Γ*x
 
 using ForwardDiff
@@ -49,7 +42,7 @@ c = [norm(Γ[:, i], 2) for i in 1:n]
 Z = LocalZigZag(Γ, x0*0)
 T = 300.0
 
-@time Ξ, (tT, xT, θT), (num, acc) = pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
+@time Ξ, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 
 t, x, θ = deepcopy((t0, x0, θ0))
 xs = [x0]

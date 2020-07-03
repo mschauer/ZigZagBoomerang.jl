@@ -73,8 +73,6 @@ d = 8
 S = I + 0.5sprandn(d, d, 0.1)
 Γ = S*S'
 
-G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in 1:d]
-
 ∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
 
 
@@ -90,7 +88,7 @@ c = .5*[norm(Γ[:, i], 2) for i in 1:d]
 Z = LocalZigZag(0.9Γ, x0*0)
 T = 1000.0
 
-Ξ, _, acc = @time pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
+Ξ, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 @show acc[1]/acc[2]
 t, x, θ = deepcopy((t0, x0, θ0))
 xs = [x0]
@@ -111,6 +109,7 @@ for ξ in Ξ
     push!(ts, t)
     push!(xs, copy(x))
 end
+G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 for i in 1:d
     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
     @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
@@ -132,11 +131,10 @@ x0 = rand(d)
 c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
 Γ0 = sparse(I, d, d)
 Z = LocalZigZag(Γ0, x0*0)
-G0 = [i => rowvals(Γ0)[nzrange(Γ0, i)] for i in 1:d]
 
 T = 1000.0
 
-Ξ, _, acc = @time pdmp(G0, ∇ϕ, t0, x0, θ0, T, c, Z)
+Ξ, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 @show acc[1]/acc[2]
 t, x, θ = deepcopy((t0, x0, θ0))
 xs = [x0]
@@ -157,13 +155,11 @@ for ξ in Ξ
     push!(ts, t)
     push!(xs, copy(x))
 end
+G0 = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 for i in 1:d
     a, b = ZigZagBoomerang.ab(G0, i, x0, θ0, c, Z)
     @test ZigZagBoomerang.λ_bar(G0, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
 end
 
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
-#display(round.(cov(xs) - inv(Matrix(Γ)), digits=3))
-#display(round.(cov(xs), digits=3))
-#display(round.( inv(Matrix(Γ)), digits=3))
 end

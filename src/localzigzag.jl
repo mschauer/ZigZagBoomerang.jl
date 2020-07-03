@@ -109,7 +109,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
     end
     t, x, θ = move_forward!(t′ - t, t, x, θ, Z)
 
-    l, lb = λ(G, ∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
+    l, lb = λ(∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
     num += 1
 
     if rand()*lb < l
@@ -130,22 +130,25 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
 end
 
 """
-    pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
+    pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
 
 `LocalZigZag` algorithm.
-Input: Graph `G`, gradient of negative log density `∇ϕ`, initial time `t0`,
+Input: Gradient of negative log density `∇ϕ`, initial time `t0`,
 initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
 
 The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+
+    #sparsity graph
+    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 
     t, x, θ = t0, copy(x0), copy(θ0)
     num = acc = 0
 
-    Q = PriorityQueue{Int,Float64}();
+    Q = PriorityQueue{Int,Float64}()
 
     for i in eachindex(θ)
         enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
