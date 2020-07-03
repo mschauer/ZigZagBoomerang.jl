@@ -116,7 +116,7 @@ for i in 1:d
     @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
 end
 
-@test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 0.08
+@test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 #display(round.(cov(xs) - inv(Matrix(Γ)), digits=3))
 #display(round.(cov(xs), digits=3))
 #display(round.( inv(Matrix(Γ)), digits=3))

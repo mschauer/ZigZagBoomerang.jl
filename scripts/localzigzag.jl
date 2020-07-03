@@ -47,7 +47,7 @@ x0 = rand(n)
 c = [norm(Γ[:, i], 2) for i in 1:n]
 
 Z = LocalZigZag(Γ, x0*0)
-T = 1000.0
+T = 300.0
 
 @time Ξ, (tT, xT, θT), (num, acc) = pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
 
@@ -66,3 +66,9 @@ for ξ in Ξ
 end
 
 @show acc, num, acc/num
+
+using Makie
+p1 = Makie.lines(first.(xs), getindex.(xs, 2))
+save("localzigzag.png", p1)
+p2 = Makie.lines(getindex.(xs, 1), getindex.(xs, 2), getindex.(xs, 3))
+save("localzigzag3d.png", p2)

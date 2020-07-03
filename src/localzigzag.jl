@@ -1,6 +1,7 @@
 using DataStructures
 using Statistics
 using SparseArrays
+using LinearAlgebra
 
 struct LocalZigZag{T,S} <: ContinuousDynamics
     Γ::T
@@ -35,9 +36,14 @@ end
 #ab(G, i, x, θ, c, Z::LocalZigZag) = Z.Γ[:,i]'*(x-Z.μ)*θ[i] + c[i]*sqrt(sum(abs2(x[j]-Z.μ[j]) for j in neighbours(G, i))), 1.0
 #ab(G, i, x, θ, c, Z::LocalZigZag) = c[i]*sqrt(sum(abs2(x[j]-Z.μ[j]) for j in neighbours(G, i))), 1.0
 #ab(G, i, x, θ, c, Z::LocalZigZag) = c[i] + mean(θ[j]*(x[j] - Z.μ[j]) for j in neighbours(G, i)), 1.0
+#function ab(G, i, x, θ, c, Z::LocalZigZag)
+#    a = c[i] + θ[i]*sum(Z.Γ[i, :].nzval[ji]*(x[j] - Z.μ[j]) for (ji, j) in enumerate(neighbours(G, i)))
+#    b = θ[i]*sum(Z.Γ[i, :].nzval[ji]*θ[j] for (ji, j) in enumerate(neighbours(G, i)))
+#    a, b
+#end
 function ab(G, i, x, θ, c, Z::LocalZigZag)
-    a = c[i] + θ[i]*sum(Z.Γ[i, :].nzval[ji]*(x[j] - Z.μ[j]) for (ji, j) in enumerate(neighbours(G, i)))
-    b = θ[i]*sum(Z.Γ[i, :].nzval[ji]*θ[j] for (ji, j) in enumerate(neighbours(G, i)))
+    a = c[i] + θ[i]*(dot(Z.Γ[:, i], x)  - dot(Z.Γ[:, i], Z.μ))
+    b = θ[i]*dot(Z.Γ[:, i], θ)
     a, b
 end
 
