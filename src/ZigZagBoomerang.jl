@@ -36,13 +36,25 @@ struct Boomerang{T} <: ContinuousDynamics
 end
 Boomerang(λ) = Boomerang(0.0, λ)
 
-# ZigZag dynamics (time, space, velocity)
+"""
+    move_forward(τ, t, x, θ, ::ZigZag)
+Updates the position `x`, velocity `θ` and time `t` of the
+process after a time step equal to `τ` according to the deterministic
+dynamics of the `ZigZag` sampler: (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
+`x`: current location, `θ`: current velocity, `t`: current time,
+"""
 function move_forward(τ, t, x, θ, ::ZigZag)
     τ + t, x + θ*τ , θ
 end
 
-# Boomerang dynamics (time, space, velocity)
-# dx = -x dt; dv = -v dt
+"""
+    move_forward(τ, t, x, θ, B::Boomerang)
+Updates the position `x`, velocity `θ` and time `t` of the
+process after a time step equal to `τ` according to the deterministic
+dynamics of the `Boomerang` sampler: x_t = μ +(x_0 − μ)*cos(t) + v_0*sin(t),
+v_t = −(x_0 − μ)*sin(t) + v_0*cos(t)
+`x`: current location, `θ`: current velocity, `t`: current time.
+"""
 function move_forward(τ, t, x, θ, B::Boomerang)
     x_new = (x - B.μ)*cos(τ) + θ*sin(τ) + B.μ
     θ = -(x - B.μ)*sin(τ) + θ*cos(τ)
@@ -52,6 +64,7 @@ end
 pos(x) = max(zero(x), x)
 
 
+#Poisson rates which determine the first reflection time
 λ(∇ϕ, x, θ, F::ZigZag) = pos(θ*∇ϕ(x))
 λ(∇ϕ, x, θ, B::Boomerang) = pos(θ*(∇ϕ(x) - (x - B.μ)))
 
@@ -66,7 +79,7 @@ pos(x) = max(zero(x), x)
 ab(x, θ, c, ::ZigZag) = (c + θ*x, one(x))
 ab(x, θ, c, B::Boomerang) = (sqrt(θ^2 + (x - B.μ)^2)*c, zero(x))
 
-waiting_time(x, θ, c, Flow::ContinuousDynamics) = poisson_time(ab(x, θ, c, Flow)..., rand())
+# waiting_time
 waiting_time_ref(::ZigZag) = Inf
 waiting_time_ref(B::Boomerang) = poisson_time(B.λref, 0.0, rand())
 
@@ -88,19 +101,19 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
     t = zero(T)
     Ξ = [(zero(x), x, θ)]
     τref = waiting_time_ref(Flow)
-    τ =  waiting_time(x, θ, c, Flow)
     num = acc = 0
-    while t<T
+    τ =  poisson_time(ab(x, θ, c, Flow)..., rand())
+    while t < T
         if τref < τ
             t, x, θ = move_forward(τref, t, x, θ, Flow)
             θ = randn()
             τref = waiting_time_ref(Flow)
-            τ =  waiting_time(x, θ, c, Flow)
+            τ =  poisson_time(ab(x, θ, c, Flow)..., rand())
             push!(Ξ, (t, x, θ))
         else
             t, x, θ = move_forward(τ, t, x, θ, Flow)
             τref -= τ
-            τ = waiting_time(x, θ, c, Flow)
+            τ = poisson_time(ab(x, θ, c, Flow)..., rand())
             l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(x, θ, c, Flow)
             num += 1
             if rand()*lb < l
