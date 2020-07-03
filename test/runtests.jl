@@ -78,7 +78,7 @@ G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in 1:d]
 ∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
 
 
-@testset "LocalBoomerang" begin
+@testset "LocalZigZag" begin
 
 t0 = 0.0
 x0 = rand(d)
@@ -114,6 +114,52 @@ end
 for i in 1:d
     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
     @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+end
+
+@test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
+#display(round.(cov(xs) - inv(Matrix(Γ)), digits=3))
+#display(round.(cov(xs), digits=3))
+#display(round.( inv(Matrix(Γ)), digits=3))
+end
+
+@testset "LocalZigZag (independent)" begin
+
+t0 = 0.0
+x0 = rand(d)
+θ0 = rand([-1,1], d)
+
+
+c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
+Γ0 = sparse(I, d, d)
+Z = LocalZigZag(Γ0, x0*0)
+G0 = [i => rowvals(Γ0)[nzrange(Γ0, i)] for i in 1:d]
+
+T = 1000.0
+
+Ξ, _, acc = @time pdmp(G0, ∇ϕ, t0, x0, θ0, T, c, Z)
+@show acc[1]/acc[2]
+t, x, θ = deepcopy((t0, x0, θ0))
+xs = [x0]
+ts = [t0]
+dt = 0.5
+for ξ in Ξ
+    i, ti, xi = ξ
+    while t + dt < ti
+        t, x, θ = ZigZagBoomerang.move_forward!(dt, t, x, θ, Z)
+        push!(ts, t)
+        push!(xs, copy(x))
+    end
+    r = dt - (ti - t)
+    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
+    t < T/10 && @test x[i] ≈ xi atol=1e-7
+    θ[i] = -θ[i]
+    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
+    push!(ts, t)
+    push!(xs, copy(x))
+end
+for i in 1:d
+    a, b = ZigZagBoomerang.ab(G0, i, x0, θ0, c, Z)
+    @test ZigZagBoomerang.λ_bar(G0, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
 end
 
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
