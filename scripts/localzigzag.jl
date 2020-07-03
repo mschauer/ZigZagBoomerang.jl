@@ -46,7 +46,7 @@ x0 = rand(n)
 
 c = [norm(Γ[:, i], 2) for i in 1:n]
 
-Z = LocalZigZag()
+Z = LocalZigZag(Γ, x0*0)
 T = 1000.0
 
 @time Ξ, (tT, xT, θT), (num, acc) = pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
