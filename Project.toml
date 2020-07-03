@@ -4,6 +4,7 @@ authors = ["Sebastiano Grazzi and Moritz Schauer"]
 version = "0.1.0"
 
 [deps]
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 
