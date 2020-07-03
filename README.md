@@ -4,8 +4,9 @@
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/dev/index.html)
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
 
-<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/zigzag.png" width="400"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/boomerang.png" width="400">
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/zigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/boomerang.png" width="300">
 
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/localzigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/localzigzag3d.png" width="300">
 ## Example
 See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 
