@@ -1,59 +1,90 @@
 using DataStructures
 
+"""
+    struct LocalZigZag <: ContinuousDynamics
+Flag for local implementation of the ZigZag which exploits
+any conditional independence structure of the target measure
+"""
 struct LocalZigZag <: ContinuousDynamics
 end
 
 """
-    neighbours(G, i)
+    neighbours(G::Vector{<:Pair}, i) = G[i].second
 
-Return extended neighbourhood of `i` including `i`
+Return extended neighbourhood of `i` including `i`.
+`G`: graphs of neightbourhoods
 """
 neighbours(G::Vector{<:Pair}, i) = G[i].second
 
+"""
+    move_forward!(τ, t, x, θ, Z::LocalZigZag)
+Updates the position `x`, velocity `θ` and time `t` of the
+process after a time step equal to `τ` according to the deterministic
+dynamics of the `LocalZigZag` sampler: (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
+`x`: current location, `θ`: current velocity, `t`: current time,
+"""
 function move_forward!(τ, t, x, θ, Z::LocalZigZag)
     t += τ
     x .+= θ .* τ
     t, x, θ
 end
 
-function reflect!(i, θ, x, Z)
+"""
+        reflect!(i, θ, x, Z)
+Reflection rule of `LocalZigZag` sampler at reflection time.
+`i`: coordinate which flips sign, `θ`: velocity, `x`: position (not used for
+the `LocalZigZag`)
+"""
+function reflect!(i, θ, x, Z::LocalZigZag)
     θ[i] = -θ[i]
     θ
 end
+
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
-
 pos(x) = max(zero(x), x)
-function λ(G, ∇ϕ, i, x, θ, Z::LocalZigZag)
+
+"""
+    λ(∇ϕ, i, x, θ, Z::LocalZigZag)
+`i`th Poisson rate of the `LocalZigZag` sampler
+"""
+function λ(∇ϕ, i, x, θ, Z::LocalZigZag)
     pos(∇ϕ(x, i)*θ[i])
 end
-
+"""
+    ab(G, i, x, θ, c, Z::LocalZigZag)
+Returns the constant term `a` and linear term `b` when computing the Poisson times
+from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` and `b`
+can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
+the Graph `G`
+"""
 ab(G, i, x, θ, c, Z::LocalZigZag) = c[i]*sqrt(sum(abs2(x[j]) for j in neighbours(G, i))), 1.0
+
+"""
+    λ_bar(G, i, x, θ, c, Z::LocalZigZag)
+Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
+"""
 λ_bar(G, i, x, θ, c, Z::LocalZigZag) = pos(ab(G, i, x, θ, c, Z::LocalZigZag)[1])
 
 
 event(i, t, x, θ, Z::LocalZigZag) = (i, t, x[i])
 
+"""
+    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
+        factor=1.5, adapt=false)
+Inner loop of the `LocalZigZag` algorithm.
+Input: a dependency graph `G`, gradient `∇ϕ`,
+current position `x`, velocity `θ`, Queue of events `Q`, time `t`, and tuning parameter `c`.
 
-function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
-
-    t, x, θ = t0, copy(x0), copy(θ0)
-    num = acc = 0
-
-    Q = PriorityQueue{Int,Float64}();
-
-    for i in eachindex(θ)
-        enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
-    end
-
-    Ξ = [event(1, t, x, θ, Z)][1:0]
-    while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
-    end
-    Ξ, (t, x, θ), (num, acc)
-end
-
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag; factor=1.5, adapt=false)
+The sampler 1) extracts from the queue the first event time. 2) moves deterministically
+according to the `LocalZigZag` dynamics until event time. 3) Evaluates whether the event
+time is a reflection time or not. 4) If it is a reflection time, the velocity reflects
+according the the `LocalZigZag` reflection rule and updates `Q` according to the
+dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
+those are real reflection times.
+"""
+function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
+        factor=1.5, adapt=false)
 
     i, t′ = dequeue_pair!(Q)
     if t′ - t < 0
@@ -79,4 +110,32 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag; f
     end
     enqueue!(Q, i=>t + poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
     t, x, θ, (num, acc)
+end
+
+"""
+    pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+`LocalZigZag` algorithm.
+Input: Graph `G`, gradient of negative log density `∇ϕ`, initial time `t0`,
+initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
+
+The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
+a collection of reflection points `Ξ` which, together with the initial triple `x`
+`θ` and `t` are sufficient for reconstructuing continuously the continuous path
+"""
+function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+
+    t, x, θ = t0, copy(x0), copy(θ0)
+    num = acc = 0
+
+    Q = PriorityQueue{Int,Float64}();
+
+    for i in eachindex(θ)
+        enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
+    end
+
+    Ξ = [event(1, t, x, θ, Z)][1:0]
+    while t < T
+        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
+    end
+    Ξ, (t, x, θ), (num, acc)
 end
