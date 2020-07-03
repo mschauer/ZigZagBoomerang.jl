@@ -3,7 +3,7 @@ module ZigZagBoomerang
 
 # Zig zag and Boomerang reference implementation
 
-export poisson_time, ZigZag, Boomerang, pdmp, eventtime, eventposition
+export poisson_time, ZigZag, Boomerang, LocalZigZag, pdmp, eventtime, eventposition
 
 eventtime(x) = x[1]
 eventposition(x) = x[2]
@@ -102,15 +102,11 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
             τref -= τ
             τ = waiting_time(x, θ, c, Flow)
             l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(x, θ, c, Flow)
-            if  l >= lb
-                if !adapt
-                    error("Tuning parameter `c` too small.")
-                else
+            if rand()*lb < l
+                if l >= lb
+                    !adapt && error("Tuning parameter `c` too small.")
                     c *= factor
-                    θ = -θ
-                    push!(Ξ, (t, x, θ))
                 end
-            elseif rand()*lb < l
                 θ = -θ  # In multi dimensions the change of velocity is different:
                         # reflection symmetric on the normal vector of the contour
                 push!(Ξ, (t, x, θ))
@@ -123,4 +119,5 @@ end
 
 include("discretize.jl")
 
+include("localzigzag.jl")
 end
