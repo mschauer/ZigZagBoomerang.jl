@@ -23,13 +23,6 @@ end
 
 Γ = sparse(S * S')
 
-# Based on sparsity pattern from Gamma
-G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in 1:n]
-
-for i in 1:n
-    @test i in G[i].second
-end
-
 ϕ(x) = 0.5*x'*Γ*x
 
 using ForwardDiff
@@ -46,10 +39,10 @@ x0 = rand(n)
 
 c = [norm(Γ[:, i], 2) for i in 1:n]
 
-Z = LocalZigZag()
-T = 1000.0
+Z = LocalZigZag(Γ, x0*0)
+T = 300.0
 
-@time Ξ, (tT, xT, θT), (num, acc) = pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z)
+@time Ξ, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 
 t, x, θ = deepcopy((t0, x0, θ0))
 xs = [x0]
@@ -66,3 +59,9 @@ for ξ in Ξ
 end
 
 @show acc, num, acc/num
+
+using Makie
+p1 = Makie.lines(first.(xs), getindex.(xs, 2))
+save("localzigzag.png", p1)
+p2 = Makie.lines(getindex.(xs, 1), getindex.(xs, 2), getindex.(xs, 3))
+save("localzigzag3d.png", p2)

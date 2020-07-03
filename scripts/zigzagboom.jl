@@ -12,12 +12,13 @@ Random.seed!(1)
 # Example: ZigZag
 x0, θ0 = randn(), 1.0
 T = 300.0
-out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.2π, ZigZag())
+out1, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.2π, ZigZag())
+@show acc
 
 # Example: Boomerang
 B = Boomerang(0.0, 0.2)
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
-
+out2, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
+@show acc
 
 using Makie
 p1 = Makie.lines(eventtime.(out1), eventposition.(out1))

@@ -61,19 +61,19 @@ function move_forward(τ, t, x, θ, B::Boomerang)
     t + τ, x_new, θ
 end
 
+pos(x) = max(zero(x), x)
 
 
 #Poisson rates which determine the first reflection time
-λ(∇ϕ, x, θ, F::ZigZag) = max(zero(x), θ*∇ϕ(x))
-λ(∇ϕ, x, θ, B::Boomerang) = max(zero(x), θ*(∇ϕ(x) - (x - B.μ)))
+λ(∇ϕ, x, θ, F::ZigZag) = pos(θ*∇ϕ(x))
+λ(∇ϕ, x, θ, B::Boomerang) = pos(θ*(∇ϕ(x) - (x - B.μ)))
 
 # affine bounds for Zig-Zag
-λ_bar(x, θ, c, ::ZigZag) = max(zero(x), c + θ*x)
+λ_bar(x, θ, c, ::ZigZag) = pos(c + θ*x)
 
 # constant bound for Boomerang with global bounded |∇ϕ(x)|
 # suppose |∇ϕ(x, :Boomerang)| ≤ C. Then λ(x(t),θ(t)) ≤ C*sqrt(x(0)^2 + θ(0)^2)
 λ_bar(x, θ, c, B::Boomerang) = sqrt(θ^2 + (x - B.μ)^2)*c #Global bound
-
 
 # waiting times
 ab(x, θ, c, ::ZigZag) = (c + θ*x, one(x))
@@ -101,8 +101,9 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
     t = zero(T)
     Ξ = [(zero(x), x, θ)]
     τref = waiting_time_ref(Flow)
+    num = acc = 0
     τ =  poisson_time(ab(x, θ, c, Flow)..., rand())
-    while t<T
+    while t < T
         if τref < τ
             t, x, θ = move_forward(τref, t, x, θ, Flow)
             θ = randn()
@@ -114,7 +115,9 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
             τref -= τ
             τ = poisson_time(ab(x, θ, c, Flow)..., rand())
             l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(x, θ, c, Flow)
+            num += 1
             if rand()*lb < l
+                acc += 1
                 if l >= lb
                     !adapt && error("Tuning parameter `c` too small.")
                     c *= factor
@@ -125,7 +128,7 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
             end
         end
     end
-    return Ξ
+    return Ξ, acc/num
 end
 
 

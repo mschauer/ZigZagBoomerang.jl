@@ -1,11 +1,19 @@
 using DataStructures
+using Statistics
+using SparseArrays
+using LinearAlgebra
 
 """
-    struct LocalZigZag <: ContinuousDynamics
+    struct LocalZigZag(Γ, μ) <: ContinuousDynamics
+
 Flag for local implementation of the ZigZag which exploits
-any conditional independence structure of the target measure
+any conditional independence structure of the target measure,
+in form the argument Γ, a sparse precision matrix approximating
+target precision. μ is the approximate target mean.
 """
-struct LocalZigZag <: ContinuousDynamics
+struct LocalZigZag{T,S} <: ContinuousDynamics
+    Γ::T
+    μ::S
 end
 
 """
@@ -42,8 +50,6 @@ end
 
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
-pos(x) = max(zero(x), x)
-
 """
     λ(∇ϕ, i, x, θ, Z::LocalZigZag)
 `i`th Poisson rate of the `LocalZigZag` sampler
@@ -51,23 +57,34 @@ pos(x) = max(zero(x), x)
 function λ(∇ϕ, i, x, θ, Z::LocalZigZag)
     pos(∇ϕ(x, i)*θ[i])
 end
+
 """
     ab(G, i, x, θ, c, Z::LocalZigZag)
+
 Returns the constant term `a` and linear term `b` when computing the Poisson times
 from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` and `b`
 can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
 the Graph `G`
 """
-ab(G, i, x, θ, c, Z::LocalZigZag) = c[i]*sqrt(sum(abs2(x[j]) for j in neighbours(G, i))), 1.0
+function ab(G, i, x, θ, c, Z::LocalZigZag)
+    a = c[i] + θ[i]*(dot(Z.Γ[:, i], x)  - dot(Z.Γ[:, i], Z.μ))
+    b = θ[i]*dot(Z.Γ[:, i], θ)
+    a, b
+end
 
 """
     λ_bar(G, i, x, θ, c, Z::LocalZigZag)
+
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
 λ_bar(G, i, x, θ, c, Z::LocalZigZag) = pos(ab(G, i, x, θ, c, Z::LocalZigZag)[1])
 
 
 event(i, t, x, θ, Z::LocalZigZag) = (i, t, x[i])
+
+
+
+
 
 """
     pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
@@ -92,7 +109,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
     end
     t, x, θ = move_forward!(t′ - t, t, x, θ, Z)
 
-    l, lb = λ(G, ∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
+    l, lb = λ(∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
     num += 1
 
     if rand()*lb < l
@@ -113,21 +130,25 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
 end
 
 """
-    pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+    pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
+
 `LocalZigZag` algorithm.
-Input: Graph `G`, gradient of negative log density `∇ϕ`, initial time `t0`,
+Input: Gradient of negative log density `∇ϕ`, initial time `t0`,
 initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
 
 The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+
+    #sparsity graph
+    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 
     t, x, θ = t0, copy(x0), copy(θ0)
     num = acc = 0
 
-    Q = PriorityQueue{Int,Float64}();
+    Q = PriorityQueue{Int,Float64}()
 
     for i in eachindex(θ)
         enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
@@ -137,5 +158,5 @@ function pdmp(G, ∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=fal
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
     end
-    Ξ, (t, x, θ), (num, acc)
+    Ξ, (t, x, θ), (acc, num)
 end
