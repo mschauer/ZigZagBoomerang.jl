@@ -63,7 +63,7 @@ end
 
 
 
-#Poisson rates which determin the first reflection time
+#Poisson rates which determine the first reflection time
 λ(∇ϕ, x, θ, F::ZigZag) = max(zero(x), θ*∇ϕ(x))
 λ(∇ϕ, x, θ, B::Boomerang) = max(zero(x), θ*(∇ϕ(x) - (x - B.μ)))
 
