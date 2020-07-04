@@ -29,6 +29,8 @@ struct FactBoomerang{R, T, S} <: ContinuousDynamics
 end
 FactBoomerang(Γ, λ) = FactBoomerang(Γ, 0.0, λ)
 
+hasrefresh(::FactBoomerang) = true
+hasrefresh(::ZigZag) = false
 #TODO
 # FactBoomerang(d, λ) = FactBoomerang(fullyconnecetdgraph(d), 0.0, λ)
 
@@ -101,6 +103,20 @@ function ab(G, i, x, θ, c, Z::ZigZag)
     a, b
 end
 
+"""
+    ab(G, i, x, θ, c, Z::FactBoomerang)
+
+Returns the constant term `a` and linear term `b` when computing the Poisson times
+from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` and `b`
+can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
+the Graph `G`
+"""
+function ab(G, i, x, θ, c, Z::FactBoomerang)
+    nhd = neighbours(G, i)
+    a = c[i]*sqrt(normsq(x[nhd] - Z.μ[nhd]) + normsq(θ[nhd]))
+    b = 0.0
+    a, b
+end
 
 """
     λ_bar(G, i, x, θ, c, Z::ZigZag)
@@ -108,84 +124,51 @@ end
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
 λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z::ZigZag)[1])
+
+"""
+    λ_bar(G, i, x, θ, c, Z::FactBoomerang)
+
+Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
+"""
+λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z::FactBoomerang)[1])
+
+
+
 event(i, t, x, θ, Z::ZigZag) = (i, t, x[i])
 event(i, t, x, θ, Z::FactBoomerang) = (i, t, x[i], θ[i])
 
 """
-    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::ZigZag;
+    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F::ContinuousDynamics;
         factor=1.5, adapt=false)
-Inner loop of the `ZigZag` algorithm.
+Inner loop of the factorised samplers: the Factorise Boomerand algorithm and the Zig-Zag sampler.
 Input: a dependency graph `G`, gradient `∇ϕ`,
 current position `x`, velocity `θ`, Queue of events `Q`, time `t`, and tuning parameter `c`.
 
 The sampler 1) extracts from the queue the first event time. 2) moves deterministically
-according to the `ZigZag` dynamics until event time. 3) Evaluates whether the event
+according to its dynamics until event time. 3) Evaluates whether the event
 time is a reflection time or not. 4) If it is a reflection time, the velocity reflects
-according the the `ZigZag` reflection rule and updates `Q` according to the
-dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
-those are real reflection times.
-"""
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::ZigZag;
-        factor=1.5, adapt=false)
-
-    i, t′ = dequeue_pair!(Q)
-    if t′ - t < 0
-        error("negative time")
-    end
-    t, x, θ = move_forward!(t′ - t, t, x, θ, Z)
-
-    l, lb = λ(∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
-    num += 1
-
-    if rand()*lb < l
-        acc += 1
-        if l >= lb
-            !adapt && error("Tuning parameter `c` too small.")
-            c[i] *= factor
-        end
-        θ = reflect!(i, θ, x, Z)
-        for j in neighbours(G, i)
-            j == i && continue
-            Q[j] = t + poisson_time(ab(G, j, x, θ, c, Z)..., rand())
-        end
-        push!(Ξ, event(i, t, x, θ, Z))
-    end
-    enqueue!(Q, i=>t + poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
-    t, x, θ, (num, acc)
-end
-
-"""
-    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), FB::FactBoomerang;
-        factor=1.5, adapt=false)
-Inner loop of the Factorized Boomerand algorithm.
-Input: a dependency graph `G`, gradient `∇ϕ`,
-current position `x`, velocity `θ`, Queue of events `Q`, time `t`, and tuning parameter `c`.
-
-The sampler 1) extracts from the queue the first event time. 2) moves deterministically
-according to the `ZigZag` dynamics until event time. 3) Evaluates whether the event
-time is a reflection time or not. 4) If it is a reflection time, the velocity reflects
-according the the `ZigZag` reflection rule and updates `Q` according to the
+according its reflection rule and updates `Q` according to the
 dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
 those are real reflection times.
 """
 function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
-     FB::FactBoomerang; factor=1.5, adapt=false)
+     F::ContinuousDynamics; factor=1.5, adapt=false)
 
     (refresh, i), t′ = dequeue_pair!(Q)
     if t′ - t < 0
         error("negative time")
     end
-    t, x, θ = move_forward!(t′ - t, t, x, θ, FB)
+    t, x, θ = move_forward!(t′ - t, t, x, θ, F)
     if refresh
         θ[i] = randn()
-        enqueue!(Q, (true, i)=> t + poisson_time(FB.λref, 0.0, rand()))
+        enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
         for j in neighbours(G, i)
             j == i && continue
-            Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, FB)..., rand())
+            Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
         end
-        push!(Ξ, event(i, t, x, θ, FB))
+        push!(Ξ, event(i, t, x, θ, F))
     else
-        l, lb = λ(∇ϕ, i, x, θ, FB), λ_bar(G, i, x, θ, c, FB)
+        l, lb = λ(∇ϕ, i, x, θ, F), λ_bar(G, i, x, θ, c, F)
         num += 1
         if rand()*lb < l
             acc += 1
@@ -193,56 +176,23 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
                 !adapt && error("Tuning parameter `c` too small.")
                 c[i] *= factor
             end
-            θ = reflect!(i, θ, x, FB)
+            θ = reflect!(i, θ, x, F)
             for j in neighbours(G, i)
                 j == i && continue
-                Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, FB)..., rand())
+                Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
-            push!(Ξ, event(i, t, x, θ, FB))
+            push!(Ξ, event(i, t, x, θ, F))
         end
     end
-    enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, FB)..., rand()))
+    enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     t, x, θ, (num, acc)
 end
 
 """
-    pdmp(∇ϕ, t0, x0, θ0, T, c, Z::ZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
-
-`ZigZag` algorithm.
-Input: Gradient of negative log density `∇ϕ`, initial time `t0`,
-initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
-
-The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
-a collection of reflection points `Ξ` which, together with the initial triple `x`
-`θ` and `t` are sufficient for reconstructuing continuously the continuous path
-"""
-function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::ZigZag; factor=1.5, adapt=false)
-
-    #sparsity graph
-    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-
-    t, x, θ = t0, copy(x0), copy(θ0)
-    num = acc = 0
-
-    Q = PriorityQueue{Int,Float64}()
-
-    for i in eachindex(θ)
-        enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
-    end
-
-    Ξ = [event(1, t, x, θ, Z)][1:0]
-    while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
-    end
-    Ξ, (t, x, θ), (acc, num)
-end
-
-
-"""
-    pdmp(∇ϕ, t0, x0, θ0, T, c, FB::FactBoomerang; factor=1.5,
+    pdmp(∇ϕ, t0, x0, θ0, T, c, F::ContinuousDynamics; factor=1.5,
     adapt=false) = Ξ, (t, x, θ), (acc, num)
 
-`ZigZag` algorithm.
+algorithm for factorised samplers: the `ZigZag` and the `FactBoomerang`.
 Input: Gradient of negative log density `∇ϕ`, initial time `t0`,
 initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
 
@@ -250,21 +200,21 @@ The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx 
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, F::FactBoomerang; factor=1.5, adapt=false)
+function pdmp(∇ϕ, t0, x0, θ0, T, c, F::ContinuousDynamics; factor=1.5, adapt=false)
     #sparsity graph
-    G = [i => rowvals(FB.Γ)[nzrange(FB.Γ, i)] for i in eachindex(θ0)]
+    G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     t, x, θ = t0, copy(x0), copy(θ0)
     num = acc = 0
-
     Q = PriorityQueue{Tuple{Bool, Int64},Float64}()
     for i in eachindex(θ)
-        enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, FB)..., rand()))
-        enqueue!(Q, (true, i)=>poisson_time(FB.λref, 0.0, rand()))
+        enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, Flow)..., rand()))
+        if hasrefresh(Flow)
+            enqueue!(Q, (true, i)=>poisson_time(Flow.λref, 0.0, rand()))
+        end
     end
-
-    Ξ = [event(1, t, x, θ, FB)][1:0]
+    Ξ = [event(1, t, x, θ, F)][1:0]
     while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), FB; factor=1.5)
+        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F; factor=1.5)
     end
     Ξ, (t, x, θ), (acc, num)
 end
