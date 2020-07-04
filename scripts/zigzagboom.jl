@@ -22,9 +22,9 @@ out2, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
 
 using Makie
 p1 = Makie.lines(eventtime.(out1), eventposition.(out1))
-save("zigzag.png", p1)
+save("zigzag.png", title(p1, "ZigZag 1d"))
 
 dt = 0.01
 xx = ZigZagBoomerang.discretization(out2, B, dt)
 p2 = Makie.lines(xx.t, xx.x)
-save("boomerang.png", p2)
+save("boomerang.png", title(p2, "Boomerang 1d"))

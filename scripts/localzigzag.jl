@@ -51,11 +51,11 @@ xs = last.(collect(trace))
 
 using Makie
 p1 = Makie.lines(first.(xs), getindex.(xs, 2))
-save("localzigzag.png", p1)
+save("localzigzag.png", title(p1, "ZigZag"))
 p2 = Makie.lines(getindex.(xs, 1), getindex.(xs, 2), getindex.(xs, 3))
-save("localzigzag3d.png", p2)
+save("localzigzag3d.png", title(p2, "ZigZag 3d"))
 
 xs2 = last.(collect(discretize(trace, 0.1)))
 p3 = Makie.lines(first.(xs), getindex.(xs, 2), linewidth=0.5)
 Makie.scatter!(p3, first.(xs2), getindex.(xs2, 2), markersize=0.05)
-save("localzigzagdis.png", p3)
+save("localzigzagdis.png", title(p3, "ZigZag discretized"))
