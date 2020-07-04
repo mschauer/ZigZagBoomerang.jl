@@ -25,8 +25,9 @@ end
 
 ϕ(x) = 0.5*x'*Γ*x
 
-using ForwardDiff
-∇ϕ(x) = ForwardDiff.gradient(ϕ, x)
+#using ForwardDiff
+#∇ϕ(x) = ForwardDiff.gradient(ϕ, x)
+
 ∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
 
 
@@ -40,23 +41,11 @@ x0 = rand(n)
 c = [norm(Γ[:, i], 2) for i in 1:n]
 
 Z = LocalZigZag(Γ, x0*0)
-T = 300.0
+T = 200.0
 
-@time Ξ, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+@time trace, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 
-t, x, θ = deepcopy((t0, x0, θ0))
-xs = [x0]
-ts = [t0]
-for ξ in Ξ
-    global t, x, θ
-    local i
-    i, ti, xi = ξ
-    t, x, θ = ZZB.move_forward!(ti - t, t, x, θ, Z)
-    θ[i] = -θ[i]
-    @test x[i] ≈ xi
-    push!(ts, t)
-    push!(xs, copy(x))
-end
+xs = last.(collect(trace))
 
 @show acc, num, acc/num
 
@@ -65,3 +54,8 @@ p1 = Makie.lines(first.(xs), getindex.(xs, 2))
 save("localzigzag.png", p1)
 p2 = Makie.lines(getindex.(xs, 1), getindex.(xs, 2), getindex.(xs, 3))
 save("localzigzag3d.png", p2)
+
+xs2 = last.(collect(discretize(trace, 0.1)))
+p3 = Makie.lines(first.(xs), getindex.(xs, 2), linewidth=0.5)
+Makie.scatter!(p3, first.(xs2), getindex.(xs2, 2), markersize=0.05)
+save("localzigzagdis.png", p3)

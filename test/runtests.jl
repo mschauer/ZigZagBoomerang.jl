@@ -9,6 +9,7 @@ using ZigZagBoomerang
 using ZigZagBoomerang: poisson_time
 
 Random.seed!(1)
+sep(x) = first.(x), last.(x)
 
 # testing poisson time sampler
 
@@ -88,27 +89,12 @@ c = .5*[norm(Γ[:, i], 2) for i in 1:d]
 Z = LocalZigZag(0.9Γ, x0*0)
 T = 1000.0
 
-Ξ, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
-@show acc[1]/acc[2]
-t, x, θ = deepcopy((t0, x0, θ0))
-xs = [x0]
-ts = [t0]
+trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 dt = 0.5
-for ξ in Ξ
-    i, ti, xi = ξ
-    while t + dt < ti
-        t, x, θ = ZigZagBoomerang.move_forward!(dt, t, x, θ, Z)
-        push!(ts, t)
-        push!(xs, copy(x))
-    end
-    r = dt - (ti - t)
-    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
-    t < T/10 && @test x[i] ≈ xi atol=1e-7
-    θ[i] = -θ[i]
-    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
-    push!(ts, t)
-    push!(xs, copy(x))
-end
+ts, xs = sep(collect(discretize(trace, dt)))
+
+@show acc[1]/acc[2]
+
 G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 for i in 1:d
     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
@@ -134,27 +120,12 @@ Z = LocalZigZag(Γ0, x0*0)
 
 T = 1000.0
 
-Ξ, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
-@show acc[1]/acc[2]
-t, x, θ = deepcopy((t0, x0, θ0))
-xs = [x0]
-ts = [t0]
+trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 dt = 0.5
-for ξ in Ξ
-    i, ti, xi = ξ
-    while t + dt < ti
-        t, x, θ = ZigZagBoomerang.move_forward!(dt, t, x, θ, Z)
-        push!(ts, t)
-        push!(xs, copy(x))
-    end
-    r = dt - (ti - t)
-    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
-    t < T/10 && @test x[i] ≈ xi atol=1e-7
-    θ[i] = -θ[i]
-    t, x, θ = ZigZagBoomerang.move_forward!(ti - t, t, x, θ, Z)
-    push!(ts, t)
-    push!(xs, copy(x))
-end
+ts, xs = sep(collect(discretize(trace, dt)))
+
+@show acc[1]/acc[2]
+
 G0 = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
 for i in 1:d
     a, b = ZigZagBoomerang.ab(G0, i, x0, θ0, c, Z)
