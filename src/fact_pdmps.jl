@@ -15,6 +15,7 @@ struct ZigZag{T,S} <: ContinuousDynamics
     Γ::T
     μ::S
 end
+ZigZag() = ZigZag(1.0, 0.0)
 
 """
     FactBoomerang(μ, λ) <: ContinuousDynamics
@@ -49,11 +50,12 @@ process after a time step equal to `τ` according to the deterministic
 dynamics of the `ZigZag` sampler: (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
 `x`: current location, `θ`: current velocity, `t`: current time,
 """
-move_forward!(τ, t, x, θ, Z::ZigZag) = move_forward!(τ, t, x, θ, Z::Bps)
+move_forward!(τ, t, x, θ, Z::ZigZag) = linear_move_forward!(τ, t, x, θ)
 
+waiting_time_ref(::ZigZag) = Inf
 
 #same as Boomerang
-move_forward!(τ, t, x, θ, Z::FactBoomerang) = move_forward!(τ, t, x, θ, Z::Boomerang)
+move_forward!(τ, t, x, θ, Z::FactBoomerang) = circular_move_forward!(τ, t, x, θ, Z)
 
 """
         reflect!(i, θ, x, Z)
@@ -61,14 +63,11 @@ Reflection rule of `ZigZag` sampler at reflection time.
 `i`: coordinate which flips sign, `θ`: velocity, `x`: position (not used for
 the `ZigZag`)
 """
-function reflect!(i, θ, x, Z::ZigZag)
+function reflect!(i, θ, x, Z::Union{FactBoomerang,ZigZag})
     θ[i] = -θ[i]
     θ
 end
-
-# Same as Zig-Zag
-reflect!(i, θ, x, ::FactBoomerang) = reflect!(i, θ, x, ::ZigZag)
-
+reflect!(θ, x::Number, Z::Union{Boomerang,FactBoomerang,ZigZag}) = -θ
 
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
@@ -78,6 +77,9 @@ normsq(x) = dot(x,x)
 """
 function λ(∇ϕ, i, x, θ, Z::ZigZag)
     pos(∇ϕ(x, i)*θ[i])
+end
+function λ(∇ϕ, x, θ, Z::ZigZag)
+    pos(∇ϕ(x)*θ)
 end
 
 """
@@ -97,11 +99,13 @@ from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` a
 can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
 the Graph `G`
 """
-function ab(G, i, x, θ, c, Z::ZigZag)
+function ab(i, x, θ, c, Z::ZigZag)
     a = c[i] + θ[i]*(dot(Z.Γ[:, i], x)  - dot(Z.Γ[:, i], Z.μ))
     b = θ[i]*dot(Z.Γ[:, i], θ)
     a, b
 end
+ab(x, θ, c, Z::ZigZag) = (c + dot(θ,Z.Γ*(x-Z.μ)), Z.Γ)
+
 
 """
     ab(G, i, x, θ, c, Z::FactBoomerang)
@@ -123,18 +127,19 @@ end
 
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
-λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z::ZigZag)[1])
+λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
+λ_bar(x, θ, c, Z::ZigZag) = pos(ab(x, θ, c, Z)[1])
 
 """
     λ_bar(G, i, x, θ, c, Z::FactBoomerang)
 
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
-λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z::FactBoomerang)[1])
+λ_bar(G, i, x, θ, c, Z::FactBoomerang) = pos(ab(G, i, x, θ, c, Z)[1])
 
 
 
-event(i, t, x, θ, Z::ZigZag) = (i, t, x[i])
+event(i, t, x, θ, Z::ZigZag) = (t, i, x[i], θ[i])
 event(i, t, x, θ, Z::FactBoomerang) = (i, t, x[i], θ[i])
 
 """

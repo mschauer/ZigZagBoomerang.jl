@@ -35,11 +35,18 @@ process after a time step equal to `τ` according to the deterministic
 dynamics of the Buoncy particle sampler (`Bps`): (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
 `x`: current location, `θ`: current velocity, `t`: current time,
 """
-function move_forward!(τ, t, x, θ, Z::BPS)
+move_forward
+
+move_forward!(τ, t, x, θ, Z::Bps) = linear_move_forward!(τ, t, x, θ)
+const move_forward = move_forward!
+
+function linear_move_forward!(τ, t, x, θ)
     t += τ
     x .+= θ .* τ
     t, x, θ
 end
+linear_move_forward!(τ, t, x::Float64, θ) = (t + τ, x + θ*τ, θ)
+
 
 """
     move_forward(τ, t, x, θ, B::Boomerang)
@@ -50,16 +57,21 @@ dynamics preserving the Gaussian measure:
 : x_t = μ +(x_0 − μ)*cos(t) + v_0*sin(t), v_t = −(x_0 − μ)*sin(t) + v_0*cos(t)
 `x`: current location, `θ`: current velocity, `t`: current time.
 """
-function move_forward(τ, t, x, θ, B::Boomerang)
+move_forward!(τ, t, x, θ, B::Boomerang) = circular_move_forward!(τ, t, x, θ, B)
+function circular_move_forward!(τ, t, x, θ, B)
     x_new = (x .- B.μ)*cos(τ) .+ θ*sin(τ) .+ B.μ
     θ .= -(x .- B.μ)*sin(τ) .+ θ*cos(τ)
     t + τ, x_new, θ
 end
-
+function circular_move_forward!(τ, t, x::Number, θ, B::Boomerang)
+    x_new = (x - B.μ)*cos(τ) + θ*sin(τ) + B.μ
+    θ = -(x - B.μ)*sin(τ) + θ*cos(τ)
+    t + τ, x_new, θ
+end
 
 #Poisson rates which determine the first reflection time
 λ(∇ϕ, x, θ, F::Bps) = max(0.0, dot(θ, ∇ϕ(x)))
-λ(∇ϕ, x, θ, B::Boomerang) = max(0.0, dot(θ, ∇ϕ(x) .- (x .- B.μ))
+λ(∇ϕ, x, θ, B::Boomerang) = max(0.0, dot(θ, ∇ϕ(x) .- (x .- B.μ)))
 
 # affine bounds for Bps
 λ_bar(x, θ, c, ::Bps) = max(0.0, c + dot(θ,x))
@@ -75,7 +87,7 @@ ab(x, θ, c, ::Bps) = (c + dot(θ,x), 1.0)
 ab(x, θ, c, B::Boomerang) = (sqrt(norm(θ)^2 + norm(x - B.μ)^2)*c, 0.0)
 
 # waiting_time
-waiting_time_ref(::Bps) = poisson_time(B.λref, 0.0, rand()
+waiting_time_ref(::Bps) = poisson_time(B.λref, 0.0, rand())
 waiting_time_ref(B::Boomerang) = poisson_time(B.λref, 0.0, rand())
 
 reflect!(∇ϕ, θ, x, ::Bps) = θ - 2*dot(∇ϕ, θ)/dot(∇ϕ,∇ϕ)*∇ϕ
@@ -122,7 +134,7 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
             end
         end
     end
-    return Ξ
+    return Ξ, (t, x, θ)
 end
 
 
