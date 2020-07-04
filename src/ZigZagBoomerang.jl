@@ -4,12 +4,13 @@ module ZigZagBoomerang
 # Zig zag and Boomerang reference implementation
 
 export poisson_time, ZigZag, Boomerang, LocalZigZag, pdmp, eventtime, eventposition
-
+export discretize
 eventtime(x) = x[1]
 eventposition(x) = x[2]
 
 
 include("poissontime.jl")
+include("trace.jl")
 
 """
     ContinuousDynamics

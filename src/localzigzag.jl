@@ -80,8 +80,9 @@ Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 λ_bar(G, i, x, θ, c, Z::LocalZigZag) = pos(ab(G, i, x, θ, c, Z::LocalZigZag)[1])
 
 
-event(i, t, x, θ, Z::LocalZigZag) = (i, t, x[i])
-
+function event(i, t, x, θ, Z::LocalZigZag)
+     t, i, x[i], θ[i]
+end
 
 
 
@@ -154,7 +155,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
         enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
     end
 
-    Ξ = [event(1, t, x, θ, Z)][1:0]
+    Ξ = ZigZagTrace(t0, x0, θ0)
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
     end
