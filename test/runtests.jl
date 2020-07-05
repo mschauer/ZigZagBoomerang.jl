@@ -32,13 +32,14 @@ end
 
 # gradient of ϕ(x)
 ∇ϕ(x) = x - π
+∇ϕhat(x) = x - π + 0.1(rand()-0.5)
 
 
 x0, θ0 = 0.01, -1.5
-T = 5000.0
-out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag1d())
+T = 6000.0
+out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, ZigZag1d())
 B = Boomerang1d(2.0, 0.5)
-out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, B)
+out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 4.0, B)
 
 @testset "ZigZag1d" begin
     @test T/10 < length(out1) < T*10
@@ -61,7 +62,7 @@ end
     dt = 0.01
     traj = ZigZagBoomerang.discretization(out2, B, dt)
     est = mean(traj.x)
-    @test abs(est-pi) < 2/sqrt(length(out2))
+    @test abs(est-pi) < 3/sqrt(length(out2))
     c = 10.0
     τ = 0.3
     a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
