@@ -25,10 +25,10 @@ T = 100.0
 c = 2π # parameter for the upper bound of the Poisson rate, will error if too small
 
 # ZigZag
-out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, ZigZag())
+out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, ZigZag1d())
 
 # Boomerang with refreshment rate 0.5
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, Boomerang(0.5))
+out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, Boomerang1d(0.5))
 ```
 
 ## Literature
