@@ -163,9 +163,9 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}; factor=
     num = acc = 0
     Q = PriorityQueue{Tuple{Bool, Int64},Float64}()
     for i in eachindex(θ)
-        enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, Flow)..., rand()))
-        if hasrefresh(Flow)
-            enqueue!(Q, (true, i)=>poisson_time(Flow.λref, 0.0, rand()))
+        enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
+        if hasrefresh(F)
+            enqueue!(Q, (true, i)=>poisson_time(F.λref, 0.0, rand()))
         end
     end
     Ξ = [event(1, t, x, θ, F)][1:0]
