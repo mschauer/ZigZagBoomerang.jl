@@ -74,7 +74,7 @@ end
 
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
-λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z::ZigZag)[1])
+λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
 
 """
     λ_bar(G, i, x, θ, c, Z::FactBoomerang)
