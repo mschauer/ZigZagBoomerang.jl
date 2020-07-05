@@ -40,7 +40,7 @@ x0 = rand(n)
 
 c = [norm(Γ[:, i], 2) for i in 1:n]
 
-Z = LocalZigZag(Γ, x0*0)
+Z = ZigZag(Γ, x0*0)
 T = 200.0
 
 @time trace, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)

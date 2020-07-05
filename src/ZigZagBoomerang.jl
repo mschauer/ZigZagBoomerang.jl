@@ -5,14 +5,15 @@ module ZigZagBoomerang
 include("types.jl")
 include("common.jl")
 include("dynamics.jl")
-export ZigZag1d, Boomerang1d
+export ZigZag1d, Boomerang1d, ZigZag
 
 
 include("poissontime.jl")
 export poisson_time
 
-include("localzigzag.jl")
-export LocalZigZag
+include("fact_samplers.jl")
+include("localzigzag.jl") #to be replaced by fact_samplers.jl
+export ZigZag
 
 include("zigzagboom1d.jl")
 export pdmp, eventtime, eventposition

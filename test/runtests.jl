@@ -74,7 +74,7 @@ S = I + 0.5sprandn(d, d, 0.1)
 ∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
 
 
-@testset "LocalZigZag" begin
+@testset "ZigZag" begin
 
 t0 = 0.0
 x0 = rand(d)
@@ -83,7 +83,7 @@ x0 = rand(d)
 
 c = .5*[norm(Γ[:, i], 2) for i in 1:d]
 
-Z = LocalZigZag(0.9Γ, x0*0)
+Z = ZigZag(0.9Γ, x0*0)
 T = 1000.0
 
 trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
@@ -104,7 +104,7 @@ end
 #display(round.( inv(Matrix(Γ)), digits=3))
 end
 
-@testset "LocalZigZag (independent)" begin
+@testset "ZigZag (independent)" begin
 
 t0 = 0.0
 x0 = rand(d)
@@ -113,7 +113,7 @@ x0 = rand(d)
 
 c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
 Γ0 = sparse(I, d, d)
-Z = LocalZigZag(Γ0, x0*0)
+Z = ZigZag(Γ0, x0*0)
 
 T = 1000.0
 
