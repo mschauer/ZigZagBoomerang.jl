@@ -3,6 +3,7 @@ module ZigZagBoomerang
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")
+include("common.jl")
 include("dynamics.jl")
 export ZigZag1d, Boomerang1d
 
