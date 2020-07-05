@@ -35,7 +35,7 @@ end
 
 t0 = 0.0
 x0 = rand(n)
-θ0 = rand([-1,1], n)
+θ0 = rand([-1.0,1.0], n)
 
 
 c = [norm(Γ[:, i], 2) for i in 1:n]
@@ -43,7 +43,7 @@ c = [norm(Γ[:, i], 2) for i in 1:n]
 Z = LocalZigZag(Γ, x0*0)
 T = 200.0
 
-@time trace, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+@time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 
 xs = last.(collect(trace))
 

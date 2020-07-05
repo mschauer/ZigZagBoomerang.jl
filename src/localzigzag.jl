@@ -127,7 +127,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
         push!(Ξ, event(i, t, x, θ, Z))
     end
     enqueue!(Q, i=>t + poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
-    t, x, θ, (num, acc)
+    t, x, θ, (num, acc), c
 end
 
 """
@@ -157,7 +157,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
 
     Ξ = ZigZagTrace(t0, x0, θ0)
     while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=1.5)
+        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=factor, adapt=adapt)
     end
-    Ξ, (t, x, θ), (acc, num)
+    Ξ, (t, x, θ), (acc, num), c
 end
