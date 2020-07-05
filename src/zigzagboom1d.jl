@@ -13,7 +13,7 @@ eventposition(x) = x[2]
 λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + (x - B.μ)^2)*c #Global bound
 
 # waiting times
-ab(x, θ, c, ::ZigZag1d) = (c + θ*x, one(x))
+ab(x, θ, c, ::ZigZag1d) = (c + θ*x, θ^2)
 ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + (x - B.μ)^2)*c, zero(x))
 
 # waiting_time

@@ -34,7 +34,7 @@ end
 ∇ϕ(x) = x - π
 
 
-x0, θ0 = 0.01, -1.0
+x0, θ0 = 0.01, -1.5
 T = 5000.0
 out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag1d())
 B = Boomerang1d(2.0, 0.5)
@@ -62,6 +62,12 @@ end
     traj = ZigZagBoomerang.discretization(out2, B, dt)
     est = mean(traj.x)
     @test abs(est-pi) < 2/sqrt(length(out2))
+    c = 10.0
+    τ = 0.3
+    a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
+    _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
+    @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
+
 end
 
 
@@ -78,7 +84,7 @@ S = I + 0.5sprandn(d, d, 0.1)
 
 t0 = 0.0
 x0 = rand(d)
-θ0 = rand([-1,1], d)
+θ0 = rand([-1.0, 1.0], d)
 
 
 c = .5*[norm(Γ[:, i], 2) for i in 1:d]
@@ -108,7 +114,7 @@ end
 
 t0 = 0.0
 x0 = rand(d)
-θ0 = rand([-1,1], d)
+θ0 = rand([-1.0, 1.0], d)
 
 
 c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
