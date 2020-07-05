@@ -22,7 +22,6 @@ struct Boomerang1d{T} <: ContinuousDynamics
     λref::T
 end
 Boomerang1d(λ) = Boomerang1d(0.0, λ)
-
 """
     struct ZigZag(Γ, μ) <: ContinuousDynamics
 

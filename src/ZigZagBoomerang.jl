@@ -5,7 +5,7 @@ module ZigZagBoomerang
 include("types.jl")
 include("common.jl")
 include("dynamics.jl")
-export ZigZag1d, Boomerang1d, ZigZag
+export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
 
 
 include("poissontime.jl")

@@ -45,8 +45,13 @@ T = 200.0
 @time trace, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
 
 xs = last.(collect(trace))
-
 @show acc, num, acc/num
+
+
+B = FactBoomerang(Γ, x0*0, 1.0)
+
+
+
 
 using Makie
 p1 = Makie.lines(first.(xs), getindex.(xs, 2))
