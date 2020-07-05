@@ -20,9 +20,6 @@ hasrefresh(::ZigZag) = false
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
 
-isZigZagTrace(::ZigZag) = true
-isZigZagTrace(::FactBoomerang) = false
-
 """
     λ(∇ϕ, i, x, θ, Z::ZigZag)
 `i`th Poisson rate of the `ZigZag` sampler
@@ -89,7 +86,7 @@ function event(i, t, x, θ, Z::ZigZag)
 end
 
 function event(i, t, x, θ, Z::FactBoomerang)
-    t, i, x, θ
+    t, i, x[i], θ[i]
 end
 
 
@@ -174,11 +171,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang};
         end
     end
     #TO CHANGE
-    if isZigZagTrace(F)
-        Ξ = ZigZagTrace(t0, x0, θ0)
-    else
-        Ξ = [event(1, t, x, θ, F)][1:0]
-    end
+    Ξ = ZigZagTrace(t0, x0, θ0)
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F; factor=1.5)
     end
