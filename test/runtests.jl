@@ -42,7 +42,7 @@ T = 5000.0
 out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag())
 B = Boomerang(2.0, 0.5)
 out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, B)
-
+@show out1
 @testset "ZigZag" begin
     @test T/10 < length(out1) < T*10
     est = 1/T*sum((eventposition.(out1)[1:end-1] + eventposition.(out1)[2:end])/2 .* diff(eventtime.(out1)))
