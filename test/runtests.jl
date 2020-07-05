@@ -3,9 +3,6 @@ using Test
 using Statistics
 using Random
 using LinearAlgebra
-
-using ZigZagBoomerang
-
 using ZigZagBoomerang: poisson_time
 
 Random.seed!(1)
@@ -39,27 +36,27 @@ end
 
 x0, θ0 = 0.01, -1.0
 T = 5000.0
-out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag())
-B = Boomerang(2.0, 0.5)
+out1, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, ZigZag1d())
+B = Boomerang1d(2.0, 0.5)
 out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 4.0, B)
 
-@testset "ZigZag" begin
+@testset "ZigZag1d" begin
     @test T/10 < length(out1) < T*10
     est = 1/T*sum((eventposition.(out1)[1:end-1] + eventposition.(out1)[2:end])/2 .* diff(eventtime.(out1)))
     @test abs(est-pi) < 2/sqrt(length(out1))
     dt = 0.01
-    traj = ZigZagBoomerang.discretization(out1, ZigZag(), dt)
+    traj = ZigZagBoomerang.discretization(out1, ZigZag1d(), dt)
     est = mean(traj.x)
     @test abs(est-pi) < 2/sqrt(length(out1))
     c = 10.0
-    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag())
-    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag()) ≈ a + b*0.3
-    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag())
-    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag()) ≈ a + b*0.3
+    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag1d())
+    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag1d()) ≈ a + b*0.3
+    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag1d())
+    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag1d()) ≈ a + b*0.3
 
 end
 
-@testset "Boomerang" begin
+@testset "Boomerang1d" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
     traj = ZigZagBoomerang.discretization(out2, B, dt)
