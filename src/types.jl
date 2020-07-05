@@ -37,7 +37,7 @@ end
 
 """
     Bps{T} <: ContinuousDynamics
-λref::T : refreshment rate which has to be strivtly positive
+λref::T : refreshment rate which has to be strictly positive
 Flag for the Bouncy particle sampler
 """
 struct Bps{T} <: ContinuousDynamics
