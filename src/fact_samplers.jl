@@ -20,6 +20,8 @@ hasrefresh(::ZigZag) = false
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
 
+isZigZagTrace(::ZigZag) = true
+isZigZagTrace(::FactBoomerang) = false
 
 """
     λ(∇ϕ, i, x, θ, Z::ZigZag)
@@ -33,7 +35,7 @@ end
     λ(∇ϕ, i, x, θ, Z::FactBoomerang)
 `i`th Poisson rate of the `FactBoomerang` sampler
 """
-function λ(∇ϕ, i, x, θ, Z::FactBoomerang)
+function λ(∇ϕ, i, x, θ, B::FactBoomerang)
     pos((∇ϕ(x, i) - (x[i] - B.μ[i]))*θ[i])
 end
 
@@ -116,7 +118,10 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
     t, x, θ = move_forward!(t′ - t, t, x, θ, F)
     if refresh
         θ[i] = randn()
+        #renew refreshment
         enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
+        #update reflections
+        Q[(false, i)] = t + poisson_time(ab(G, i, x, θ, c, F)..., rand())
         for j in neighbours(G, i)
             j == i && continue
             Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
@@ -138,8 +143,8 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
             end
             push!(Ξ, event(i, t, x, θ, F))
         end
+        enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     end
-    enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     t, x, θ, (num, acc)
 end
 
@@ -155,8 +160,8 @@ The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx 
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}; factor=1.5,
-    adapt=false)
+function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang};
+        factor=1.5, adapt=false)
     #sparsity graph
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     t, x, θ = t0, copy(x0), copy(θ0)
@@ -168,7 +173,12 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}; factor=
             enqueue!(Q, (true, i)=>poisson_time(F.λref, 0.0, rand()))
         end
     end
-    Ξ = ZigZagTrace(t0, x0, θ0)
+    #TO CHANGE
+    if isZigZagTrace(F)
+        Ξ = ZigZagTrace(t0, x0, θ0)
+    else
+        Ξ = [event(1, t, x, θ, F)][1:0]
+    end
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F; factor=1.5)
     end
