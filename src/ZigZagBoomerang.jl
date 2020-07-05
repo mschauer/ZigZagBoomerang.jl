@@ -12,7 +12,6 @@ include("poissontime.jl")
 export poisson_time
 
 include("fact_samplers.jl")
-include("localzigzag.jl") #to be replaced by fact_samplers.jl
 export ZigZag
 
 include("zigzagboom1d.jl")

@@ -62,7 +62,7 @@ Reflection rule of `ZigZag` sampler at reflection time.
 `i`: coordinate which flips sign, `θ`: velocity, `x`: position (not used for
 the `ZigZag`)
 """
-function reflect!(i, θ, x, F::Union{ZigZag, Bps})
+function reflect!(i, θ, x, F::Union{ZigZag, FactBoomerang})
     θ[i] = -θ[i]
     θ
 end

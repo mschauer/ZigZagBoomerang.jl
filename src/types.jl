@@ -67,3 +67,4 @@ struct FactBoomerang{R, T, S} <: ContinuousDynamics
     μ::T
     λref::S
 end
+FactBoomerang(Γ, λ) = FactBoomerang(Γ, 0.0, λ)

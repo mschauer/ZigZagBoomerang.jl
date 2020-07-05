@@ -7,7 +7,6 @@ using SparseArrays
 using Test
 const ZZB = ZigZagBoomerang
 n = 10
-
 GS = [1=>2:10, 2=>3:5, 3=>5:10, 4=>[5], 5=>[], 6=>7:8, 7=>[], 8=>[], 9=>[10], 10=>[]]
 S = Matrix(1.0I, n, n)
 for (i, nb) in GS
