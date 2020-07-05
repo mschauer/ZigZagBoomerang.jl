@@ -1,7 +1,5 @@
 eventtime(x) = x[1]
 eventposition(x) = x[2]
-pos(x) = max(zero(x), x)
-
 
 #Poisson rates which determine the first reflection time
 λ(∇ϕ, x, θ, F::ZigZag1d) = pos(θ*∇ϕ(x))

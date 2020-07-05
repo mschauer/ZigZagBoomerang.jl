@@ -1,8 +1,8 @@
-using ZigZagBoomerang
 using Test
 using Statistics
 using Random
 using LinearAlgebra
+using ZigZagBoomerang
 using ZigZagBoomerang: poisson_time
 
 Random.seed!(1)
