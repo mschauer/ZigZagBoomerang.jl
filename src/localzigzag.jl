@@ -54,9 +54,10 @@ normsq(x) = dot(x,x)
     λ(∇ϕ, i, x, θ, Z::LocalZigZag)
 `i`th Poisson rate of the `LocalZigZag` sampler
 """
-function λ(∇ϕ, i, x, θ, Z::LocalZigZag)
-    pos(∇ϕ(x, i)*θ[i])
+function λ(∇ϕ, i, x, θ, Z::LocalZigZag, args...)
+    pos(∇ϕ(x, i, args...)*θ[i])
 end
+
 
 """
     ab(G, i, x, θ, c, Z::LocalZigZag)
@@ -67,8 +68,8 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function ab(G, i, x, θ, c, Z::LocalZigZag)
-    a = c[i] + θ[i]*(dot(Z.Γ[:, i], x)  - dot(Z.Γ[:, i], Z.μ))
-    b = θ[i]*dot(Z.Γ[:, i], θ)
+    a = c[i] + θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ))
+    b = θ[i]*idot(Z.Γ, i, θ)
     a, b
 end
 
@@ -101,7 +102,7 @@ according the the `LocalZigZag` reflection rule and updates `Q` according to the
 dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
 those are real reflection times.
 """
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
+function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag, args...;
         factor=1.5, adapt=false)
 
     i, t′ = dequeue_pair!(Q)
@@ -110,7 +111,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::LocalZigZag;
     end
     t, x, θ = move_forward!(t′ - t, t, x, θ, Z)
 
-    l, lb = λ(∇ϕ, i, x, θ, Z), λ_bar(G, i, x, θ, c, Z)
+    l, lb = λ(∇ϕ, i, x, θ, Z, args...), λ_bar(G, i, x, θ, c, Z)
     num += 1
 
     if rand()*lb < l
@@ -141,7 +142,7 @@ The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx 
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
+function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag, args...; factor=1.5, adapt=false)
 
     #sparsity graph
     G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
@@ -157,7 +158,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false)
 
     Ξ = ZigZagTrace(t0, x0, θ0)
     while t < T
-        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z; factor=factor, adapt=adapt)
+        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end
