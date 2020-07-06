@@ -78,7 +78,7 @@ d = 8
 S = I + 0.5sprandn(d, d, 0.1)
 Γ = S*S'
 
-∇ϕ(x, i) = dot(Γ[:,i], x) # sparse computation
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 
 
 @testset "LocalZigZag" begin
@@ -93,7 +93,7 @@ c = .5*[norm(Γ[:, i], 2) for i in 1:d]
 Z = LocalZigZag(0.9Γ, x0*0)
 T = 1000.0
 
-trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
 dt = 0.5
 ts, xs = sep(collect(discretize(trace, dt)))
 
@@ -124,7 +124,7 @@ Z = LocalZigZag(Γ0, x0*0)
 
 T = 1000.0
 
-trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
 dt = 0.5
 ts, xs = sep(collect(discretize(trace, dt)))
 
