@@ -18,7 +18,7 @@ hasrefresh(::ZigZag) = false
 
 #Ugly
 isZigZag(::ZigZag) = true
-isZigZag(::FactBoomTrace) = false
+isZigZag(::FactBoomerang) = false
 
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
@@ -174,7 +174,6 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang};
         end
     end
     #TO CHANGE
-    Ξ = ZigZagTrace(t0, x0, θ0)
     if isZigZag(F)
         Ξ = ZigZagTrace(t0, x0, θ0)
     else
