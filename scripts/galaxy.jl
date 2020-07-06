@@ -1,23 +1,24 @@
 using Revise
 using Random
 using RDatasets
+using ForwardDiff
 using ForwardDiff: Dual
-partiali(f, x, i) = ForwardDiff.partials(f([Dual{}(x[j], 1.0*(i==j)) for j in eachindex(x)]))[]
+partiali(f, x, i, args...) = ForwardDiff.partials(f([Dual{}(x[j], 1.0*(i==j)) for j in eachindex(x)], args...))[]
 
 using ZigZagBoomerang
-g(y, μ, σ) = exp(-(y-μ)^2/(2σ^2))/sqrt(2*pi*σ^2) # Gaussian
+g(y, μ, σ) = exp(-(y-μ)^2/(2σ^2))/sqrt(2*π*σ^2) # Gaussian
 lo(x) = exp(x)/(1+exp(x))
 
 galaxies = dataset("mass", "galaxies")
-Y = galaxies.x1/1000
-n = length(Y)
+Yobs = galaxies.x1/1000
+n = length(Yobs)
 
 Random.seed!(1)
 
-K = 3
-d = 3K - 1
-σ = 1.0
-R = 10 # subsampling
+const K = 3
+const d = 3K - 1
+const σ = 1.0
+const R = 10 # subsampling
 
 
 function probs(x)
@@ -35,8 +36,8 @@ function probs(x)
 end
 lprior(x) = sum(log(g(x[k], 1.0, 10.0)) for k in 1:d)
 f(y, x, ps=probs(x)) = sum(ps[k]*g(y, x[k], σ*x[K+k]) for k in 1:K)
-ϕ(x) = -lprior(x) - 82/R*sum(log(f(y, x)) for y in rand(Y,R))
-∇ϕ(x, i) = partiali(ϕ, x, i)
+ϕ(x, Y) = -lprior(x) - 82/R*sum(log(f(y, x)) for y in rand(Y, R))
+∇ϕ(x, i, Y) = partiali(ϕ, x, i, Y)
 
 using LinearAlgebra
 using SparseArrays
@@ -58,7 +59,8 @@ c = [20.0 for i in 1:d]
 Z = LocalZigZag(Γ, μ)
 T = 2000.0
 
-@time trace, (tT, xT, θT), (acc, num), c = pdmp(∇ϕ, t0, x0, θ0, T, c, Z; adapt=true)
+
+@time trace, (tT, xT, θT), (acc, num), c = pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Yobs; adapt=true)
 @show acc, acc/num, mean(c)
 
 tr = collect(trace)
@@ -88,7 +90,8 @@ end
 m = median.(ms)
 r = range(0, 40, length=200)
 p3 = lines(r, [f(y, m) for y in r])
-linesegments!(p3, [repeat(Y, inner=2) repeat([0,0.05], outer=n)])
+
+linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=n)])
 
 p = hbox(title(p3, "est. density and obs."), title(p2, "Trace p[k]"), title(p1, "Trace μ[k] ± σ[k]"))
 save("galaxy.png", title(p, "Galaxy dataset"))

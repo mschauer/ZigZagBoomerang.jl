@@ -8,23 +8,23 @@ with rate of the form λ(t) = (a + b*t)^+, `a`,`b` ∈ R, `u` uniform random var
 function poisson_time(a, b, u)
     if b > 0
         if a < 0
-            τ = sqrt(-log(u)*2.0/b) - a/b
+            return sqrt(-log(u)*2.0/b) - a/b
         else # a[i]>0
-            τ = sqrt((a/b)^2 - log(u)*2.0/b) - a/b
+            return sqrt((a/b)^2 - log(u)*2.0/b) - a/b
         end
-    elseif  b == 0
+    elseif b == 0
         if a > 0
-            τ = -log(u)/a
+            return -log(u)/a
         else # a[i] <= 0
-            τ = Inf
+            return Inf
         end
     else # b[i] < 0
         if a <= 0
-            τ = Inf
+            return Inf
         elseif -log(u) <= -a^2/b + a^2/(2*b)
-            τ = - sqrt((a/b)^2 - log(u)*2.0/b) - a/b
+            return -sqrt((a/b)^2 - log(u)*2.0/b) - a/b
         else
-            τ = Inf
+            return Inf
         end
     end
 end
