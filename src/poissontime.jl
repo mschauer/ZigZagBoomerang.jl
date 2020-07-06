@@ -30,11 +30,15 @@ function poisson_time(a, b, u)
 end
 
 """
-    poisson_time(a, u)
+    poisson_time(a[, u])
 
 Obtaining waiting time for homogeneous Poisson Process
 with rate of the form λ(t) = a, `a` ≥ 0, `u` uniform random variable
 """
-function poisson_time(a,u)
+function poisson_time(a, u)
     -log(u)/a
+end
+
+function poisson_time(a)
+    randexp()/a
 end

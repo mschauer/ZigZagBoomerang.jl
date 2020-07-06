@@ -49,9 +49,7 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
             push!(Ξ, (t, x, θ))
         else
             t, x, θ = move_forward(τ, t, x, θ, Flow)
-            if Flow isa Boomerang1d
-                τref = waiting_time_ref(Flow) #-= τ
-            end
+            τref -= τ
             τ = poisson_time(ab(x, θ, c, Flow)..., rand())
             l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(x, θ, c, Flow)
             num += 1
