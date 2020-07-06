@@ -11,8 +11,9 @@ export ZigZag1d, Boomerang1d
 include("poissontime.jl")
 export poisson_time
 
-include("localzigzag.jl")
-export LocalZigZag
+include("fact_samplers.jl")
+const ZigZag = LocalZigZag
+export LocalZigZag, ZigZag
 
 include("zigzagboom1d.jl")
 export pdmp, eventtime, eventposition
