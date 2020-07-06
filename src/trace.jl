@@ -123,6 +123,6 @@ function Base.iterate(D::Discretize{<:FactBoomTrace}, (t, x, θ, k))
         end
     end
 end
-function collect(D::Discretize{T}) where {T <: Union{ZigZagTrace, FactBoomTrace}}
+function Base.collect(D::Discretize{T}) where {T <: Union{ZigZagTrace, FactBoomTrace}}
     collect(t=>copy(x) for (t, x) in D)
 end
