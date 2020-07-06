@@ -66,7 +66,7 @@ end
 Base.IteratorSize(::Discretize) = Iterators.SizeUnknown()
 discretize(Z, dt) = Discretize(Z, dt)
 
-function Base.iterate(D::Discretize{<:Union{ZigZagTrace, FactBoomTrace}})
+function Base.iterate(D::Discretize{T}) where {T <: Union{ZigZagTrace, FactBoomTrace}}
     Z = D.Z
     t, x, θ = Z.t0, copy(Z.x0), copy(Z.θ0)
     t => x, (t, x, θ, 1)
