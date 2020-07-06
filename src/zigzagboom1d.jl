@@ -18,7 +18,7 @@ ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c, zero(x
 
 # waiting_time
 waiting_time_ref(::ZigZag1d) = Inf
-waiting_time_ref(B::Boomerang1d) = poisson_time(B.λref, 0.0, rand())
+waiting_time_ref(B::Boomerang1d) = poisson_time(B.λref)
 
 
 # Algorithm for one dimensional pdmp (ZigZag1d or Boomerang)
