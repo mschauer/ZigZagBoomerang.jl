@@ -1,5 +1,5 @@
 module ZigZagBoomerang
-
+using Random
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")
