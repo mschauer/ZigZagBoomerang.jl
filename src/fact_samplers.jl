@@ -16,6 +16,9 @@ neighbours(G::Vector{<:Pair}, i) = G[i].second
 hasrefresh(::FactBoomerang) = true
 hasrefresh(::ZigZag) = false
 
+#Ugly
+isZigZag(::ZigZag) = true
+isZigZag(::FactBoomTrace) = false
 
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
@@ -172,6 +175,11 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang};
     end
     #TO CHANGE
     Ξ = ZigZagTrace(t0, x0, θ0)
+    if isZigZag(F)
+        Ξ = ZigZagTrace(t0, x0, θ0)
+    else
+        Ξ = FactBoomTrace(t0, x0, θ0)
+    end
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F; factor=1.5)
     end

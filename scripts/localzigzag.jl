@@ -55,8 +55,6 @@ B = FactBoomerang(Γ, x0*0, λref)
 xs = last.(collect(trace))
 @show acc, num, acc/num
 
-B = FactBoomerang(Γ, x0*0, 1.0)
-
 
 
 

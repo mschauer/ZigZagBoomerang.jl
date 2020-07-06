@@ -131,3 +131,33 @@ end
 
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
+
+@testset "FactBoomerang" begin
+
+t0 = 0.0
+x0 = randn(d)
+θ0 = randn(d)
+
+
+c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
+λref = 1.0
+B = Boomerang(0.9Γ, x0*0, λref)
+T = 1000.0
+
+trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, B)
+dt = 0.5
+ts, xs = sep(collect(discretize(trace, dt)))
+
+@show acc[1]/acc[2]
+
+G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
+for i in 1:d
+    a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
+    @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+end
+
+@test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
+#display(round.(cov(xs) - inv(Matrix(Γ)), digits=3))
+#display(round.(cov(xs), digits=3))
+#display(round.( inv(Matrix(Γ)), digits=3))
+end
