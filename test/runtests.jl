@@ -61,7 +61,7 @@ end
 
 
 x0, θ0 = 1.41, +0.1
-B = Boomerang1d(2.0)
+B = Boomerang1d(1.0)
 out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
 
 
@@ -83,7 +83,7 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
 
 end
 
-B = Boomerang1d(1.1, 1.2, 7.0)
+B = Boomerang1d(1.1, 1.2, 0.5)
 out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, B)
 
 
@@ -93,9 +93,9 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, B)
     traj = ZigZagBoomerang.discretization(out2, B, dt)
     @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
-    @test abs(est - pi/2) < 10/sqrt(length(out2))
+    @test abs(est - pi/2) < 5/sqrt(length(out2))
     est2 = var(traj.x)
-    @test abs(est2 - σ2) < 10/sqrt(length(out2))
+    @test abs(est2 - σ2) < 5/sqrt(length(out2))
 
     c = 10.0
     τ = 0.3
