@@ -59,6 +59,7 @@ c = [20.0 for i in 1:d]
 Z = LocalZigZag(Γ, μ)
 T = 2000.0
 
+
 @time trace, (tT, xT, θT), (acc, num), c = pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Yobs; adapt=true)
 @show acc, acc/num, mean(c)
 
@@ -89,6 +90,7 @@ end
 m = median.(ms)
 r = range(0, 40, length=200)
 p3 = lines(r, [f(y, m) for y in r])
+
 linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=n)])
 
 p = hbox(title(p3, "est. density and obs."), title(p2, "Trace p[k]"), title(p1, "Trace μ[k] ± σ[k]"))
