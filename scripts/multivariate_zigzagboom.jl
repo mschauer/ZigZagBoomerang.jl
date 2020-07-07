@@ -7,8 +7,11 @@ using SparseArrays
 using Test
 const ZZB = ZigZagBoomerang
 PLOT = true
-n = 10
-GS = [1=>2:10, 2=>3:5, 3=>5:10, 4=>[5], 5=>[], 6=>7:8, 7=>[], 8=>[], 9=>[10], 10=>[]]
+PROFILE = false
+n = 10 # 10-dimensional problem
+
+# Create sparse 10-dimensional precision matrix
+GS = [1=>2:10, 2=>3:5, 3=>5:10, 4=>[5], 5=>[], 6=>7:8, 7=>[], 8=>[], 9=>[10], 10=>[]] # start from conditional dependence tree
 S = Matrix(1.0I, n, n)
 for (i, nb) in GS
     if !isempty(nb) && i >= minimum(nb)
@@ -23,12 +26,12 @@ end
 
 Γ = sparse(S * S')
 
-ϕ(x) = 0.5*x'*Γ*x
+ϕ(x) = 0.5*x'*Γ*x # potential or -log(target density)
 
 #using ForwardDiff
 #∇ϕ(x) = ForwardDiff.gradient(ϕ, x)
 
-∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # partial derivative of ϕ(x) with respect to x[i]
 
 
 
@@ -42,11 +45,12 @@ c = [norm(Γ[:, i], 2) for i in 1:n]
 Z = ZigZag(Γ, x0*0)
 T = 200.0
 
-
-using Profile
-Profile.init()
-@time trace, (tT, xT, θT), (acc, num) = @profile pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
-Profile.clear()
+if PROFILE
+    using Profile
+    Profile.init()
+    @time trace, (tT, xT, θT), (acc, num) = @profile pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    Profile.clear()
+end
 @time trace, (tT, xT, θT), (acc, num) = @profile pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
 
 
@@ -73,7 +77,7 @@ end
 x0 = randn(n)
 θ0 = randn(n)
 B = FactBoomerang(Γ, x0*0, λref)
-@time trace, (tT, xT, θT), (num, acc) = pdmp(∇ϕ, t0, x0, θ0, T, c, B, Γ)
+@time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ, t0, x0, θ0, T, c, B, Γ)
 
 xs = last.(collect(trace))
 @show acc, num, acc/num
