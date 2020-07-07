@@ -157,7 +157,7 @@ end
     Z = FactBoomerang(Γ, x0*0, 0.5)
     T = 1000.0
 
-    trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+    trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
 

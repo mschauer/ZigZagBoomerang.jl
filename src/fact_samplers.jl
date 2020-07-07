@@ -98,7 +98,7 @@ dependency graph `G`. `(num, acc)` counts how many event times occour and how ma
 those are real reflection times.
 """
 function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
-     F::Union{FactBoomerang}; factor=1.5, adapt=false)
+     F::Union{FactBoomerang}, args...; factor=1.5, adapt=false)
 
     (refresh, i), t′ = dequeue_pair!(Q)
     if t′ - t < 0
@@ -117,7 +117,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
         end
         push!(Ξ, event(i, t, x, θ, F))
     else
-        l, lb = λ(∇ϕ, i, x, θ, F), λ_bar(G, i, x, θ, c, F)
+        l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
         num += 1
         if rand()*lb < l
             acc += 1
@@ -177,7 +177,7 @@ The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx 
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang};
+function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang}, args...;
         factor=1.5, adapt=false)
     #sparsity graph
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
@@ -197,10 +197,11 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang};
         Ξ = FactBoomTrace(t0, x0, θ0)
     end
     while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F; factor=1.5)
+        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num)
 end
+
 function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::ZigZag, args...; factor=1.5, adapt=false)
 
     #sparsity graph
