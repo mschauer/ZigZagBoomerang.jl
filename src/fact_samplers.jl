@@ -78,7 +78,7 @@ end
 
 
 """
-    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
+    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
         F::Union{ZigZag, FactBoomerang}; factor=1.5, adapt=false)
 
 Inner loop of the factorised samplers: the Factorise Boomerand algorithm and the Zig-Zag sampler.
@@ -92,7 +92,7 @@ according its reflection rule and updates `Q` according to the
 dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
 those are real reflection times.
 """
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
+function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
 
     (refresh, i), t′ = dequeue_pair!(Q)
@@ -129,21 +129,25 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
         end
         enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     end
-    t, x, θ, (num, acc), c
+    t, x, θ, (acc, num), c
 end
 
 
 
 """
-    pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
+    pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args...; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
 
-`Local` algorithm.
-Input: Gradient of negative log density `∇ϕ`, initial time `t0`,
-initial position `x0`, initial velocity `θ0`, final clock `T`, tuning parameter `c`.
+Outer loop of the factorised samplers: the Factorised Boomerang algorithm
+and the Zig-Zag sampler. Inputs: `i`th element of gradient of negative log density
+`∇ϕ(x, i, args...)`, starting time and position `t0, x0`, 
+velocity `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
 
 The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
+and returns a `FactTrace` object `Ξ` which can be collected into pairs `t=>x` of
+times and locations and discretized with `discretize`. Also returns the `num`ber
+of total and `acc`epted Poisson events.
 """
 function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
@@ -160,7 +164,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t < T
-        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end

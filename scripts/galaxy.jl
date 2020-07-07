@@ -11,8 +11,8 @@ lo(x) = exp(x)/(1+exp(x))
 
 galaxies = dataset("mass", "galaxies")
 Yobs = galaxies.x1/1000
-n = length(Yobs)
-
+const n = 82
+@assert n == length(Yobs)
 Random.seed!(1)
 
 const K = 3
@@ -23,11 +23,11 @@ const R = 10 # subsampling
 
 function probs(x)
     if K == 2
-        [lo(x[end]), 1-lo(x[end])]
+        (lo(x[end]), 1-lo(x[end]))
     elseif K == 3
         a, b = exp(x[end]), exp(x[end-1])
         c = 1.0 + a + b
-        [a/c, b/c, 1 - a/c - b/c]
+        (a/c, b/c, 1 - a/c - b/c)
     else
         a = exp.(x[end-K+2:end])
         sa = sum(a)
@@ -36,7 +36,7 @@ function probs(x)
 end
 lprior(x) = sum(log(g(x[k], 1.0, 10.0)) for k in 1:d)
 f(y, x, ps=probs(x)) = sum(ps[k]*g(y, x[k], σ*x[K+k]) for k in 1:K)
-ϕ(x, Y) = -lprior(x) - 82/R*sum(log(f(y, x)) for y in rand(Y, R))
+ϕ(x, Y) = -lprior(x) - n/R*sum(log(f(y, x)) for y in rand(Y, R))
 ∇ϕ(x, i, Y) = partiali(ϕ, x, i, Y)
 
 using LinearAlgebra
@@ -58,7 +58,6 @@ c = [20.0 for i in 1:d]
 
 Z = LocalZigZag(Γ, μ)
 T = 2000.0
-
 
 @time trace, (tT, xT, θT), (acc, num), c = pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Yobs; adapt=true)
 @show acc, acc/num, mean(c)
@@ -90,7 +89,6 @@ end
 m = median.(ms)
 r = range(0, 40, length=200)
 p3 = lines(r, [f(y, m) for y in r])
-
 linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=n)])
 
 p = hbox(title(p3, "est. density and obs."), title(p2, "Trace p[k]"), title(p1, "Trace μ[k] ± σ[k]"))
