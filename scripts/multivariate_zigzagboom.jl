@@ -5,6 +5,7 @@ using LinearAlgebra
 using Random
 using SparseArrays
 using Test
+using Profile
 const ZZB = ZigZagBoomerang
 PLOT = true
 PROFILE = false
@@ -46,7 +47,6 @@ Z = ZigZag(Γ, x0*0)
 T = 200.0
 
 if PROFILE
-    using Profile
     Profile.init()
     @time trace, (tT, xT, θT), (acc, num) = @profile pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
     Profile.clear()
