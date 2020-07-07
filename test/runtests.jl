@@ -31,24 +31,26 @@ end
 # ϕ(x) =  (x - π)^2/2 # not needed
 
 # gradient of ϕ(x)
-∇ϕ(x) = x - π
-∇ϕhat(x) = x - π + 0.1(rand()-0.5)
+const σ2 = 1.3
+∇ϕ(x) = (x - π/2)
+∇ϕhat(x) = (x - π/2)/σ2 + 0.1(rand()-0.5)
 
 
-x0, θ0 = 0.01, -1.5
-T = 6000.0
+x0, θ0 = 1.01, -1.5
+T = 8000.0
 out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, ZigZag1d())
-B = Boomerang1d(2.0, 0.5)
-out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 4.0, B)
 
 @testset "ZigZag1d" begin
     @test T/10 < length(out1) < T*10
     est = 1/T*sum((eventposition.(out1)[1:end-1] + eventposition.(out1)[2:end])/2 .* diff(eventtime.(out1)))
-    @test abs(est-pi) < 2/sqrt(length(out1))
+    @test abs(est - pi/2) < 2/sqrt(length(out1))
     dt = 0.01
     traj = ZigZagBoomerang.discretization(out1, ZigZag1d(), dt)
+    @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
-    @test abs(est-pi) < 2/sqrt(length(out1))
+    @test abs(est - pi/2) < 2/sqrt(length(out1))
+    est2 = var(traj.x)
+    @test abs(est2 - σ2) < 2/sqrt(length(out1))
     c = 10.0
     a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag1d())
     @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag1d()) ≈ a + b*0.3
@@ -57,12 +59,44 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 4.0, B)
 
 end
 
+
+x0, θ0 = 1.41, +0.1
+B = Boomerang1d(1.0)
+out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
+
+
 @testset "Boomerang1d" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
     traj = ZigZagBoomerang.discretization(out2, B, dt)
+    @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
-    @test abs(est-pi) < 3/sqrt(length(out2))
+    @test abs(est - pi/2) < 5/sqrt(length(out2))
+    est2 = var(traj.x)
+    @test abs(est2 - 1.0) < 10/sqrt(length(out2))
+
+    c = 10.0
+    τ = 0.3
+    a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
+    _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
+    @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
+
+end
+
+B = Boomerang1d(1.1, 1.2, 0.5)
+out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, B)
+
+
+@testset "Boomerang1dNoncentredSub" begin
+    @test T/10 < length(out2) < T*10
+    dt = 0.01
+    traj = ZigZagBoomerang.discretization(out2, B, dt)
+    @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
+    est = mean(traj.x)
+    @test abs(est - pi/2) < 5/sqrt(length(out2))
+    est2 = var(traj.x)
+    @test abs(est2 - σ2) < 5/sqrt(length(out2))
+
     c = 10.0
     τ = 0.3
     a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
@@ -88,7 +122,7 @@ x0 = rand(d)
 θ0 = rand([-1.0, 1.0], d)
 
 
-c = .5*[norm(Γ[:, i], 2) for i in 1:d]
+c = .6*[norm(Γ[:, i], 2) for i in 1:d]
 
 Z = LocalZigZag(0.9Γ, x0*0)
 T = 1000.0
