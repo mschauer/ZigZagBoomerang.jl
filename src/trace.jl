@@ -13,8 +13,8 @@ struct FactBoomTrace{T,S,S2,R}
 end
 
 
-ZigZagTrace(t0::T, x0, θ0) where {T} = ZigZagTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
-FactBoomTrace(t0::T, x0, θ0) where {T} = FactBoomTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
+Trace(t0::T, x0, θ0, F::ZigZag) where {T} = ZigZagTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
+Trace(t0::T, x0, θ0, F::FactBoomerang) where {T} = FactBoomTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 
 Base.length(F::Union{ZigZagTrace, FactBoomTrace}) = 1 + length(F.events)
 

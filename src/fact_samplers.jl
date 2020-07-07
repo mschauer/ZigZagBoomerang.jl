@@ -15,10 +15,7 @@ neighbours(G::Vector{<:Pair}, i) = G[i].second
 #need refreshments
 hasrefresh(::FactBoomerang) = true
 hasrefresh(::ZigZag) = false
-
-#Ugly
-isZigZag(::ZigZag) = true
-isZigZag(::FactBoomerang) = false
+ 
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
 
@@ -190,12 +187,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang}, args...;
             enqueue!(Q, (true, i)=>poisson_time(F.λref, 0.0, rand()))
         end
     end
-    #TO CHANGE
-    if isZigZag(F)
-        Ξ = ZigZagTrace(t0, x0, θ0)
-    else
-        Ξ = FactBoomTrace(t0, x0, θ0)
-    end
+    Ξ = Trace(t0, x0, θ0, F)
     while t < T
         t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F, args...; factor=factor, adapt=adapt)
     end
@@ -216,7 +208,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::ZigZag, args...; factor=1.5, adapt=fa
         enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
     end
 
-    Ξ = ZigZagTrace(t0, x0, θ0)
+    Ξ = Trace(t0, x0, θ0, Z)
     while t < T
         t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z, args...; factor=factor, adapt=adapt)
     end
