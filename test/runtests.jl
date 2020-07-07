@@ -110,10 +110,10 @@ end
     x0 = rand(d)
     θ0 = rand([-1.0,1.0], d)
 
-    Γ0 = sparse(I, d, d)
-    c = 10.5*[norm(Γ0[:, i], 2) for i in 1:d]
+    #Γ0 = sparse(I, d, d)
+    c = 10.5*[norm(Γ[:, i], 2) for i in 1:d]
 
-    Z = FactBoomerang(Γ0, x0*0, 0.5)
+    Z = FactBoomerang(Γ, x0*0, 0.5)
     T = 1000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
@@ -160,7 +160,7 @@ end
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
 
-@testset "FactBoomerang" begin
+@testset "FactBoomerang1" begin
 ϕ(x) = [cos(π*x[1]) + x[1]^2/2] # not needed
 # gradient of ϕ(x)
 ∇ϕ(x) = [-π*sin(π*x[1]) + x[1]]
