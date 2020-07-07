@@ -1,51 +1,27 @@
-struct ZigZagTrace{T,S,S2,R}
+
+struct FactTrace{FT,T,S,S2,R}
+    F::FT
     t0::T
     x0::S
     θ0::S2
     events::R
 end
 
-struct FactBoomTrace{T,S,S2,R}
-    t0::T
-    x0::S
-    θ0::S2
-    events::R
-end
 
+Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 
-Trace(t0::T, x0, θ0, F::ZigZag) where {T} = ZigZagTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
-Trace(t0::T, x0, θ0, F::FactBoomerang) where {T} = FactBoomTrace(t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
+Base.length(FT::FactTrace) = 1 + length(FT.events)
 
-Base.length(F::Union{ZigZagTrace, FactBoomTrace}) = 1 + length(F.events)
-
-
-
-
-function Base.iterate(F::Union{ZigZagTrace, FactBoomTrace})
-    t, x, θ = F.t0, copy(F.x0), copy(F.θ0)
+function Base.iterate(FT::FactTrace)
+    t, x, θ = FT.t0, copy(FT.x0), copy(FT.θ0)
     t => x, (t, x, θ, 1)
 end
 
-function Base.iterate(Z::ZigZagTrace, (t, x, θ, k))
-    k > length(Z.events) && return nothing
-    k == length(Z.events) && return t => x, (t, x, θ, k + 1)
-    t2, i, xi, θi = Z.events[k]
-    x .+= (t2 - t)*θ
-    t = t2
-    x[i] = xi
-    θ[i] = θi
-    return t => x, (t, x, θ, k + 1)
-end
-
-function Base.iterate(Z::FactBoomTrace, (t, x, θ, k))
-    k > length(Z.events) && return nothing
-    k == length(Z.events) && return t => x, (t, x, θ, k + 1)
-    t2, i, xi, θi = Z.events[k]
-    # x_new = (x .- B.μ)*cos(t2 - t) .+ θ*sin(t2 - t) .+ B.μ
-    # θ .= -(x .- B.μ)*sin(t2 - t) .+ θ*cos(t2 - t)
-    x_new = (x)*cos(t2 - t) .+ θ*sin(t2 - t)
-    θ .= -(x)*sin(t2 - t) .+ θ*cos(t2 - t)
-    x .= x_new
+function Base.iterate(FT::FactTrace, (t, x, θ, k))
+    k > length(FT.events) && return nothing
+    k == length(FT.events) && return t => x, (t, x, θ, k + 1)
+    t2, i, xi, θi = FT.events[k]
+    t, x, θ = move_forward!(t2 - t, t, x, θ, FT.F)
     t = t2
     x[i] = xi
     θ[i] = θi
@@ -56,28 +32,28 @@ end
 
 
 
-Base.push!(Z::Union{ZigZagTrace, FactBoomTrace}, ev) = push!(Z.events, ev)
-Base.collect(Z::Union{ZigZagTrace, FactBoomTrace}) = collect(t=>copy(x) for (t, x) in Z)
+Base.push!(FT::FactTrace, ev) = push!(FT.events, ev)
+Base.collect(FT::FactTrace) = collect(t=>copy(x) for (t, x) in FT)
 
 struct Discretize{T, S}
-    Z::T
+    FT::T
     dt::S
 end
 Base.IteratorSize(::Discretize) = Iterators.SizeUnknown()
-discretize(Z, dt) = Discretize(Z, dt)
+discretize(FT, dt) = Discretize(FT, dt)
 
-function Base.iterate(D::Discretize{T}) where {T <: Union{ZigZagTrace, FactBoomTrace}}
-    Z = D.Z
-    t, x, θ = Z.t0, copy(Z.x0), copy(Z.θ0)
+function Base.iterate(D::Discretize{<:FactTrace})
+    FT = D.FT
+    t, x, θ = FT.t0, copy(FT.x0), copy(FT.θ0)
     t => x, (t, x, θ, 1)
 end
 
-function Base.iterate(D::Discretize{<:ZigZagTrace}, (t, x, θ, k))
+function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:ZigZag}
     dt = D.dt
-    Z = D.Z
+    FT = D.FT
     while true
-        k > length(Z.events) && return nothing
-        ti, i, xi, θi = Z.events[k]
+        k > length(FT.events) && return nothing
+        ti, i, xi, θi = FT.events[k]
         if t + dt < ti
             t += dt
             x .+= dt .* θ
@@ -94,12 +70,12 @@ function Base.iterate(D::Discretize{<:ZigZagTrace}, (t, x, θ, k))
     end
 end
 
-function Base.iterate(D::Discretize{<:FactBoomTrace}, (t, x, θ, k))
+function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:FactBoomerang}
     dt = D.dt
-    Z = D.Z
+    FT = D.FT
     while true
-        k > length(Z.events) && return nothing
-        ti, i, xi, θi = Z.events[k]
+        k > length(FT.events) && return nothing
+        ti, i, xi, θi = FT.events[k]
         if t + dt < ti
             t += dt
             # x_new = (x .- B.μ)*cos(dt) .+ θ*sin(dt) .+ B.μ
@@ -123,6 +99,6 @@ function Base.iterate(D::Discretize{<:FactBoomTrace}, (t, x, θ, k))
         end
     end
 end
-function Base.collect(D::Discretize{T}) where {T <: Union{ZigZagTrace, FactBoomTrace}}
+function Base.collect(D::Discretize{<:FactTrace})
     collect(t=>copy(x) for (t, x) in D)
 end
