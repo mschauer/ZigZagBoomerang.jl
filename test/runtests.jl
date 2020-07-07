@@ -108,7 +108,7 @@ end
 # Local ZigZag
 using SparseArrays
 d = 8
-S = 1.0I + 0.5sprandn(d, d, 0.1)
+S = 1.3I + 0.5sprandn(d, d, 0.1)
 Γ = S*S'
 
 ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
@@ -154,8 +154,8 @@ end
     for i in 1:d
         #Γ0[d,d] = 1
     end
-    Z = FactBoomerang(Γ0, x0*0, 0.5)
-    T = 10000.0
+    Z = FactBoomerang(0.9Γ0, x0*0, 0.5)
+    T = 3000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)
     dt = 0.5
