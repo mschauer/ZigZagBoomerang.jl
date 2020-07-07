@@ -3,22 +3,22 @@ eventposition(x) = x[2]
 
 #Poisson rates which determine the first reflection time
 λ(∇ϕ, x, θ, F::ZigZag1d) = pos(θ*∇ϕ(x))
-λ(∇ϕ, x, θ, B::Boomerang1d) = pos(θ*(∇ϕ(x) - (x - B.μ)))
+λ(∇ϕ, x, θ, B::Boomerang1d) = pos(θ*(∇ϕ(x) - (x - B.μ)/(B.Σ)))
 
 # affine bounds for Zig-Zag
 λ_bar(x, θ, c, ::ZigZag1d) = pos(c + θ*x)
 
 # constant bound for Boomerang1d with global bounded |∇ϕ(x)|
 # suppose |∇ϕ(x, :Boomerang1d)| ≤ C. Then λ(x(t),θ(t)) ≤ C*sqrt(x(0)^2 + θ(0)^2)
-λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + (x - B.μ)^2)*c #Global bound
+λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c #Global bound
 
 # waiting times
-ab(x, θ, c, ::ZigZag1d) = (c + θ*x, one(x))
-ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + (x - B.μ)^2)*c, zero(x))
+ab(x, θ, c, ::ZigZag1d) = (c + θ*x, θ^2)
+ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c, zero(x))
 
 # waiting_time
 waiting_time_ref(::ZigZag1d) = Inf
-waiting_time_ref(B::Boomerang1d) = poisson_time(B.λref, 0.0, rand())
+waiting_time_ref(B::Boomerang1d) = poisson_time(B.λref)
 
 
 # Algorithm for one dimensional pdmp (ZigZag1d or Boomerang)

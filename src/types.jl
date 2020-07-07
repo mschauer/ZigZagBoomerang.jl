@@ -17,11 +17,14 @@ struct ZigZag1d <: ContinuousDynamics  end
 Dynamics preserving the N(μ, 1) measure (Boomerang1d)
 with refreshment time `λ`
 """
-struct Boomerang1d{T} <: ContinuousDynamics
+struct Boomerang1d{S,T} <: ContinuousDynamics
+    Σ::S
     μ::T
     λref::T
 end
-Boomerang1d(λ) = Boomerang1d(0.0, λ)
+Boomerang1d(λ) = Boomerang1d(1.0, 0.0, λ)
+
+
 """
     struct ZigZag(Γ, μ) <: ContinuousDynamics
 
@@ -67,3 +70,4 @@ struct FactBoomerang{R, T, S} <: ContinuousDynamics
     λref::S
 end
 FactBoomerang(Γ, λ) = FactBoomerang(Γ, 0.0, λ)
+

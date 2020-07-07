@@ -19,8 +19,8 @@ v_t = −(x_0 − μ)*sin(t) + v_0*cos(t)
 `x`: current location, `θ`: current velocity, `t`: current time.
 """
 function move_forward(τ, t, x, θ, B::Boomerang1d)
-    x_new = (x - B.μ)*cos(τ) + θ*sin(τ) + B.μ
-    θ = -(x - B.μ)*sin(τ) + θ*cos(τ)
+    x_new = sqrt(B.Σ)*((x - B.μ)/sqrt(B.Σ)*cos(τ) + θ*sin(τ)) + B.μ
+    θ = -(x - B.μ)/sqrt(B.Σ)*sin(τ) + θ*cos(τ)
     t + τ, x_new, θ
 end
 
