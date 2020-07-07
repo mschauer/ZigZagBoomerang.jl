@@ -33,7 +33,7 @@ end
 `i`th Poisson rate of the `FactBoomerang` sampler
 """
 function λ(∇ϕ, i, x, θ, B::FactBoomerang, args...)
-    pos((∇ϕ(x, i, args...) - (x[i] - B.μ[i]))*θ[i])
+    pos((∇ϕ(x, i, args...) - (x[i] - B.μ[i])*B.Γ[i,i])*θ[i])
 end
 
 
@@ -55,7 +55,7 @@ end
 
 function ab(G, i, x, θ, c, Z::FactBoomerang)
     nhd = neighbours(G, i)
-    a = c[i]*sqrt(normsq(x[nhd] - Z.μ[nhd]) + normsq(θ[nhd]))
+    a = c[i]*sqrt(normsq((x[j] - Z.μ[j]) for j in nhd) + normsq(θ[nhd]))
     b = 0.0
     a, b
 end
@@ -101,7 +101,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
     end
     t, x, θ = move_forward!(t′ - t, t, x, θ, F)
     if refresh
-        θ[i] = randn()
+        θ[i] = sqrt(F.Γ[i,i])\randn()
         #renew refreshment
         enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
         #update reflections
