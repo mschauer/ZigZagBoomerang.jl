@@ -4,7 +4,6 @@ using Random
 using LinearAlgebra
 using ZigZagBoomerang
 using ZigZagBoomerang: poisson_time
-
 Random.seed!(1)
 sep(x) = first.(x), last.(x)
 
@@ -115,7 +114,7 @@ S = I + 0.5sprandn(d, d, 0.1)
 ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 
 
-@testset "LocalZigZag" begin
+@testset "ZigZag" begin
 
 t0 = 0.0
 x0 = rand(d)
@@ -124,7 +123,7 @@ x0 = rand(d)
 
 c = .6*[norm(Γ[:, i], 2) for i in 1:d]
 
-Z = LocalZigZag(0.9Γ, x0*0)
+Z = ZigZag(0.9Γ, x0*0)
 T = 1000.0
 
 trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
@@ -145,7 +144,36 @@ end
 #display(round.( inv(Matrix(Γ)), digits=3))
 end
 
-@testset "LocalZigZag (independent)" begin
+
+@testset "FactBoomerang" begin
+
+    t0 = 0.0
+    x0 = rand(d)
+    θ0 = rand([-1.0,1.0], d)
+
+    #Γ0 = sparse(I, d, d)
+    c = 10.5*[norm(Γ[:, i], 2) for i in 1:d]
+
+    Z = FactBoomerang(Γ, x0*0, 0.5)
+    T = 1000.0
+
+    trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    dt = 0.5
+    ts, xs = sep(collect(discretize(trace, dt)))
+
+    @show acc[1]/acc[2]
+
+    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
+    for i in 1:d
+        a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
+        _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, Z)
+        @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+    end
+
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
+end
+
+@testset "ZigZag (independent)" begin
 
 t0 = 0.0
 x0 = rand(d)
@@ -154,7 +182,7 @@ x0 = rand(d)
 
 c = 10.0*[norm(Γ[:, i], 2) for i in 1:d]
 Γ0 = sparse(I, d, d)
-Z = LocalZigZag(Γ0, x0*0)
+Z = ZigZag(Γ0, x0*0)
 
 T = 1000.0
 
@@ -171,4 +199,32 @@ for i in 1:d
 end
 
 @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
+end
+
+@testset "FactBoomerang1" begin
+ϕ(x) = [cos(π*x[1]) + x[1]^2/2] # not needed
+# gradient of ϕ(x)
+∇ϕ(x) = [-π*sin(π*x[1]) + x[1]]
+∇ϕ(x, i) = -π*sin(π*x[1]) + x[1] # (REPLACE IT WITH AUTOMATIC DIFFERENTIATION)
+c = [3.5π]
+λref = 1.0
+n = 1
+x0 = randn(n)
+θ0 = randn(n)
+t0 = 0.0
+T = 10000.0
+Γ = sparse(Matrix(1.0I, n, n))
+B = FactBoomerang(Γ, x0*0, λref)
+trace, _,  acc = pdmp(∇ϕ, t0, x0, θ0, T, c, B)
+m = mean(last.(collect(trace)))
+dt = 0.1
+ts, xs = sep(collect(discretize(trace, dt)))
+@show acc[2]/acc[1]
+@test mean(xs)[1] < 2.5/sqrt(T)
+G = [1 => 1]
+for i in 1:n
+    a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, B)
+    _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, B)
+    @test ZigZagBoomerang.λ_bar(G, i, x1 , θ1, c, B) ≈ ZigZagBoomerang.pos(a + b*0.3)
+end
 end

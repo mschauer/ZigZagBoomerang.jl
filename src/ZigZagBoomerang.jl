@@ -5,15 +5,16 @@ using Random
 include("types.jl")
 include("common.jl")
 include("dynamics.jl")
-export ZigZag1d, Boomerang1d
-
+export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
+const LocalZigZag = ZigZag
+export LocalZigZag
 
 include("poissontime.jl")
 export poisson_time
 
 include("fact_samplers.jl")
-const ZigZag = LocalZigZag
-export LocalZigZag, ZigZag
+
+
 
 include("zigzagboom1d.jl")
 export pdmp, eventtime, eventposition
