@@ -15,9 +15,7 @@ neighbours(G::Vector{<:Pair}, i) = G[i].second
 #need refreshments
 hasrefresh(::FactBoomerang) = true
 hasrefresh(::ZigZag) = false
- 
-normsq(x::Real) = abs2(x)
-normsq(x) = dot(x,x)
+
 
 
 
@@ -95,7 +93,7 @@ dependency graph `G`. `(num, acc)` counts how many event times occour and how ma
 those are real reflection times.
 """
 function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
-     F::Union{FactBoomerang}, args...; factor=1.5, adapt=false)
+     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
 
     (refresh, i), t′ = dequeue_pair!(Q)
     if t′ - t < 0
@@ -122,7 +120,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
                 !adapt && error("Tuning parameter `c` too small.")
                 c[i] *= factor
             end
-            θ = reflect!(i, θ, x, F)
+                             θ = reflect!(i, θ, x, F)
             for j in neighbours(G, i)
                 j == i && continue
                 Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
@@ -131,37 +129,10 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc),
         end
         enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     end
-    t, x, θ, (num, acc)
-end
-
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z::ZigZag, args...;
-        factor=1.5, adapt=false)
-
-    i, t′ = dequeue_pair!(Q)
-    if t′ - t < 0
-        error("negative time")
-    end
-    t, x, θ = move_forward!(t′ - t, t, x, θ, Z)
-
-    l, lb = λ(∇ϕ, i, x, θ, Z, args...), λ_bar(G, i, x, θ, c, Z)
-    num += 1
-
-    if rand()*lb < l
-        acc += 1
-        if l >= lb
-            !adapt && error("Tuning parameter `c` too small.")
-            c[i] *= factor
-        end
-        θ = reflect!(i, θ, x, Z)
-        for j in neighbours(G, i)
-            j == i && continue
-            Q[j] = t + poisson_time(ab(G, j, x, θ, c, Z)..., rand())
-        end
-        push!(Ξ, event(i, t, x, θ, Z))
-    end
-    enqueue!(Q, i=>t + poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
     t, x, θ, (num, acc), c
 end
+
+
 
 """
     pdmp(∇ϕ, t0, x0, θ0, T, c, Z::LocalZigZag; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
@@ -174,7 +145,7 @@ The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx 
 a collection of reflection points `Ξ` which, together with the initial triple `x`
 `θ` and `t` are sufficient for reconstructuing continuously the continuous path
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang}, args...;
+function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
     #sparsity graph
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
@@ -189,28 +160,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{FactBoomerang}, args...;
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t < T
-        t, x, θ, (num, acc) = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F, args...; factor=factor, adapt=adapt)
-    end
-    Ξ, (t, x, θ), (acc, num)
-end
-
-function pdmp(∇ϕ, t0, x0, θ0, T, c, Z::ZigZag, args...; factor=1.5, adapt=false)
-
-    #sparsity graph
-    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-
-    t, x, θ = t0, copy(x0), copy(θ0)
-    num = acc = 0
-
-    Q = PriorityQueue{Int,Float64}()
-
-    for i in eachindex(θ)
-        enqueue!(Q, i=>poisson_time(ab(G, i, x, θ, c, Z)..., rand()))
-    end
-
-    Ξ = Trace(t0, x0, θ0, Z)
-    while t < T
-        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), Z, args...; factor=factor, adapt=adapt)
+        t, x, θ, (num, acc), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (num, acc), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end

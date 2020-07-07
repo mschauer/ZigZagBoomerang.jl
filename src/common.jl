@@ -16,3 +16,6 @@ function idot(A::SparseMatrixCSC, j, x)
     end
     s
 end
+
+normsq(x::Real) = abs2(x)
+normsq(x) = dot(x,x)
