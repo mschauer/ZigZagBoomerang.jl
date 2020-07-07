@@ -103,6 +103,35 @@ end
 #display(round.( inv(Matrix(Γ)), digits=3))
 end
 
+
+@testset "FactBoomerang" begin
+
+    t0 = 0.0
+    x0 = rand(d)
+    θ0 = rand([-1.0,1.0], d)
+
+    Γ0 = sparse(I, d, d)
+    c = 10.5*[norm(Γ0[:, i], 2) for i in 1:d]
+
+    Z = FactBoomerang(Γ0, x0*0, 0.5)
+    T = 1000.0
+
+    trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z)
+    dt = 0.5
+    ts, xs = sep(collect(discretize(trace, dt)))
+
+    @show acc[1]/acc[2]
+
+    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
+    for i in 1:d
+        a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
+        _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, Z)
+        @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+    end
+
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
+end
+
 @testset "ZigZag (independent)" begin
 
 t0 = 0.0

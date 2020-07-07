@@ -39,6 +39,7 @@ function move_forward!(τ, t, x, θ, Z::Union{Bps, ZigZag})
     t, x, θ
 end
 
+
 # This one could work for Boomerang 1d as well
 """
     move_forward!(τ, t, x, θ, B::Boomerang)
@@ -50,9 +51,11 @@ dynamics preserving the Gaussian measure:
 `x`: current location, `θ`: current velocity, `t`: current time.
 """
 function move_forward!(τ, t, x, θ, B::Union{Boomerang, FactBoomerang})
-    x_new = (x .- B.μ)*cos(τ) .+ θ*sin(τ) .+ B.μ
-    θ .= -(x .- B.μ)*sin(τ) .+ θ*cos(τ)
-    t + τ, x_new, θ
+    for i in eachindex(x)
+        x[i], θ[i] = (x[i] - B.μ[i])*cos(τ) + θ[i]*sin(τ) + B.μ[i],
+                    -(x[i] - B.μ[i])*sin(τ) + θ[i]*cos(τ)
+    end
+    t + τ, x, θ
 end
 
 
