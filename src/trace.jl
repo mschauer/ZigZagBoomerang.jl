@@ -1,7 +1,7 @@
 """
     FactTrace
 
-See [Trace](@ref).
+See [`Trace`](@ref).
 """
 struct FactTrace{FT,T,S,S2,R}
     F::FT
@@ -18,7 +18,7 @@ Trace object for exact trajectory of pdmp samplers. Returns an iterable `FactTra
 Note that iteration iterates pairs `t => x` where the vector `x` is modified
 inplace, so copies have to be made if the `x` is to be saved.
 `collect` applied to a trace object automatically copies `x`.
-`discretize`[@ref] returns a discretized version.
+[`discretize`](@ref) returns a discretized version.
 """
 Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 
