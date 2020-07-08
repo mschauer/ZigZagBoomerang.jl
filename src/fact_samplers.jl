@@ -95,41 +95,43 @@ those are real reflection times.
 function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
 
-    (refresh, i), t′ = dequeue_pair!(Q)
-    if t′ - t < 0
-        error("negative time")
-    end
-    t, x, θ = move_forward!(t′ - t, t, x, θ, F)
-    if refresh
-        θ[i] = sqrt(F.Γ[i,i])\randn()
-        #renew refreshment
-        enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
-        #update reflections
-        Q[(false, i)] = t + poisson_time(ab(G, i, x, θ, c, F)..., rand())
-        for j in neighbours(G, i)
-            j == i && continue
-            Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+    while true
+        (refresh, i), t′ = dequeue_pair!(Q)
+        if t′ - t < 0
+            error("negative time")
         end
-        push!(Ξ, event(i, t, x, θ, F))
-    else
-        l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
-        num += 1
-        if rand()*lb < l
-            acc += 1
-            if l >= lb
-                !adapt && error("Tuning parameter `c` too small.")
-                c[i] *= factor
-            end
-            θ = reflect!(i, θ, x, F)
+        t, x, θ = move_forward!(t′ - t, t, x, θ, F)
+        if refresh
+            θ[i] = sqrt(F.Γ[i,i])\randn()
+            #renew refreshment
+            enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
+            #update reflections
+            Q[(false, i)] = t + poisson_time(ab(G, i, x, θ, c, F)..., rand())
             for j in neighbours(G, i)
                 j == i && continue
                 Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
+            return t, x, θ, (acc, num), c
+        else
+            l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
+            num += 1
+            if rand()*lb < l
+                acc += 1
+                if l >= lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c[i] *= factor
+                end
+                θ = reflect!(i, θ, x, F)
+                for j in neighbours(G, i)
+                    Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                end
+                push!(Ξ, event(i, t, x, θ, F))
+                return t, x, θ, (acc, num), c
+            end
+            enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
         end
-        enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     end
-    t, x, θ, (acc, num), c
 end
 
 

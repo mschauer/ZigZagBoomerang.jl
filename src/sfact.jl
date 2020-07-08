@@ -44,39 +44,40 @@ end
 
 function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
-
-    (refresh, i), t′ = dequeue_pair!(Q)
-    t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
-    if refresh
-        θ[i] = sqrt(F.Γ[i,i])\randn()
-        #renew refreshment
-        enqueue!(Q, (true, i)=> t[i] + poisson_time(F.λref, 0.0, rand()))
-        #update reflections
-        Q[(false, i)] = t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand())
-        for j in neighbours(G, i)
-            j == i && continue
-            Q[(false, j)] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
-        end
-        push!(Ξ, event(i, t, x, θ, F))
-    else
-        l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
-        num += 1
-        if rand()*lb < l
-            acc += 1
-            if l >= lb
-                !adapt && error("Tuning parameter `c` too small.")
-                c[i] *= factor
-            end
-            θ = reflect!(i, θ, x, F)
+    while true
+        (refresh, i), t′ = dequeue_pair!(Q)
+        t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
+        if refresh
+            θ[i] = sqrt(F.Γ[i,i])\randn()
+            #renew refreshment
+            enqueue!(Q, (true, i)=> t[i] + poisson_time(F.λref, 0.0, rand()))
+            #update reflections
+            Q[(false, i)] = t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand())
             for j in neighbours(G, i)
                 j == i && continue
-                Q[(false, j)] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                Q[(false, j)] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
+            return t, x, θ, t′, (acc, num), c
+        else
+            l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
+            num += 1
+            if rand()*lb < l
+                acc += 1
+                if l >= lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c[i] *= factor
+                end
+                θ = reflect!(i, θ, x, F)
+                for j in neighbours(G, i)
+                    Q[(false, j)] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                end
+                push!(Ξ, event(i, t, x, θ, F))
+                return t, x, θ, t′, (acc, num), c
+            end
+            enqueue!(Q, (false, i) => t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
         end
-        enqueue!(Q, (false, i) => t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
     end
-    t, x, θ, t′, (acc, num), c
 end
 
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
