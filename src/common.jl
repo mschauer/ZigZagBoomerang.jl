@@ -1,10 +1,16 @@
 using SparseArrays
+
+"""
+    pos(x)
+
+Positive part of `x` (i.e. max(0,x)).
+"""
 pos(x) = max(zero(x), x)
 
 """
     idot(A, j, x) = dot(A[:, j], x)
 
-Compute exploiting sparsity.
+Compute column-vector dot product exploiting sparsity of `A`.
 """
 idot(A, j, x) = dot((@view A[:, j]), x)
 function idot(A::SparseMatrixCSC, j, x)
@@ -17,5 +23,10 @@ function idot(A::SparseMatrixCSC, j, x)
     s
 end
 
+"""
+    normsq(x)
+
+Squared 2-norm.
+"""
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)

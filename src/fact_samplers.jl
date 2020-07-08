@@ -78,21 +78,23 @@ end
 
 
 """
-    pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
-        F::Union{ZigZag, FactBoomerang}; factor=1.5, adapt=false)
+    pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
+        F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+        = t, x, θ, (acc, num), c
 
-Inner loop of the factorised samplers: the Factorise Boomerand algorithm and the Zig-Zag sampler.
-Input: a dependency graph `G`, gradient `∇ϕ`,
+Inner loop of the factorised samplers: the factorised Boomerang algorithm and
+the Zig-Zag sampler. Given a dependency graph `G`, gradient `∇ϕ`,
 current position `x`, velocity `θ`, Queue of events `Q`, time `t`, and tuning parameter `c`.
 
 The sampler 1) extracts from the queue the first event time. 2) moves deterministically
 according to its dynamics until event time. 3) Evaluates whether the event
-time is a reflection time or not. 4) If it is a reflection time, the velocity reflects
+time is a accepted reflection time or not. 4) If it is a reflection time, the velocity reflects
 according its reflection rule and updates `Q` according to the
-dependency graph `G`. `(num, acc)` counts how many event times occour and how many of
-those are real reflection times.
+dependency graph `G`. The sampler proceeds time until the next accepted reflection time
+or refreshment time. `(num, acc)` incrementally counts how many event times occour
+and how many of those are real reflection times.
 """
-function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
+function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
 
     while true
@@ -104,11 +106,9 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
         if refresh
             θ[i] = sqrt(F.Γ[i,i])\randn()
             #renew refreshment
-            enqueue!(Q, (true, i)=> t + poisson_time(F.λref, 0.0, rand()))
+            enqueue!(Q, (true, i) => t + poisson_time(F.λref))
             #update reflections
-            Q[(false, i)] = t + poisson_time(ab(G, i, x, θ, c, F)..., rand())
             for j in neighbours(G, i)
-                j == i && continue
                 Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
@@ -122,7 +122,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
                     !adapt && error("Tuning parameter `c` too small.")
                     c[i] *= factor
                 end
-                θ = reflect!(i, θ, x, F)
+                θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
                     Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
                 end
@@ -139,17 +139,22 @@ end
 """
     pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args...; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
 
-Outer loop of the factorised samplers: the Factorised Boomerang algorithm
-and the Zig-Zag sampler. Inputs: `i`th element of gradient of negative log density
-`∇ϕ(x, i, args...)`, starting time and position `t0, x0`,
-velocity `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
+Outer loop of the factorised samplers, the Factorised Boomerang algorithm
+and the Zig-Zag sampler. Inputs are a function `∇ϕ` giving `i`th element of gradient
+of negative log target density `∇ϕ(x, i, args...)`, starting time and position `t0, x0`,
+velocities `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
 
-The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
-a collection of reflection points `Ξ` which, together with the initial triple `x`
-`θ` and `t` are sufficient for reconstructuing continuously the continuous path
-and returns a `FactTrace` object `Ξ` which can be collected into pairs `t=>x` of
-times and locations and discretized with `discretize`. Also returns the `num`ber
-of total and `acc`epted Poisson events.
+The process moves to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
+a collection of reflection points which, together with the initial triple `t`, `x`
+`θ` are sufficient for reconstructuing continuously the continuous path.
+It returns a `FactTrace` (see [`Trace`](@ref)) object `Ξ`, which can be collected
+into pairs `t => x` of times and locations and discretized with `discretize`.
+Also returns the `num`ber of total and `acc`epted Poisson events and updated bounds
+`c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
+out to be too small.)
+
+This version does not assume that `∇ϕ` has sparse conditional dependencies,
+see [`spdmp`](@ref).
 """
 function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
@@ -161,12 +166,12 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
     for i in eachindex(θ)
         enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
         if hasrefresh(F)
-            enqueue!(Q, (true, i)=>poisson_time(F.λref, 0.0, rand()))
+            enqueue!(Q, (true, i)=>poisson_time(F.λref))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t < T
-        t, x, θ, (acc, num), c = pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num), F, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c = pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end

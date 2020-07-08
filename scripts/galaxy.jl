@@ -11,8 +11,8 @@ lo(x) = exp(x)/(1+exp(x))
 
 galaxies = dataset("mass", "galaxies")
 Yobs = galaxies.x1/1000
-const n = 82
-@assert n == length(Yobs)
+const N = 82
+@assert N == length(Yobs)
 Random.seed!(1)
 
 const K = 3
@@ -36,7 +36,7 @@ function probs(x)
 end
 lprior(x) = sum(log(g(x[k], 1.0, 10.0)) for k in 1:d)
 f(y, x, ps=probs(x)) = sum(ps[k]*g(y, x[k], σ*x[K+k]) for k in 1:K)
-ϕ(x, Y) = -lprior(x) - n/R*sum(log(f(y, x)) for y in rand(Y, R))
+ϕ(x, Y) = -lprior(x) - N/R*sum(log(f(y, x)) for y in rand(Y, R))
 ∇ϕ(x, i, Y) = partiali(ϕ, x, i, Y)
 
 using LinearAlgebra
@@ -89,7 +89,7 @@ end
 m = median.(ms)
 r = range(0, 40, length=200)
 p3 = lines(r, [f(y, m) for y in r])
-linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=n)])
+linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=N)])
 
 p = hbox(title(p3, "est. density and obs."), title(p2, "Trace p[k]"), title(p1, "Trace μ[k] ± σ[k]"))
 save("galaxy.png", title(p, "Galaxy dataset"))

@@ -41,7 +41,6 @@ end
 # end
 
 
-
 function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
     while true
@@ -50,11 +49,9 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
         if refresh
             θ[i] = sqrt(F.Γ[i,i])\randn()
             #renew refreshment
-            enqueue!(Q, (true, i)=> t[i] + poisson_time(F.λref, 0.0, rand()))
+            enqueue!(Q, (true, i)=> t[i] + poisson_time(F.λref))
             #update reflections
-            Q[(false, i)] = t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand())
             for j in neighbours(G, i)
-                j == i && continue
                 Q[(false, j)] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
@@ -68,7 +65,7 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
                     !adapt && error("Tuning parameter `c` too small.")
                     c[i] *= factor
                 end
-                θ = reflect!(i, θ, x, F)
+                θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
                     Q[(false, j)] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
                 end
@@ -80,6 +77,13 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
     end
 end
 
+"""
+    spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
+        factor=1.5, adapt=false)
+
+Version of spdmp which assumes that `i` only depends on coordinates
+`x[j] for j in neighbours(G, i)`.
+"""
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
     #sparsity graph
@@ -92,7 +96,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     for i in eachindex(θ)
         enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
         if hasrefresh(F)
-            enqueue!(Q, (true, i)=>poisson_time(F.λref, 0.0, rand()))
+            enqueue!(Q, (true, i)=>poisson_time(F.λref))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
