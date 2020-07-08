@@ -1,4 +1,8 @@
+"""
+    FactTrace
 
+See [Trace](@ref).
+"""
 struct FactTrace{FT,T,S,S2,R}
     F::FT
     t0::T
@@ -7,7 +11,15 @@ struct FactTrace{FT,T,S,S2,R}
     events::R
 end
 
+"""
+    Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang})
 
+Trace object for exact trajectory of pdmp samplers. Returns an iterable `FactTrace` object.
+Note that iteration iterates pairs `t => x` where the vector `x` is modified
+inplace, so copies have to be made if the `x` is to be saved.
+`collect` applied to a trace object automatically copies `x`.
+`discretize`[@ref] returns a discretized version.
+"""
 Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 
 Base.length(FT::FactTrace) = 1 + length(FT.events)
@@ -29,9 +41,6 @@ function Base.iterate(FT::FactTrace, (t, x, θ, k))
 end
 
 
-
-
-
 Base.push!(FT::FactTrace, ev) = push!(FT.events, ev)
 Base.collect(FT::FactTrace) = collect(t=>copy(x) for (t, x) in FT)
 
@@ -40,6 +49,16 @@ struct Discretize{T, S}
     dt::S
 end
 Base.IteratorSize(::Discretize) = Iterators.SizeUnknown()
+
+"""
+    discretize(trace::FactTrace, dt)
+
+Discretize `trace` with step-size dt. Returns iterable object
+iterating pairs `t => x`.
+
+Iteration changes the vector `x` inplace,
+`collect` creates copies.
+"""
 discretize(FT, dt) = Discretize(FT, dt)
 
 function Base.iterate(D::Discretize{<:FactTrace})
@@ -48,20 +67,19 @@ function Base.iterate(D::Discretize{<:FactTrace})
     t => x, (t, x, θ, 1)
 end
 
-function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:ZigZag}
+function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Union{FactBoomerang,ZigZag}}
     dt = D.dt
     FT = D.FT
     while true
         k > length(FT.events) && return nothing
         ti, i, xi, θi = FT.events[k]
         if t + dt < ti
-            t += dt
-            x .+= dt .* θ
+            t, x, θ = move_forward!(dt, t, x, θ, FT.F)
             return t => (x), (t, x, θ, k)
         else # move not more than to ti to change direction
             Δt = ti - t
             dt = dt - Δt
-            x .+= Δt .* θ
+            t, x, θ = move_forward!(Δt, t, x, θ, FT.F)
             t = ti
             x[i] = xi
             θ[i] = θi
@@ -70,35 +88,6 @@ function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Zi
     end
 end
 
-function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:FactBoomerang}
-    dt = D.dt
-    FT = D.FT
-    while true
-        k > length(FT.events) && return nothing
-        ti, i, xi, θi = FT.events[k]
-        if t + dt < ti
-            t += dt
-            # x_new = (x .- B.μ)*cos(dt) .+ θ*sin(dt) .+ B.μ
-            # θ .= -(x .- B.μ)*sin(dt) .+ θ*cos(dt)
-            x_new = (x)*cos(dt) .+ θ*sin(dt)
-            θ .= -(x)*sin(dt) .+ θ*cos(dt)
-            x .= x_new
-            return t => (x), (t, x, θ, k)
-        else # move not more than to ti to change direction
-            Δt = ti - t
-            dt = dt - Δt
-            # x_new = (x .- B.μ)*cos(Δt) .+ θ*sin(Δt) .+ B.μ
-            # θ .= -(x .- B.μ)*sin(Δt) .+ θ*cos(Δt)
-            x_new = (x)*cos(Δt) .+ θ*sin(Δt)
-            θ .= -(x)*sin(Δt) .+ θ*cos(Δt)
-            x .= x_new
-            t = ti
-            x[i] = xi
-            θ[i] = θi
-            k = k + 1
-        end
-    end
-end
 function Base.collect(D::Discretize{<:FactTrace})
     collect(t=>copy(x) for (t, x) in D)
 end

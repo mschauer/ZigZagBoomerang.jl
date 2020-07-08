@@ -1,32 +1,7 @@
-"""
-    move_forward(τ, t, x, θ, ::ZigZag1d)
-Updates the position `x`, velocity `θ` and time `t` of the
-process after a time step equal to `τ` according to the deterministic
-dynamics of the `ZigZag1d` sampler: (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
-`x`: current location, `θ`: current velocity, `t`: current time,
-"""
-function move_forward(τ, t, x, θ, ::ZigZag1d)
-    τ + t, x + θ*τ , θ
-end
-
-
-"""
-    move_forward(τ, t, x, θ, B::Boomerang1d)
-Updates the position `x`, velocity `θ` and time `t` of the
-process after a time step equal to `τ` according to the deterministic
-dynamics of the `Boomerang1d` sampler: x_t = μ +(x_0 − μ)*cos(t) + v_0*sin(t),
-v_t = −(x_0 − μ)*sin(t) + v_0*cos(t)
-`x`: current location, `θ`: current velocity, `t`: current time.
-"""
-function move_forward(τ, t, x, θ, B::Boomerang1d)
-    x_new = sqrt(B.Σ)*((x - B.μ)/sqrt(B.Σ)*cos(τ) + θ*sin(τ)) + B.μ
-    θ = -(x - B.μ)/sqrt(B.Σ)*sin(τ) + θ*cos(τ)
-    t + τ, x_new, θ
-end
-
 # This could work for  ZigZag1d as well
 """
     move_forward!(τ, t, x, θ, Z::Union{Bps, ZigZag})
+    
 Updates the position `x`, velocity `θ` and time `t` of the
 process after a time step equal to `τ` according to the deterministic
 dynamics of the Buoncy particle sampler (`Bps`) and `ZigZag`:
@@ -58,14 +33,41 @@ function move_forward!(τ, t, x, θ, B::Union{Boomerang, FactBoomerang})
     t + τ, x, θ
 end
 
+"""
+        reflect!(i, x, θ, F)
 
+Reflection rule of sampler `F` at reflection time.
+`i`: coordinate which flips sign, `x`: position, `θ`: velocity (position
+not used for the `ZigZag` and `FactBoomerang`.)
 """
-        reflect!(i, θ, x, Z)
-Reflection rule of `ZigZag` sampler at reflection time.
-`i`: coordinate which flips sign, `θ`: velocity, `x`: position (not used for
-the `ZigZag`)
-"""
-function reflect!(i, θ, x, F::Union{ZigZag, FactBoomerang})
+function reflect!(i, x, θ, F::Union{ZigZag, FactBoomerang})
     θ[i] = -θ[i]
     θ
+end
+
+"""
+    move_forward(τ, t, x, θ, ::ZigZag1d)
+
+Updates the position `x`, velocity `θ` and time `t` of the
+process after a time step equal to `τ` according to the deterministic
+dynamics of the `ZigZag1d` sampler: (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
+`x`: current location, `θ`: current velocity, `t`: current time,
+"""
+function move_forward(τ, t, x, θ, ::ZigZag1d)
+    τ + t, x + θ*τ , θ
+end
+
+
+"""
+    move_forward(τ, t, x, θ, B::Boomerang1d)
+Updates the position `x`, velocity `θ` and time `t` of the
+process after a time step equal to `τ` according to the deterministic
+dynamics of the `Boomerang1d` sampler: x_t = μ +(x_0 − μ)*cos(t) + v_0*sin(t),
+v_t = −(x_0 − μ)*sin(t) + v_0*cos(t)
+`x`: current location, `θ`: current velocity, `t`: current time.
+"""
+function move_forward(τ, t, x, θ, B::Boomerang1d)
+    x_new = sqrt(B.Σ)*((x - B.μ)/sqrt(B.Σ)*cos(τ) + θ*sin(τ)) + B.μ
+    θ = -(x - B.μ)/sqrt(B.Σ)*sin(τ) + θ*cos(τ)
+    t + τ, x_new, θ
 end

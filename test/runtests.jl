@@ -44,7 +44,7 @@ out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, ZigZag1d())
     est = 1/T*sum((eventposition.(out1)[1:end-1] + eventposition.(out1)[2:end])/2 .* diff(eventtime.(out1)))
     @test abs(est - pi/2) < 2/sqrt(length(out1))
     dt = 0.01
-    traj = ZigZagBoomerang.discretization(out1, ZigZag1d(), dt)
+    traj = ZigZagBoomerang.discretize(out1, ZigZag1d(), dt)
     @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
     @test abs(est - pi/2) < 2/sqrt(length(out1))
@@ -67,7 +67,7 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
 @testset "Boomerang1d" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
-    traj = ZigZagBoomerang.discretization(out2, B, dt)
+    traj = ZigZagBoomerang.discretize(out2, B, dt)
     @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
     @test abs(est - pi/2) < 5/sqrt(length(out2))
@@ -89,7 +89,7 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, B)
 @testset "Boomerang1dNoncentredSub" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
-    traj = ZigZagBoomerang.discretization(out2, B, dt)
+    traj = ZigZagBoomerang.discretize(out2, B, dt)
     @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
     @test abs(est - pi/2) < 5/sqrt(length(out2))

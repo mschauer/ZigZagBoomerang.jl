@@ -1,13 +1,13 @@
 using Trajectories
-# For plotting: discretization of the circular dynamics
+# For plotting: discretize of the circular dynamics
 
 """
-    discretization(x::Vector{Skeleton}, Flow::Boomerang, dt)
+    discretize(x::Vector, Flow, dt)
 
-Tansform the output of the algorithm (a skeleton of points) to
-a trajectory.
+Transform the output of the algorithm (a skeleton of points) to
+a trajectory. Simple 1-d version.
 """
-function discretization(x::Vector, Flow, dt0)
+function discretize(x::Vector, Flow, dt0)
     k = 1
     _, ξ, θ = x[k]
     τ = x[k+1][1]
