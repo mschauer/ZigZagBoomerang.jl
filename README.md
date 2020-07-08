@@ -17,8 +17,11 @@ Currently the local ZigZag and the factorized isotropic Boomerang are implemente
 
 <img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/localzigzag3d.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/factboom3d.png" width="300">
 
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf10.png" width="200"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf30.png" width="200"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf50.png" width="200">
 
-## Example
+Showing mixing and convergence from white noise to a Gaussian random field: ZigZag after 10, after 30, after 50 time units. See the script folder for the example and a video.
+
+## Examples
 See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 
 ```julia
