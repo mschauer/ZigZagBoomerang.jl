@@ -13,11 +13,12 @@ include("poissontime.jl")
 export poisson_time
 
 include("fact_samplers.jl")
+include("sfact.jl")
 
 
 
 include("zigzagboom1d.jl")
-export pdmp, eventtime, eventposition
+export pdmp, spdmp, eventtime, eventposition
 
 
 include("trace.jl")

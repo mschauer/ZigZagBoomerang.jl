@@ -120,7 +120,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, x, θ, Q, t, c, (acc, num),
                 !adapt && error("Tuning parameter `c` too small.")
                 c[i] *= factor
             end
-                             θ = reflect!(i, θ, x, F)
+            θ = reflect!(i, θ, x, F)
             for j in neighbours(G, i)
                 j == i && continue
                 Q[(false, j)] = t + poisson_time(ab(G, j, x, θ, c, F)..., rand())
@@ -139,7 +139,7 @@ end
 
 Outer loop of the factorised samplers: the Factorised Boomerang algorithm
 and the Zig-Zag sampler. Inputs: `i`th element of gradient of negative log density
-`∇ϕ(x, i, args...)`, starting time and position `t0, x0`, 
+`∇ϕ(x, i, args...)`, starting time and position `t0, x0`,
 velocity `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
 
 The process moves at to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
