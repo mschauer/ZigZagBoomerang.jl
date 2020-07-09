@@ -13,6 +13,8 @@ include("poissontime.jl")
 export poisson_time
 
 include("fact_samplers.jl")
+include("priorityqueue.jl")
+#const SPriorityQueue = PriorityQueue
 include("sfact.jl")
 
 

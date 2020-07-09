@@ -26,33 +26,21 @@ function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
 end
 
 
-#
-# function λ(∇ϕ, i, x, θ, Z::ZigZag, args...)
-#     pos(∇ϕ(x, i, args...)*θ[i])
-# end
-# function ab(G, i, x, θ, c, Z::ZigZag)
-#     a = c[i] + θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ))
-#     b = θ[i]*idot(Z.Γ, i, θ)
-#     a, b
-# end
-# λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
-# function event(i, t, x, θ, Z::Union{ZigZag,FactBoomerang})
-#     t, i, x[i], θ[i]
-# end
-
-
 function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+    n = length(x)
     while true
-        (refresh, i), t′ = dequeue_pair!(Q)
+        ii, t′ = peek(Q)
+        refresh = ii > n
+        i = ii - refresh*n
         t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
         if refresh
             θ[i] = sqrt(F.Γ[i,i])\randn()
             #renew refreshment
-            enqueue!(Q, (true, i)=> t[i] + poisson_time(F.λref))
+            Q[(n + i)] = t[i] + poisson_time(F.λref)
             #update reflections
             for j in neighbours(G, i)
-                Q[(false, j)] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                Q[j] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
             return t, x, θ, t′, (acc, num), c
@@ -67,12 +55,12 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
                 end
                 θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
-                    Q[(false, j)] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                    Q[j] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
                 end
                 push!(Ξ, event(i, t, x, θ, F))
                 return t, x, θ, t′, (acc, num), c
             end
-            enqueue!(Q, (false, i) => t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
+            Q[i] = t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand())
         end
     end
 end
@@ -87,16 +75,19 @@ Version of spdmp which assumes that `i` only depends on coordinates
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
     #sparsity graph
+    n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     x, θ = copy(x0), copy(θ0)
     num = acc = 0
-    Q = PriorityQueue{Tuple{Bool, Int64},Float64}()
+    Q = SPriorityQueue{Int,Float64}()
     for i in eachindex(θ)
-        enqueue!(Q, (false, i)=>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
-        if hasrefresh(F)
-            enqueue!(Q, (true, i)=>poisson_time(F.λref))
+        enqueue!(Q, i =>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
+    end
+    if hasrefresh(F)
+        for i in eachindex(θ)
+            enqueue!(Q, (n + i)=>poisson_time(F.λref))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
