@@ -10,15 +10,19 @@ using Makie
 
 include("gridlaplace.jl")
 
-# Define precision operator of a Gaussian random field
+# Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 n = 100
-Γ = 0.1I + gridlaplacian(Float64, n, n)
+Γ = 0.01I + gridlaplacian(Float64, n, n)
+mat(x) = reshape(x, (n, n)) # vector to matrix
 
 # Γ is very sparse
 @show nnz(Γ)/length(Γ) # 0.000496
 
-# ∇ϕ gives the negative partial derivative of log density
-∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # partial derivative of ϕ(x) with respect to x[i]
+# Corresponding Gaussian potential
+# ϕ(x', Γ) = 0.5*x'*Γ*x  # not needed
+
+# Define ∇ϕ(x, i, Γ) giving the partial derivative of ϕ(x) with respect to x[i]
+∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # more efficient that dot(Γ[:, i], x)
 
 # Random initial values
 t0 = 0.0
@@ -46,7 +50,7 @@ zlims!(p1, -2.0, 2.0)
 
 # Movie frames
 mkpath(joinpath(@__DIR__, "output"))
-for i in eachindex(traj)
+for i in Iterators.take(eachindex(traj), 100)
     M[] = mat(traj[i].second)
     FileIO.save(joinpath(@__DIR__, "output", "surf$i.png"), p1)
 end
