@@ -50,8 +50,8 @@ nsigmoid(x) = -sigmoid(x)
 ∇ϕ(x, i, A, At, y, ny = n .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
 
 # Tests, to be sure
-@test norm(ReverseDiff.gradient(x->ϕ(x, A, y_), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
-@test norm(ReverseDiff.gradient(x->ϕ(x, A, y_), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
+@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
+@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
 
 # Some Newton steps towards the mode as starting point
 x0 = rand(p)

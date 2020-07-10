@@ -114,7 +114,8 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
             push!(Ξ, event(i, t, x, θ, F))
             return t, x, θ, (acc, num), c
         else
-            l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
+            a, b = ab(G, i, x, θ, c, F)
+            l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a)
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -129,7 +130,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
                 push!(Ξ, event(i, t, x, θ, F))
                 return t, x, θ, (acc, num), c
             end
-            enqueue!(Q, (false, i)=>t + poisson_time(ab(G, i, x, θ, c, F)..., rand()))
+            enqueue!(Q, (false, i)=>t + poisson_time(a, b, rand()))
         end
     end
 end
