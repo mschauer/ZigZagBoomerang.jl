@@ -65,7 +65,7 @@ end
 
 # Note that the hessian has the same sparsity structure as ∇ϕ
 # and we can use it to tune the doubly local ZigZig with spdmp
-@time Γ = 0.1I + sparse(ReverseDiff.hessian(x->ϕ(x, A, y), x0))
+@time Γ = sparse(ReverseDiff.hessian(x->ϕ(x, A, y), x0))
 μ = copy(x0)
 
 println("Precision Γ is ", 100*nnz(Γ)/length(Γ), "% sparse")
@@ -75,16 +75,25 @@ t0 = 0.0
 θ0 = rand([-1.0,1.0], p)
 
 # Rejection bounds
-c = 2*[norm(Γ[:, i], 2) for i in 1:p]
 
 # Define ZigZag
+c = [norm(Γ[:, i], 2) for i in 1:p]
 Z = ZigZag(Γ, μ)
+T = 200.0
+
+# Or try Boomerang
+if false
+θ0 = [sqrt(Γ[i, i])\randn() for i in 1:p]
+Z = FactBoomerang(Γ, μ, 1/25)
+c = 0.1*[norm(Γ[:, i], 2) for i in 1:p]
+T = 2000.0
+end
 
 # Run sparse ZigZag for T time units and collect trajectory
-T = 200.0
-traj, _, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, n .- y, adapt=true)
+
+traj, _, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, n .- y)
 @show maximum(c ./ (2*[norm(Γ[:, i], 2) for i in 1:p]))
-dt = 0.05
+dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
 X = Float64[]
 for (t,x) in discretize(traj, dt)
@@ -112,5 +121,5 @@ for i in 1:p0
     lines!(p1, [0, T], [xtrue[i], xtrue[i]], color=cs[i], linewidth=2.0)
 end
 p1 = title(p1, "Sparse logistic regression p=$p")
-save(joinpath("figures","logistic.png"), p1)
+save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
 p1
