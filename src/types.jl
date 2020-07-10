@@ -20,21 +20,24 @@ end
 
 """
     Bps(λ) <: ContinuousDynamics
-
+Input: argument `Γ`, a sparse precision matrix approximating target precision.
 Bouncy particle sampler,  `λ` is the refreshment rate, which has to be
 strictly positive.
 """
-struct Bps{T} <: ContinuousDynamics
-    λref::T
+struct Bps{T, S, R} <: ContinuousDynamics
+    Γ::T
+    μ::S
+    λref::R
 end
 
 """
     Boomerang(μ, λ) <: ContinuousDynamics
 
-Dynamics preserving the `N(μ, I)` measure (Boomerang)
+Dynamics preserving the `N(μ, Σ)` measure (Boomerang)
 with refreshment time `λ`
 """
-struct Boomerang{T, S} <: ContinuousDynamics
+struct Boomerang{R, T, S, U} <: ContinuousDynamics
+    Γ::U
     μ::T
     λref::S
 end

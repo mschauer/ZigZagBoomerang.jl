@@ -71,3 +71,11 @@ function move_forward(τ, t, x, θ, B::Boomerang1d)
     θ = -(x - B.μ)/sqrt(B.Σ)*sin(τ) + θ*cos(τ)
     t + τ, x_new, θ
 end
+
+"""
+    reflect!(∇ϕx, θ, F::Bps, Boomerang)
+
+Reflection rule of sampler `F` at reflection time.
+x`: position, `θ`: velocity
+"""
+reflect!(∇ϕx, θ, x, ::Union{Bps, Boomerang}) = θ - 2*dot(∇ϕx, θ)/normsq(∇ϕx)*∇ϕx
