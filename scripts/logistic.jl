@@ -30,6 +30,8 @@ y = sum(y_, dims=2)[:]
 γ0 = 0.01 # prior precision
 ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (n .- y) .* lsigmoid.(-A*x))
 
+
+# Sparse gradient
 # helper functions for sparse gradient
 function fdot(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y)
    rows = rowvals(A)
@@ -43,7 +45,7 @@ end
 sigmoidn(x) = sigmoid(-x)
 nsigmoid(x) = -sigmoid(x)
 
-# Gradient
+# Gradient (found using http://www.matrixcalculus.org/ S. Laue, M. Mitterreiter, and J. Giesen. A Simple and Efficient Tensor Calculus, AAAI 2020.)
 ∇ϕ(x, A, At, y) = γ0*x - A'*(y .* sigmoidn.(A*x)) - A'*((n .- y).*nsigmoid.(A*x))
 
 # Element i of the gradient exploiting sparsity
@@ -82,7 +84,7 @@ Z = ZigZag(Γ, μ)
 T = 200.0
 traj, _, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, n .- y, adapt=true)
 @show maximum(c ./ (2*[norm(Γ[:, i], 2) for i in 1:p]))
-dt = 0.5
+dt = 0.05
 x̂ = mean(x for (t,x) in discretize(traj, dt))
 X = Float64[]
 for (t,x) in discretize(traj, dt)
@@ -104,9 +106,11 @@ cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
 p1 = scatter(fill(T, p), xtrue, markersize=0.01)
 scatter!(p1, fill(T, p0), xtrue[1:p0], markersize=0.2, color=cs)
 for i in 1:p0
-    lines!(p1, [0, T], [xtrue[i], xtrue[i]], color=cs[i], linestyle=:dot )
     lines!(p1, 0:dt:T, X[i, :], color=cs[i])
 end
+for i in 1:p0
+    lines!(p1, [0, T], [xtrue[i], xtrue[i]], color=cs[i], linewidth=2.0)
+end
 p1 = title(p1, "Sparse logistic regression p=$p")
-save("logistic.png", p1)
+save(joinpath("figures","logistic.png"), p1)
 p1
