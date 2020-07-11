@@ -16,7 +16,8 @@ function ab(x, θ, c, B::Bps)
 end
 
 function ab(x, θ, c, B::Boomerang)
-    (sqrt(normsq(θ) + normsq((x - B.μ)))*c, zero(x))
+    G = B.Γ .!= 0
+    (sqrt(normsq(G*θ) + normsq(G*(x - B.μ)))*c, zero(x))
 end
 
 waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
