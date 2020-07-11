@@ -5,12 +5,11 @@ eventposition(x) = x[2]
 λ(∇ϕ, x, θ, F::ZigZag1d) = pos(θ*∇ϕ(x))
 λ(∇ϕ, x, θ, B::Boomerang1d) = pos(θ*(∇ϕ(x) - (x - B.μ)/(B.Σ)))
 
-# affine bounds for Zig-Zag
+# affine bounds
 λ_bar(τ, a, b) = pos(a + b*τ)
 
 # constant bound for Boomerang1d with global bounded |∇ϕ(x)|
 # suppose |∇ϕ(x, :Boomerang1d)| ≤ C. Then λ(x(t),θ(t)) ≤ C*sqrt(x(0)^2 + θ(0)^2)
-#λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c #Global bound
 
 # waiting times
 ab(x, θ, c, ::ZigZag1d) = (c + θ*x, θ^2)
