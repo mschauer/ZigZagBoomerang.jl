@@ -128,15 +128,15 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 for j in neighbours(G, i)
                     a[j], b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t
-                    Q[(false, j)] = t + poisson_time(a[j],b[j], rand())
+                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
                 end
                 push!(Ξ, event(i, t, x, θ, F))
                 return t, x, θ, (acc, num), c
             end
-            #Move a, b, t_old inside the queue as auxiliary variables
+            # Move a, b, t_old inside the queue as auxiliary variables
             a[i], b[i]= ab(G, i, x, θ, c, F)
             t_old[i] = t
-            enqueue!(Q, (false, i)=>t + poisson_time(a[i], b[i], rand()))
+            enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand()))
         end
     end
 end
@@ -176,7 +176,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
     for i in eachindex(θ)
         a[i], b[i] = ab(G, i, x, θ, c, F)
         t_old[i] = t
-        enqueue!(Q, (false, i)=>poisson_time(a[i], b[i], rand()))
+        enqueue!(Q, (false, i) => poisson_time(a[i], b[i], rand()))
         if hasrefresh(F)
             enqueue!(Q, (true, i)=>poisson_time(F.λref))
         end
