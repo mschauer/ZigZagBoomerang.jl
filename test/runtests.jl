@@ -51,10 +51,11 @@ out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, ZigZag1d())
     est2 = var(traj.x)
     @test abs(est2 - σ2) < 2/sqrt(length(out1))
     c = 10.0
-    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag1d())
-    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag1d()) ≈ a + b*0.3
-    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag1d())
-    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag1d()) ≈ a + b*0.3
+# λ_bar is not commutative
+#    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag1d())
+#    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag1d()) ≈ a + b*0.3
+#    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag1d())
+#    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag1d()) ≈ a + b*0.3
 
 end
 
@@ -76,9 +77,10 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
 
     c = 10.0
     τ = 0.3
-    a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
-    _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
-    @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
+# λ_bar is not commutative      
+#    a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
+#    _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
+#    @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
 
 end
 

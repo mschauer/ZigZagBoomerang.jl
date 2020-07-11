@@ -6,11 +6,11 @@ eventposition(x) = x[2]
 λ(∇ϕ, x, θ, B::Boomerang1d) = pos(θ*(∇ϕ(x) - (x - B.μ)/(B.Σ)))
 
 # affine bounds for Zig-Zag
-λ_bar(x, θ, c, ::ZigZag1d) = pos(c + θ*x)
+λ_bar(τ, a, b) = pos(a + b*τ)
 
 # constant bound for Boomerang1d with global bounded |∇ϕ(x)|
 # suppose |∇ϕ(x, :Boomerang1d)| ≤ C. Then λ(x(t),θ(t)) ≤ C*sqrt(x(0)^2 + θ(0)^2)
-λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c #Global bound
+#λ_bar(x, θ, c, B::Boomerang1d) = sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c #Global bound
 
 # waiting times
 ab(x, θ, c, ::ZigZag1d) = (c + θ*x, θ^2)
@@ -36,22 +36,24 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
     scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
     T = T*scaleT
     t = zero(T)
-    Ξ = [(zero(x), x, θ)]
-    τref = waiting_time_ref(Flow)
+    Ξ = [(t, x, θ)]
+    t_ref = t + waiting_time_ref(Flow)
     num = acc = 0
-    τ =  poisson_time(ab(x, θ, c, Flow)..., rand())
+    a, b = ab(x, θ, c, Flow)
+    t′ =  t + poisson_time(a, b, rand())
     while t < T
-        if τref < τ
-            t, x, θ = move_forward(τref, t, x, θ, Flow)
+        if t_ref < t′
+            τ = t_ref - t
+            t, x, θ = move_forward(τ, t, x, θ, Flow)
             θ = randn()
-            τref = waiting_time_ref(Flow)
-            τ =  poisson_time(ab(x, θ, c, Flow)..., rand())
+            t_ref = t +  waiting_time_ref(Flow)
+            a, b = ab(x, θ, c, Flow)
+            t′ = t + poisson_time(a, b, rand())
             push!(Ξ, (t, x, θ))
         else
+            τ = t′ - t
             t, x, θ = move_forward(τ, t, x, θ, Flow)
-            τref -= τ
-            τ = poisson_time(ab(x, θ, c, Flow)..., rand())
-            l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(x, θ, c, Flow)
+            l, lb = λ(∇ϕ, x, θ, Flow), λ_bar(τ, a, b)
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -63,6 +65,8 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
                         # reflection symmetric on the normal vector of the contour
                 push!(Ξ, (t, x, θ))
             end
+            a, b = ab(x, θ, c, Flow)
+            t′ = t + poisson_time(a, b, rand())
         end
     end
     return Ξ, acc/num
