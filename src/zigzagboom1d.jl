@@ -43,12 +43,9 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
     t′ =  t + poisson_time(a, b, rand())
     while t < T
         if t_ref < t′
-            τ = t_ref - t
-            t, x, θ = move_forward(τ, t, x, θ, Flow)
+            t, x, θ = move_forward(t_ref - t, t, x, θ, Flow)
             θ = randn()
             t_ref = t +  waiting_time_ref(Flow)
-            a, b = ab(x, θ, c, Flow)
-            t′ = t + poisson_time(a, b, rand())
             push!(Ξ, (t, x, θ))
         else
             τ = t′ - t
@@ -65,9 +62,9 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
                         # reflection symmetric on the normal vector of the contour
                 push!(Ξ, (t, x, θ))
             end
-            a, b = ab(x, θ, c, Flow)
-            t′ = t + poisson_time(a, b, rand())
         end
+        a, b = ab(x, θ, c, Flow)
+        t′ = t + poisson_time(a, b, rand())
     end
     return Ξ, acc/num
 end
