@@ -14,15 +14,16 @@ println("Sparse logistic regression")
 
 # Design matrix
 Random.seed!(2)
-p = 800
-p2 = 8000
-const n = 10
+p = 1000
+p2 = 10000
+const n = 2
 A = Diagonal(1 .+ 0.1rand(p2))*repeat(sparse(I,p,p), inner=(p2÷p, 1)) + 0.2sprandn(p2, p, 0.003)
-println("Av. number of regressors per column: ", mean(sum(A .!= 0, dims=1)))
+println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", row ", mean(sum(A .!= 0, dims=2)))
+
 At = SparseMatrixCSC(A')
 γ0 = 0.01
 # Data from the model
-xtrue = sqrt(γ0)\randn(p)
+xtrue = 5*randn(p)
 sigmoid(x) = inv(one(x) + exp(-x))
 lsigmoid(x) = -log(one(x) + exp(-x))
 y_ = Matrix(rand(p2, n) .< sigmoid.(A*xtrue))
@@ -35,22 +36,24 @@ ny = n .- y
 
 # Sparse gradient
 # helper functions for sparse gradient
-function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y, k)
-   rows = rowvals(A)
-   vals = nonzeros(A)
-   s = zero(eltype(A))
-   l = length(nzrange(A, j))
-   @inbounds for i in rand(nzrange(A, j), k)
-       s += k/l*vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
-   end
-   s
-end
 function fdot(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y)
    rows = rowvals(A)
    vals = nonzeros(A)
    s = zero(eltype(A))
    @inbounds for i in nzrange(A, j)
        s += vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
+   end
+   s
+end
+
+# helper function for sparse gradient estimate through subsampling
+function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y, k)
+   rows = rowvals(A)
+   vals = nonzeros(A)
+   s = zero(eltype(A))
+   l = length(nzrange(A, j))
+   @inbounds for i in rand(nzrange(A, j), k)
+       s += l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
    end
    s
 end
@@ -62,6 +65,7 @@ nsigmoid(x) = -sigmoid(x)
 
 # Element i of the gradient exploiting sparsity
 ∇ϕ(x, i, A, At, y, ny = n .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
+# Element i of the gradient exploiting sparsity and random subsampling
 ∇ϕr(x, i, A, At, y, ny = n .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, y, k) - fdotr(A, At, nsigmoid, i, x, ny, k)
 
 # Tests, to be sure
@@ -117,6 +121,7 @@ end
 @show norm(x0 - xtrue)
 
 traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, n .- y, 5; adapt=true)
+#traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, n .- y; adapt=true)
 @show maximum(c ./ ([norm(Γ[:, i], 2) for i in 1:p]))
 
 if false
@@ -147,15 +152,17 @@ using Makie
 using Colors
 using GoldenSequences
 
-p0 = 20
+Random.seed!(1)
+p0 = 6
+ps = rand(1:p, p0)
 cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
 p1 = scatter(fill(T, p), xtrue, markersize=0.01)
-scatter!(p1, fill(T, p0), xtrue[1:p0], markersize=0.2, color=cs)
+scatter!(p1, fill(T, p0), xtrue[ps], markersize=0.2, color=cs)
 for i in 1:p0
-    lines!(p1, ts, X[i, :], color=cs[i])
+    lines!(p1, ts, X[ps[i], :], color=cs[i])
 end
 for i in 1:p0
-    lines!(p1, [0, T], [xtrue[i], xtrue[i]], color=cs[i], linewidth=2.0)
+    lines!(p1, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
 end
 p1 = title(p1, "Sparse logistic regression p=$p")
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
