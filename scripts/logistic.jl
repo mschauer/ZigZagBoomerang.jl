@@ -85,6 +85,7 @@ nsigmoid(x) = -sigmoid(x)
 #norm(xtrue - x0)
 
 # Some Newton steps towards the mode as starting point
+println("Newton steps")
 x0 = 0.1rand(p)
 @time for i in 1:30
     global x0
@@ -124,21 +125,14 @@ if false
 end
 
 # Run sparse ZigZag for T time units and collect trajectory
+println("Distance starting point")
 @show norm(x0 - xtrue)
 
-traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, m .- y, 5; adapt=true)
+println("Run spdmp")
+traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, m .- y, 15; adapt=true)
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show maximum(c ./ ([norm(Γ[:, i], 2) for i in 1:p]))
 
-if false
-    x, θ = u[2], u[3]
-    Γ = hcat((sparse(ReverseDiff.gradient(x -> ∇ϕ(x, i, A, At, y), x)) for i in 1:p)...)
-    μ = copy(x)
-    @show norm(x - xtrue)
-    Z = ZigZag(Γ, μ)
-    c = 4*[norm(Γ[:, i], 2) for i in 1:p] # Rejection bounds
-    traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x, θ, T, c, Z, A, At, y, m .- y, adapt=false)
-end
 dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
 X = Float64[]
@@ -154,6 +148,7 @@ X = reshape(X, p, length(X)÷p)
 @show norm(xtrue - μ)
 @show norm(xtrue - x̂)
 
+println("Plot")
 using Makie
 using Colors
 using GoldenSequences
