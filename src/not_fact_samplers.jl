@@ -1,23 +1,20 @@
 # Implementation of d dimesional Boomerang and Bouncy particle sampler (the two
 # most known not-factorised PDMC)
 using LinearAlgebra
-∇ϕ(x, F::Bps) = ∇ϕ(x)
-∇ϕ(x, F::Boomerang) =  ∇ϕ(x) - (x - B.μ)
-λ(∇ϕx, θ F::Union{Bps, Boomerang}) = pos(dot(θ,∇ϕ(x, F)))
+λ(∇ϕx, θ, F::Union{Bps, Boomerang}) = pos(dot(∇ϕx, θ))
 
 # affine bounds for any commutative upper bound
-λ_bar(x, θ, c, F::Union{Bps, Boomerang}) = pos(a + b*t)
+λ_bar(t, a, b) = pos(a + b*t)
 
 # waiting times uses local structure
 # Here use sparsity as the factorised samplers
 function ab(x, θ, c, B::Bps)
-    a = c + θ'*B.Γ*x
-    b = θ'*B.Γ*x
+    (a = c + θ'*B.Γ*x, b = θ'*B.Γ*θ)
 end
 
 function ab(x, θ, c, B::Boomerang)
     G = B.Γ .!= 0
-    (sqrt(normsq(G*θ) + normsq(G*(x - B.μ)))*c, zero(x))
+    (sqrt(normsq(G*θ) + normsq(G*(x - B.μ)))*c, 0.0)
 end
 
 waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
@@ -44,17 +41,17 @@ function pdmp(∇ϕ, t, x, θ, T, c, Flow::Union{Bps, Boomerang}; adapt=false, f
     t′ =  t + poisson_time(ab(x, θ, c, Flow)..., rand())
     while t < T
         if τref < t′
-            t, x, θ = move_forward(τref - t, t, x, θ, Flow)
-            θ = randn(dot(θ,∇ϕ(x, F)))
+            t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
+            θ = randn(dot(θ,∇ϕ(x, Flow)))
             τref = t + waiting_time_ref(Flow)
             a, b = ab(x, θ, c, Flow)
             t′ = t + poisson_time(a,b, rand())
             push!(Ξ, (t, x, θ))
         else
             τ = t′ - t
-            t, x, θ = move_forward(τ, t, x, θ, Flow)
-            ∇ϕx = ∇ϕx(x, F)
-            l, lb = λ(∇ϕx, θ), λbar(τ, a,b)
+            t, x, θ = move_forward!(τ, t, x, θ, Flow)
+            ∇ϕx = ∇ϕ(x, Flow)
+            l, lb = λ(∇ϕx, θ, Flow), λbar(τ, a,b)
             num += 1
             if rand()*lb < l
                 acc += 1

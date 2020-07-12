@@ -36,12 +36,12 @@ end
 Dynamics preserving the `N(μ, Σ)` measure (Boomerang)
 with refreshment time `λ`
 """
-struct Boomerang{R, T, S, U} <: ContinuousDynamics
+struct Boomerang{U, T, S} <: ContinuousDynamics
     Γ::U
     μ::T
     λref::S
 end
-
+Boomerang(Γ, λ) = Boomerang(Γ, 0.0, λ)
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 
