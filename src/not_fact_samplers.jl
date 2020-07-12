@@ -1,10 +1,8 @@
-# Implementation of d dimesional Boomerang and Bouncy particle sampler (the two
+# Implementation of d dimesional Boomerang and Bouncy particle samplers (the two
 # most known not-factorised PDMC)
 using LinearAlgebra
 λ(∇ϕx, θ, F::Union{Bps, Boomerang}) = pos(dot(∇ϕx, θ))
 
-
-# waiting times uses local structure
 # Here use sparsity as the factorised samplers
 function ab(x, θ, c, B::Bps)
     (c + θ'*B.Γ*x, θ'*B.Γ*θ)
@@ -17,13 +15,12 @@ end
 
 waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
 
-
-# Algorithm for one dimensional pdmp (ZigZag1d or Boomerang)
 """
-    pdmp(∇ϕ, x, θ, T, Flow::ContinuousDynamics; adapt=true,  factor=2.0)
+    pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
 
-Run a piecewise deterministic process from location and velocity `x, θ` until time
-`T`. `c` is a tuning parameter for the upper bound of the Poisson rate.
+Run a Bouncy particle sampler (`Bps`) or `Boomerang` sampler from time,
+location and velocity `t0, x0, θ0` until time `T`.
+`c` is a tuning parameter for the upper bound of the Poisson rate.
 If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
 
 Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
