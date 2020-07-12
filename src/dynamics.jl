@@ -1,7 +1,7 @@
 # This could work for  ZigZag1d as well
 """
     move_forward!(τ, t, x, θ, Z::Union{Bps, ZigZag})
-    
+
 Updates the position `x`, velocity `θ` and time `t` of the
 process after a time step equal to `τ` according to the deterministic
 dynamics of the Buoncy particle sampler (`Bps`) and `ZigZag`:
@@ -78,4 +78,4 @@ end
 Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
 """
-reflect!(∇ϕx, θ, x, ::Union{Bps, Boomerang}) = θ - 2*dot(∇ϕx, θ)/normsq(∇ϕx)*∇ϕx
+reflect!(∇ϕx, θ, x, ::Union{Bps, Boomerang}) = θ .-= 2*dot(∇ϕx, θ)/normsq(∇ϕx)*∇ϕx

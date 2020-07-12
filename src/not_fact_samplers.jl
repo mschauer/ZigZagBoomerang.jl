@@ -3,8 +3,6 @@
 using LinearAlgebra
 λ(∇ϕx, θ, F::Union{Bps, Boomerang}) = pos(dot(∇ϕx, θ))
 
-# affine bounds for any commutative upper bound
-λ_bar(t, a, b) = pos(a + b*t)
 
 # waiting times uses local structure
 # Here use sparsity as the factorised samplers
@@ -52,7 +50,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
             ∇ϕx = ∇ϕ(x, Flow)
-            l, lb = λ(∇ϕx, θ, Flow), λ_bar(τ, a,b)
+            l, lb = λ(∇ϕx, θ, Flow), pos(a + b*τ)
             num += 1
             if rand()*lb <= l
                 acc += 1
@@ -60,7 +58,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false
                     !adapt && error("Tuning parameter `c` too small.")
                     c *= factor
                 end
-                reflect!(∇ϕx, θ, x, Flow)
+                θ = reflect!(∇ϕx, θ, x, Flow)
                 push!(Ξ, (t, copy(x), copy(θ)))
             end
         end
