@@ -14,10 +14,16 @@ println("Sparse logistic regression")
 
 # Design matrix
 Random.seed!(2)
-p = 1000
-p2 = 10000
-const n = 2
-A = Diagonal(1 .+ 0.1rand(p2))*repeat(sparse(I,p,p), inner=(p2÷p, 1)) + 0.2sprandn(p2, p, 0.003)
+include("sparsedesign.jl")
+# create mock design matrix with 2 categorical explanatory variables
+# and their interaction effects and 2 continuous explanatory variable
+A = sparse_design((20,20), 2, 20)
+n, p = size(A)
+@show n, p
+Γ = A'*A
+@show sparsity(A), sparsity(Γ)
+
+const m = 4 # m Bernoulli samples for each set of covariates
 println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", row ", mean(sum(A .!= 0, dims=2)))
 
 At = SparseMatrixCSC(A')
@@ -26,12 +32,12 @@ At = SparseMatrixCSC(A')
 xtrue = 5*randn(p)
 sigmoid(x) = inv(one(x) + exp(-x))
 lsigmoid(x) = -log(one(x) + exp(-x))
-y_ = Matrix(rand(p2, n) .< sigmoid.(A*xtrue))
+y_ = Matrix(rand(n, m) .< sigmoid.(A*xtrue))
 y = sum(y_, dims=2)[:]
-ny = n .- y
+ny = m .- y
 # prior and potential
 # prior precision
-ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (n .- y) .* lsigmoid.(-A*x))
+ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (m .- y) .* lsigmoid.(-A*x))
 
 
 # Sparse gradient
@@ -61,12 +67,12 @@ sigmoidn(x) = sigmoid(-x)
 nsigmoid(x) = -sigmoid(x)
 
 # Gradient (found using http://www.matrixcalculus.org/ S. Laue, M. Mitterreiter, and J. Giesen. A Simple and Efficient Tensor Calculus, AAAI 2020.)
-∇ϕ(x, A, At, y) = γ0*x - A'*(y .* sigmoidn.(A*x)) - A'*((n .- y).*nsigmoid.(A*x))
+∇ϕ(x, A, At, y) = γ0*x - A'*(y .* sigmoidn.(A*x)) - A'*((m .- y).*nsigmoid.(A*x))
 
 # Element i of the gradient exploiting sparsity
-∇ϕ(x, i, A, At, y, ny = n .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
+∇ϕ(x, i, A, At, y, ny = m .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
 # Element i of the gradient exploiting sparsity and random subsampling
-∇ϕr(x, i, A, At, y, ny = n .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, y, k) - fdotr(A, At, nsigmoid, i, x, ny, k)
+∇ϕr(x, i, A, At, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, y, k) - fdotr(A, At, nsigmoid, i, x, ny, k)
 
 # Tests, to be sure
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
@@ -74,12 +80,12 @@ nsigmoid(x) = -sigmoid(x)
 
 
 
-#res = glm(A, y/n, Binomial(n), LogitLink())
+#res = glm(A, y/m, Binomial(m), LogitLink())
 #x0 = coef(res)
 #norm(xtrue - x0)
 
 # Some Newton steps towards the mode as starting point
-x0 = rand(p)
+x0 = 0.1rand(p)
 @time for i in 1:30
     global x0
     H = hcat((sparse(ReverseDiff.gradient(x -> ∇ϕ(x, i, A, At, y, ny), x0)) for i in 1:p)...)
@@ -120,8 +126,8 @@ end
 # Run sparse ZigZag for T time units and collect trajectory
 @show norm(x0 - xtrue)
 
-traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, n .- y, 5; adapt=true)
-#traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, n .- y; adapt=true)
+traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, m .- y, 5; adapt=true)
+#traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show maximum(c ./ ([norm(Γ[:, i], 2) for i in 1:p]))
 
 if false
@@ -131,7 +137,7 @@ if false
     @show norm(x - xtrue)
     Z = ZigZag(Γ, μ)
     c = 4*[norm(Γ[:, i], 2) for i in 1:p] # Rejection bounds
-    traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x, θ, T, c, Z, A, At, y, n .- y, adapt=false)
+    traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x, θ, T, c, Z, A, At, y, m .- y, adapt=false)
 end
 dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
@@ -152,18 +158,17 @@ using Makie
 using Colors
 using GoldenSequences
 
-Random.seed!(1)
-p0 = 6
-ps = rand(1:p, p0)
+ps = [4, 22, 50, p-3, p-2, p-1]
+p0 = length(ps)
 cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
-p1 = scatter(fill(T, p), xtrue, markersize=0.01)
-scatter!(p1, fill(T, p0), xtrue[ps], markersize=0.2, color=cs)
+pis = []
 for i in 1:p0
-    lines!(p1, ts, X[ps[i], :], color=cs[i])
+    p_i = lines(ts, X[ps[i], :], color=cs[i])
+    lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
+    ylabel!(p_i, "var$(ps[i])")
+    xlabel!(p_i, "t")
+    push!(pis, p_i)
 end
-for i in 1:p0
-    lines!(p1, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
-end
-p1 = title(p1, "Sparse logistic regression p=$p")
+p1 = title(hbox(pis...), "Sparse logistic regression n=$n, p=$p")
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
 p1
