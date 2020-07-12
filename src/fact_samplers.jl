@@ -78,7 +78,7 @@ end
 
 
 """
-    pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, a, b, t_old, (acc, num),
+    pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
         = t, x, θ, (acc, num), c
 
