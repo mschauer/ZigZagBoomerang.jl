@@ -4,7 +4,7 @@
 
 Updates the position `x`, velocity `θ` and time `t` of the
 process after a time step equal to `τ` according to the deterministic
-dynamics of the Buoncy particle sampler (`Bps`) and `ZigZag`:
+dynamics of the Bouncy particle sampler (`Bps`) and `ZigZag`:
 (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
 `x`: current location, `θ`: current velocity, `t`: current time,
 """

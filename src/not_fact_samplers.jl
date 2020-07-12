@@ -29,12 +29,12 @@ direction change events.
 function pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
     scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
     T = T*scaleT
-    x, θ, t = copy(x0), copy(θ0), t0
+    t, x, θ = t0, copy(x0), copy(θ0)
     Ξ = [(t, x, θ)]
     τref = waiting_time_ref(Flow)
     num = acc = 0
     a, b = ab(x, θ, c, Flow)
-    t′ =  t + poisson_time(a, b, rand())
+    t′ = t + poisson_time(a, b, rand())
     while t < T
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)

@@ -24,8 +24,6 @@ end
 
 ϕ(x) = 0.5*x'*Γ*x # potential or -log(target density)
 ∇ϕ(x) = ForwardDiff.gradient(ϕ, x)
-∇ϕ(x, ::Bps) = ∇ϕ(x)
-∇ϕ(x, F::Boomerang) =  ∇ϕ(x) - (x - F.μ)
 
 λref_bps = 1.0
 x0, θ0 = randn(n), randn(n)
