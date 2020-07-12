@@ -67,8 +67,8 @@ end
 
 Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
 """
-λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
-λ_bar(G, i, x, θ, c, Z::FactBoomerang) = pos(ab(G, i, x, θ, c, Z)[1])
+#λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
+#λ_bar(G, i, x, θ, c, Z::FactBoomerang) = pos(ab(G, i, x, θ, c, Z)[1])
 
 
 function event(i, t, x, θ, Z::Union{ZigZag,FactBoomerang})
@@ -116,7 +116,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
-            return t, x, θ, (acc, num), c
+            return t, x, θ, (acc, num), c, a, b, t_old
         else
             l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t - t_old[i]))
             num += 1
@@ -133,7 +133,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
                 end
                 push!(Ξ, event(i, t, x, θ, F))
-                return t, x, θ, (acc, num), c
+                return t, x, θ, (acc, num), c, a, b, t_old
             end
             # Move a, b, t_old inside the queue as auxiliary variables
             a[i], b[i]= ab(G, i, x, θ, c, F)
@@ -185,7 +185,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t < T
-        t, x, θ, (acc, num), c = pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c, a, b, t_old = pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end
