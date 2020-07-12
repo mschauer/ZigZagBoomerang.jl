@@ -74,7 +74,7 @@ Version of spdmp which assumes that `i` only depends on coordinates
 `x[j] for j in neighbours(G, i)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.5, adapt=false)
+        factor=1.8, adapt=false)
     #sparsity graph
     n = length(x0)
     t′ = t0
