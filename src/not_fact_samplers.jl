@@ -21,35 +21,21 @@ end
 
 waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
 
-"""
-    pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
+function event(t, x, θ, Z::Union{Bps,Boomerang})
+    t, copy(x), copy(θ)
+end
 
-Run a Bouncy particle sampler (`Bps`) or `Boomerang` sampler from time,
-location and velocity `t0, x0, θ0` until time `T`. `∇ϕ!(y, x)` writes the gradient
-of the potential (neg. log density) into y.
-`c` is a tuning parameter for the upper bound of the Poisson rate.
-If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
-
-Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
-direction change events.
-"""
-function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
-    scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
-    T = T*scaleT
-    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
-    Ξ = [(t, x, θ)]
-    τref = waiting_time_ref(Flow)
-    num = acc = 0
-    a, b = ab(x, θ, c, Flow)
-    t′ = t + poisson_time(a, b, rand())
-    while t < T
+function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num),
+     Flow::Union{Bps, Boomerang}, args...; factor=1.5, adapt=false)
+    while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
             θ = randn!(θ)
             τref = t + waiting_time_ref(Flow)
             a, b = ab(x, θ, c, Flow)
-            t′ = t + poisson_time(a,b, rand())
-            push!(Ξ, (t, copy(x), copy(θ)))
+            t′ = t + poisson_time(a, b, rand())
+            push!(Ξ, event(t, x, θ, Flow))
+            return t, x, θ, (acc, num), c, a, b, t′, τref
         else
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
@@ -64,11 +50,40 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=fals
                     c *= factor
                 end
                 θ = reflect!(∇ϕx, θ, x, Flow)
-                push!(Ξ, (t, copy(x), copy(θ)))
+                push!(Ξ, event(t, x, θ, Flow))
+                a, b = ab(x, θ, c, Flow)
+                t′ = t + poisson_time(a, b, rand())
+                return t, x, θ, (acc, num), c, a, b, t′, τref
             end
+            a, b = ab(x, θ, c, Flow)
+            t′ = t + poisson_time(a, b, rand())
         end
-        a, b = ab(x, θ, c, Flow)
-        t′ = t + poisson_time(a, b, rand())
+    end
+end
+
+"""
+    pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
+
+Run a Bouncy particle sampler (`Bps`) or `Boomerang` sampler from time,
+location and velocity `t0, x0, θ0` until time `T`. `∇ϕ!(y, x)` writes the gradient
+of the potential (neg. log density) into y.
+`c` is a tuning parameter for the upper bound of the Poisson rate.
+If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
+
+Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
+direction change events.
+"""
+function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}, args...; adapt=false, factor=2.0)
+    scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
+    T = T*scaleT
+    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    Ξ = Trace(t0, x0, θ0, Flow)
+    τref = waiting_time_ref(Flow)
+    num = acc = 0
+    a, b = ab(x, θ, c, Flow)
+    t′ = t + poisson_time(a, b, rand())
+    while t < T
+        t, x, θ, (acc, num), c, a, b, t′, τref = pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num), Flow, args...; factor=factor, adapt=adapt)
     end
     return Ξ, acc/num
 end
