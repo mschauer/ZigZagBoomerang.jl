@@ -5,9 +5,28 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/dev/index.html)
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
+[![DOI](https://zenodo.org/badge/276593775.svg)](https://zenodo.org/badge/latestdoi/276593775)
 
 ## Overview
-Currently the local ZigZag and the factorized isotropic Boomerang are implemented.
+
+The package provides efficient and modular implementations
+of samplers of several piecewise deterministic Markov processes (PDMP), the Bouncy Particle, the Boomerang, the ZigZag, and the factorised Boomerang.
+The sampler requires the gradient of the potential of the target density as input and are called through `pdmp` producing a trajectory. `pdmp_inner!` gives access to the transition function of the sampler.
+
+The non-factorised samplers (Bouncy Particle, the Boomerang)
+take a function `∇ϕ!(y, x)` writing the gradient of the potential `ϕ(x) = -log(p(x))` of the target density `p` into `y`. The factorised samplers (factorised Boomerang and ZigZag) take `∇ϕ(x, i)`, the `i`'s partial derivative of `ϕ` (that is `y[i]`.)
+
+
+*Subsampling:* One highlight is that these samplers allow
+exact MCMC with subsets of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target.
+
+The factorised samplers make use of a sparse Gaussian approximation of the target density (in form of a sparse precision matrix `Γ`).
+
+ *Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the potential of the target density, see `spdmp`.
+
+ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts/logistic.jl] for a worked out example (logistic regression with n=8840, p=442 and sparse Gramian) sampling from a non-Gaussian target with structured sparse gradient of the potential and unbiased estimate of the gradient subsampling of the n observations.
+
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/logisticZigZag.png" width="600">
 
 ## Gallery
 
@@ -24,26 +43,6 @@ Showing mixing and convergence from white noise to a Gaussian random field: ZigZ
 ## Examples
 See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 
-```julia
-using ZigZagBoomerang
-
-# negative log-density with respect to Lebesgue
-ϕ(x) = cos(2pi*x) + x^2/2 # not needed
-
-# gradient of ϕ(x)
-∇ϕ(x) = -2*pi*sin(2*π*x) + x
-
-x0, θ0 = randn(), 1.0
-T = 100.0
-
-c = 2π # parameter for the upper bound of the Poisson rate, will error if too small
-
-# ZigZag
-out1 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, ZigZag1d())
-
-# Boomerang with refreshment rate 0.5
-out2 = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, c, Boomerang1d(0.5))
-```
 
 ## Literature
 
