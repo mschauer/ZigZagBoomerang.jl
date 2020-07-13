@@ -72,7 +72,7 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 10.0, B)
     est = mean(traj.x)
     @test abs(est - pi/2) < 5/sqrt(length(out2))
     est2 = var(traj.x)
-    @test abs(est2 - 1.0) < 10/sqrt(length(out2))
+    @test abs(est2 - 1.0) < 6/sqrt(length(out2))
 
     c = 10.0
     τ = 0.3
@@ -138,6 +138,7 @@ const Γ = S*S'
         @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
     end
 
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
 
@@ -166,6 +167,7 @@ end
         @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
     end
 
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
 
@@ -199,6 +201,38 @@ end
         @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
     end
 
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
+end
+
+@testset "SFactBoomerang" begin
+
+    t0 = 0.0
+    x0 = rand(d)
+    θ0 = rand([-1.0,1.0], d)
+
+    #Γ0 = sparse(I, d, d)
+    c = 10.5*[norm(Γ[:, i], 2) for i in 1:d]
+    Γ0 = copy(Γ)
+    for i in 1:d
+        #Γ0[d,d] = 1
+    end
+    Z = FactBoomerang(0.9Γ0, x0*0, 0.5)
+    T = 3000.0
+
+    trace, _, acc = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)
+    dt = 0.5
+    ts, xs = sep(collect(discretize(trace, dt)))
+
+    @show acc[1]/acc[2]
+
+    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
+    for i in 1:d
+        a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
+        _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, Z)
+        @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
+    end
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
 end
 
@@ -209,10 +243,9 @@ end
     c = 5.0
     Γ0 = copy(Γ)
     B = Boomerang(Γ0, x0*0, 0.5)
-    ∇ϕ(x) = Γ*x
-    ∇ϕ(x, F::Boomerang) =  ∇ϕ(x) - (x - F.μ)
+    ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    out, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, B)
+    out, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
     xs = ZigZagBoomerang.discretize(out, B, dt)
     @test mean(abs.(mean(xs.x))) < 2/sqrt(T)
@@ -226,10 +259,9 @@ end
     c = 1.0
     Γ0 = copy(Γ)
     B = Bps(Γ0, x0*0, 0.5)
-    ∇ϕ(x) = Γ*x
-    ∇ϕ(x, F::Bps) =  ∇ϕ(x)
+    ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    out, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, B)
+    out, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
     xs = ZigZagBoomerang.discretize(out, B, dt)
     @test mean(abs.(mean(xs.x))) < 2/sqrt(T)
@@ -261,6 +293,7 @@ end
         @test ZigZagBoomerang.λ_bar(G0, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
     end
 
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
 

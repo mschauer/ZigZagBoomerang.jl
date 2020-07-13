@@ -1,6 +1,12 @@
 # Implementation of d dimesional Boomerang and Bouncy particle samplers (the two
 # most known not-factorised PDMC)
 using LinearAlgebra
+
+grad_correct!(y, x, F::Union{Bps, ZigZag}) = y
+function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
+    @. y -= (x - F.μ)
+    y
+end
 λ(∇ϕx, θ, F::Union{Bps, Boomerang}) = pos(dot(∇ϕx, θ))
 
 # Here use sparsity as the factorised samplers
@@ -16,20 +22,21 @@ end
 waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
 
 """
-    pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
+    pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
 
 Run a Bouncy particle sampler (`Bps`) or `Boomerang` sampler from time,
-location and velocity `t0, x0, θ0` until time `T`.
+location and velocity `t0, x0, θ0` until time `T`. `∇ϕ!(y, x)` writes the gradient
+of the potential (neg. log density) into y.
 `c` is a tuning parameter for the upper bound of the Poisson rate.
 If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
 
 Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
 direction change events.
 """
-function pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
+function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
     scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
     T = T*scaleT
-    t, x, θ = t0, copy(x0), copy(θ0)
+    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     Ξ = [(t, x, θ)]
     τref = waiting_time_ref(Flow)
     num = acc = 0
@@ -46,7 +53,8 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false
         else
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
-            ∇ϕx = ∇ϕ(x, Flow)
+            ∇ϕx = ∇ϕ!(∇ϕx, x)
+            ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l, lb = λ(∇ϕx, θ, Flow), pos(a + b*τ)
             num += 1
             if rand()*lb <= l
