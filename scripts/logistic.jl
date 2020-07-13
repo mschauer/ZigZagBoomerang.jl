@@ -14,6 +14,7 @@ println("Sparse logistic regression")
 
 # Design matrix
 Random.seed!(2)
+sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
 include("sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
@@ -57,8 +58,11 @@ function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y, k)
    rows = rowvals(A)
    vals = nonzeros(A)
    s = zero(eltype(A))
-   l = length(nzrange(A, j))
-   @inbounds for i in rand(nzrange(A, j), k)
+   r = nzrange(A, j)
+   sampler = Random.SamplerRangeNDL(r)
+   l = length(r)
+   @inbounds for _ in 1:k
+       i = rand(sampler)
        s += l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
    end
    s
