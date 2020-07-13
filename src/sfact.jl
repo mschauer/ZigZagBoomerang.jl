@@ -26,7 +26,7 @@ function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
 end
 
 
-function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
+function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
     n = length(x)
     while true
@@ -40,12 +40,14 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
             Q[(n + i)] = t[i] + poisson_time(F.λref)
             #update reflections
             for j in neighbours(G, i)
-                Q[j] = t[i] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                a[j], b[j] = ab(G, j, x, θ, c, F)
+                t_old[j] = t[j]
+                Q[j] = t[j] + poisson_time(a[j], b[j], rand())
             end
             push!(Ξ, event(i, t, x, θ, F))
-            return t, x, θ, t′, (acc, num), c
+            return t, x, θ, t′, (acc, num), c,  a, b, t_old
         else
-            l, lb = λ(∇ϕ, i, x, θ, F, args...), λ_bar(G, i, x, θ, c, F)
+            l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t[i] - t_old[i]))
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -55,12 +57,16 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num),
                 end
                 θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
-                    Q[j] = t[j] + poisson_time(ab(G, j, x, θ, c, F)..., rand())
+                    a[j], b[j] = ab(G, j, x, θ, c, F)
+                    t_old[j] = t[j]
+                    Q[j] = t[j] + poisson_time(a[j], b[j], rand())
                 end
                 push!(Ξ, event(i, t, x, θ, F))
-                return t, x, θ, t′, (acc, num), c
+                return t, x, θ, t′, (acc, num), c,  a, b, t_old
             end
-            Q[i] = t[i] + poisson_time(ab(G, i, x, θ, c, F)..., rand())
+            a[i], b[i] = ab(G, i, x, θ, c, F)
+            t_old[i] = t[i]
+            Q[i] = t[i] + poisson_time(a[i], b[i], rand())
         end
     end
 end
@@ -73,8 +79,11 @@ Version of spdmp which assumes that `i` only depends on coordinates
 `x[j] for j in neighbours(G, i)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.5, adapt=false)
+        factor=1.8, adapt=false)
     #sparsity graph
+    a = zero(x0)
+    b = zero(x0)
+    t_old = zero(x0)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -83,7 +92,9 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     num = acc = 0
     Q = SPriorityQueue{Int,Float64}()
     for i in eachindex(θ)
-        enqueue!(Q, i =>poisson_time(ab(G, i, x, θ, c, F)..., rand()))
+        a[i], b[i] = ab(G, i, x, θ, c, F)
+        t_old[i] = t[i]
+        enqueue!(Q, i =>poisson_time(a[i], b[i] , rand()))
     end
     if hasrefresh(F)
         for i in eachindex(θ)
@@ -92,8 +103,9 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        t, x, θ, t′, (acc, num), c = spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, (acc, num), F, args...; factor=factor, adapt=adapt)
+        t, x, θ, t′, (acc, num), c,  a, b, t_old = spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q,
+                    c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
-    Ξ, (t, x, θ), (acc, num), c
+    Ξ, (t, x, θ), (acc, num), c,  a, b, t_old
 end

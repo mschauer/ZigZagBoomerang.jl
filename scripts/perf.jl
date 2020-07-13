@@ -32,6 +32,6 @@ Z = ZigZag(Γ, x0*0)
 
 # Run sparse ZigZag for T time units and collect trajectory
 T = 30.0
-spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ);
+trace, _, (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ);
 @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ);
 0
