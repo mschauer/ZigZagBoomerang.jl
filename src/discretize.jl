@@ -31,12 +31,12 @@ function discretize(x::Vector, Flow::Union{ZigZag1d, Boomerang1d}, dt0)
 end
 
 """
-    discretize(x::Vector, Flow::Union{Bps, Boomerang}, dt)
+    discretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt)
 
 Transform the output of the algorithm (a skeleton of points) to
 a trajectory. multi-dimensional version.
 """
-function discretize(x::Vector, Flow::Union{Bps, Boomerang}, dt0)
+function discretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
     k = 1
     _, ξ, θ = x[k]
     τ = x[k+1][1]

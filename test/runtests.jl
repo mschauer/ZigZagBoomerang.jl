@@ -198,27 +198,27 @@ end
     B = Boomerang(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    out, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    trace, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
-    xs = ZigZagBoomerang.discretize(out, B, dt)
-    @test mean(abs.(mean(xs.x))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs.x) - inv(Matrix(Γ0)))) < 2/sqrt(T)
+    ts, xs = sep(collect(discretize(trace, dt)))
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2/sqrt(T)
 end
 
 @testset "Bouncy Particle Sampler" begin
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    c = 1.0
+    c = 1.001
     Γ0 = copy(Γ)
-    B = Bps(Γ0, x0*0, 0.5)
+    B = BouncyParticle(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    out, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    trace, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
-    xs = ZigZagBoomerang.discretize(out, B, dt)
-    @test mean(abs.(mean(xs.x))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs.x) - inv(Matrix(Γ0)))) < 2/sqrt(T)
+    ts, xs = sep(collect(discretize(trace, dt)))
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2/sqrt(T)
 end
 
 @testset "ZigZag (independent)" begin

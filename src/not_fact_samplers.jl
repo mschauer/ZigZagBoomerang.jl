@@ -2,15 +2,15 @@
 # most known not-factorised PDMC)
 using LinearAlgebra
 
-grad_correct!(y, x, F::Union{Bps, ZigZag}) = y
+grad_correct!(y, x, F::Union{BouncyParticle, ZigZag}) = y
 function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
     @. y -= (x - F.μ)
     y
 end
-λ(∇ϕx, θ, F::Union{Bps, Boomerang}) = pos(dot(∇ϕx, θ))
+λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
 
 # Here use sparsity as the factorised samplers
-function ab(x, θ, c, B::Bps)
+function ab(x, θ, c, B::BouncyParticle)
     (c + θ'*B.Γ*x, θ'*B.Γ*θ)
 end
 
@@ -19,14 +19,14 @@ function ab(x, θ, c, B::Boomerang)
     (sqrt(normsq(G*θ) + normsq(G*(x - B.μ)))*c, 0.0)
 end
 
-waiting_time_ref(F::Union{Boomerang, Bps}) = poisson_time(F.λref)
+waiting_time_ref(F::Union{Boomerang, BouncyParticle}) = poisson_time(F.λref)
 
-function event(t, x, θ, Z::Union{Bps,Boomerang})
+function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ)
 end
 
 function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num),
-     Flow::Union{Bps, Boomerang}, args...; factor=1.5, adapt=false)
+     Flow::Union{BouncyParticle, Boomerang}, args...; factor=1.5, adapt=false)
     while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
@@ -62,9 +62,9 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
 end
 
 """
-    pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}; adapt=false, factor=2.0)
+    pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}; adapt=false, factor=2.0)
 
-Run a Bouncy particle sampler (`Bps`) or `Boomerang` sampler from time,
+Run a Bouncy particle sampler (`BouncyParticle`) or `Boomerang` sampler from time,
 location and velocity `t0, x0, θ0` until time `T`. `∇ϕ!(y, x)` writes the gradient
 of the potential (neg. log density) into y.
 `c` is a tuning parameter for the upper bound of the Poisson rate.
@@ -73,7 +73,7 @@ If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
 Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
 direction change events.
 """
-function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{Bps, Boomerang}, args...; adapt=false, factor=2.0)
+function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, factor=2.0)
     scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
     T = T*scaleT
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)

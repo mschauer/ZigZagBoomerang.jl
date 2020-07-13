@@ -1,11 +1,11 @@
-function smove_forward!(G, i, t, x, θ, t′, Z::Union{Bps, ZigZag})
+function smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     nhd = neighbours(G, i)
     for i in nhd
         t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     end
     t, x, θ
 end
-function smove_forward!(t, x, θ, t′, Z::Union{Bps, ZigZag})
+function smove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     for i in eachindex(x)
         t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     end

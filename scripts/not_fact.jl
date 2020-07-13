@@ -29,7 +29,7 @@ end
 x0, θ0 = randn(n), randn(n)
 c_bps = 0.001
 T = 1000.0
-B = Bps(Γ, x0*0, λref_bps)
+B = BouncyParticle(Γ, x0*0, λref_bps)
 out1, acc = pdmp(∇ϕ!, 0.0, x0, θ0, T, c_bps, B; adapt=false, factor=2.0)
 using Plots
 dt = 0.1
