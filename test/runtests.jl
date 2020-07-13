@@ -21,7 +21,6 @@ for (a, b, pt) in ((1.1, 0.0, NaN), (1.1, 0.3, NaN), (0.0, 0.3, NaN), (1.1, -0.5
     if isnan(pt)
         pt = P(a, b, T)
     end
-#    @show p, pt
     @test abs(p - pt) < 2/sqrt(n)
 end
 
@@ -49,13 +48,6 @@ out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 2.5, ZigZag1d())
     @test abs(est - pi/2) < 2/sqrt(length(out1))
     est2 = var(traj.x)
     @test abs(est2 - σ2) < 2/sqrt(length(out1))
-#   λ_bar is not commutative
-#    c = 10.0
-#    a,b = ZigZagBoomerang.ab(x0, θ0, c, ZigZag1d())
-#    @test ZigZagBoomerang.λ_bar(x0 + 0.3*θ0, θ0, c, ZigZag1d()) ≈ a + b*0.3
-#    a,b = ZigZagBoomerang.ab(x0, -θ0, c, ZigZag1d())
-#    @test ZigZagBoomerang.λ_bar(x0 - 0.3*θ0, -θ0, c, ZigZag1d()) ≈ a + b*0.3
-
 end
 
 
@@ -73,14 +65,6 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.6, B)
     @test abs(est - pi/2) < 10/sqrt(length(out2))
     est2 = var(traj.x)
     @test abs(est2 - σ2) < 50/sqrt(length(out2))
-
-    # λ_bar is not commutative
-    #c = 10.0
-    #τ = 0.3
-    #    a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
-    #    _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
-    #    @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
-
 end
 
 B = Boomerang1d(1.1, 1.2, 0.5)
@@ -96,13 +80,6 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 10.0, B)
     @test abs(est - pi/2) < 5/sqrt(length(out2))
     est2 = var(traj.x)
     @test abs(est2 - σ2) < 5/sqrt(length(out2))
-    # λ_bar is not commutative
-    # c = 10.0
-    # τ = 0.3
-    # a, b = ZigZagBoomerang.ab(x0, θ0, c, B)
-    # _, x, θ = ZigZagBoomerang.move_forward(τ, 0.0, x0, θ0, B)
-    # @test ZigZagBoomerang.λ_bar(x, θ, c, B) ≈ a + b*τ
-
 end
 
 
@@ -133,12 +110,6 @@ const Γ = S*S'
 
     @show acc[1]/acc[2]
 
-    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-    # for i in 1:d
-    #     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
-    #     @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    # end
-
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
@@ -161,12 +132,6 @@ end
     ts, xs = sep(collect(discretize(trace, dt)))
 
     @show acc[1]/acc[2]
-
-    # G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-    # for i in 1:d
-    #     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
-    #     @test ZigZagBoomerang.λ_bar(G, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    # end
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
@@ -195,13 +160,6 @@ end
 
     @show acc[1]/acc[2]
 
-    # G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-    # for i in 1:d
-    #     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
-    #     _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, Z)
-    #     @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    # end
-
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
 end
@@ -227,12 +185,6 @@ end
 
     @show acc[1]/acc[2]
 
-    G = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-    for i in 1:d
-        a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, Z)
-        _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, Z)
-        @test ZigZagBoomerang.λ_bar(G, i, x1, θ1, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    end
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
 end
@@ -288,12 +240,6 @@ end
 
     @show acc[1]/acc[2]
 
-    # G0 = [i => rowvals(Z.Γ)[nzrange(Z.Γ, i)] for i in eachindex(θ0)]
-    # for i in 1:d
-    #     a, b = ZigZagBoomerang.ab(G0, i, x0, θ0, c, Z)
-    #     @test ZigZagBoomerang.λ_bar(G0, i, x0 + 0.3*θ0, θ0, c, Z) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    # end
-
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
@@ -318,10 +264,4 @@ end
     ts, xs = sep(collect(discretize(trace, dt)))
     @show acc[2]/acc[1]
     @test mean(xs)[1] < 2.5/sqrt(T)
-    G = [1 => 1]
-    # for i in 1:n
-    #     a, b = ZigZagBoomerang.ab(G, i, x0, θ0, c, B)
-    #     _, x1, θ1 = ZigZagBoomerang.move_forward!(0.3, t0, x0, θ0, B)
-    #     @test ZigZagBoomerang.λ_bar(G, i, x1 , θ1, c, B) ≈ ZigZagBoomerang.pos(a + b*0.3)
-    # end
 end
