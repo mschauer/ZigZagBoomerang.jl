@@ -39,7 +39,7 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
         else
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
-            ∇ϕx = ∇ϕ!(∇ϕx, x)
+            ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l, lb = λ(∇ϕx, θ, Flow), pos(a + b*τ)
             num += 1
