@@ -19,26 +19,29 @@ struct ZigZag{T,S} <: ContinuousDynamics
 end
 
 """
-    Bps(λ) <: ContinuousDynamics
-
+    BouncyParticle(λ) <: ContinuousDynamics
+Input: argument `Γ`, a sparse precision matrix approximating target precision.
 Bouncy particle sampler,  `λ` is the refreshment rate, which has to be
 strictly positive.
 """
-struct Bps{T} <: ContinuousDynamics
-    λref::T
+struct BouncyParticle{T, S, R} <: ContinuousDynamics
+    Γ::T
+    μ::S
+    λref::R
 end
 
 """
     Boomerang(μ, λ) <: ContinuousDynamics
 
-Dynamics preserving the `N(μ, I)` measure (Boomerang)
+Dynamics preserving the `N(μ, Σ)` measure (Boomerang)
 with refreshment time `λ`
 """
-struct Boomerang{T, S} <: ContinuousDynamics
+struct Boomerang{U, T, S} <: ContinuousDynamics
+    Γ::U
     μ::T
     λref::S
 end
-
+Boomerang(Γ, λ) = Boomerang(Γ, 0.0, λ)
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 

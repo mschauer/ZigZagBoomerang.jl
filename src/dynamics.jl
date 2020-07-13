@@ -1,14 +1,14 @@
 # This could work for  ZigZag1d as well
 """
-    move_forward!(τ, t, x, θ, Z::Union{Bps, ZigZag})
-    
+    move_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag})
+
 Updates the position `x`, velocity `θ` and time `t` of the
 process after a time step equal to `τ` according to the deterministic
-dynamics of the Buoncy particle sampler (`Bps`) and `ZigZag`:
+dynamics of the Bouncy particle sampler (`BouncyParticle`) and `ZigZag`:
 (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
 `x`: current location, `θ`: current velocity, `t`: current time,
 """
-function move_forward!(τ, t, x, θ, Z::Union{Bps, ZigZag})
+function move_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag})
     t += τ
     x .+= θ .* τ
     t, x, θ
@@ -71,3 +71,11 @@ function move_forward(τ, t, x, θ, B::Boomerang1d)
     θ = -(x - B.μ)/sqrt(B.Σ)*sin(τ) + θ*cos(τ)
     t + τ, x_new, θ
 end
+
+"""
+    reflect!(∇ϕx, θ, F::BouncyParticle, Boomerang)
+
+Reflection rule of sampler `F` at reflection time.
+x`: position, `θ`: velocity
+"""
+reflect!(∇ϕx, θ, x, ::Union{BouncyParticle, Boomerang}) = θ .-= 2*dot(∇ϕx, θ)/normsq(∇ϕx)*∇ϕx

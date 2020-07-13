@@ -1,11 +1,11 @@
-function smove_forward!(G, i, t, x, θ, t′, Z::Union{Bps, ZigZag})
+function smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     nhd = neighbours(G, i)
     for i in nhd
         t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     end
     t, x, θ
 end
-function smove_forward!(t, x, θ, t′, Z::Union{Bps, ZigZag})
+function smove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     for i in eachindex(x)
         t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     end
@@ -74,9 +74,17 @@ end
 """
     spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
+        = Ξ, (t, x, θ), (acc, num), c, a, b, t_old
 
 Version of spdmp which assumes that `i` only depends on coordinates
 `x[j] for j in neighbours(G, i)`.
+
+It returns a `FactTrace` (see [`Trace`](@ref)) object `Ξ`, which can be collected
+into pairs `t => x` of times and locations and discretized with `discretize`.
+Also returns the `num`ber of total and `acc`epted Poisson events and updated bounds
+`c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
+out to be too small.) The final time, location and momentum at `T` can be obtained
+with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.8, adapt=false)
@@ -107,5 +115,5 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
                     c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
-    Ξ, (t, x, θ), (acc, num), c,  a, b, t_old
+    Ξ, (t, x, θ), (acc, num), c
 end
