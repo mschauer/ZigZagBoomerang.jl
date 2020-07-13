@@ -23,24 +23,24 @@ end
 
 
 ϕ(x) = 0.5*x'*Γ*x # potential or -log(target density)
-∇ϕ(x) = ForwardDiff.gradient(ϕ, x)
+∇ϕ!(y, x) = ForwardDiff.gradient!(y, ϕ, x)
 
 λref_bps = 1.0
 x0, θ0 = randn(n), randn(n)
 c_bps = 0.001
 T = 1000.0
 B = Bps(Γ, x0*0, λref_bps)
-out1, acc = pdmp(∇ϕ, 0.0, x0, θ0, T, c_bps, B; adapt=false, factor=2.0)
+out1, acc = pdmp(∇ϕ!, 0.0, x0, θ0, T, c_bps, B; adapt=false, factor=2.0)
 using Plots
 dt = 0.1
 xx = ZigZagBoomerang.discretize(out1, B, dt)
-p2 = plot(getindex.(xx.x, 1), getindex.(xx.x, 2), linewidth=0.4)
+p1 = plot(getindex.(xx.x, 1), getindex.(xx.x, 2), linewidth=0.4)
 
 
 λref_boom = 1.0
 c_boom = 3.0
 B = Boomerang(Γ, x0*0, λref_boom)
-out2, acc = pdmp(∇ϕ, 0.0, x0, θ0, T, c_boom, B; adapt=false, factor=2.0)
+out2, acc = pdmp(∇ϕ!, 0.0, x0, θ0, T, c_boom, B; adapt=false, factor=2.0)
 dt = 0.1
 xx = ZigZagBoomerang.discretize(out2, B, dt)
 p2 = plot(getindex.(xx.x, 1), getindex.(xx.x, 2), linewidth=0.4)
