@@ -80,7 +80,7 @@ end
 """
     pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
-        = t, x, θ, (acc, num), c
+        = t, x, θ, (acc, num), c, a, b, t_old
 
 Inner loop of the factorised samplers: the factorised Boomerang algorithm and
 the Zig-Zag sampler. Given a dependency graph `G`, gradient `∇ϕ`,
@@ -146,7 +146,7 @@ end
 
 
 """
-    pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args...; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num)
+    pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args...; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num), c
 
 Outer loop of the factorised samplers, the Factorised Boomerang algorithm
 and the Zig-Zag sampler. Inputs are a function `∇ϕ` giving `i`th element of gradient

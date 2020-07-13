@@ -79,13 +79,13 @@ end
 Base.IteratorSize(::Discretize) = Iterators.SizeUnknown()
 
 """
-    discretize(trace::FactTrace, dt)
+    discretize(trace::Trace, dt)
 
 Discretize `trace` with step-size dt. Returns iterable object
 iterating pairs `t => x`.
 
 Iteration changes the vector `x` inplace,
-`collect` creates copies.
+`collect` creates necessary copies.
 """
 discretize(FT, dt) = Discretize(FT, dt)
 

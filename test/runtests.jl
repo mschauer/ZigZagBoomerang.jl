@@ -198,7 +198,7 @@ end
     B = Boomerang(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    trace, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
@@ -214,7 +214,7 @@ end
     B = BouncyParticle(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
-    trace, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)

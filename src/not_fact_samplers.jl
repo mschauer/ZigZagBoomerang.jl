@@ -70,8 +70,11 @@ of the potential (neg. log density) into y.
 `c` is a tuning parameter for the upper bound of the Poisson rate.
 If `adapt = false`, `c = c*factor` is tried, otherwise an error is thrown.
 
-Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
-direction change events.
+It returns a `PDMPTrace` (see [`Trace`](@ref)) object `Ξ`, which can be collected
+into pairs `t => x` of times and locations and discretized with `discretize`.
+Also returns the `num`ber of total and `acc`epted Poisson events and updated bounds
+`c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
+out to be too small.)
 """
 function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, factor=2.0)
     scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
@@ -85,5 +88,5 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang},
     while t < T
         t, x, θ, (acc, num), c, a, b, t′, τref = pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num), Flow, args...; factor=factor, adapt=adapt)
     end
-    return Ξ, acc/num
+    return Ξ, (t, x, θ), (acc, num), c
 end
