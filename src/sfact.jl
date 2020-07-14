@@ -41,7 +41,6 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
             Q[(n + i)] = t[i] + poisson_time(F.λref)
             #update reflections
             for j in neighbours(G, i)
-                t, x, θ = smove_forward!(G, j, t, x, θ, t′, F)
                 a[j], b[j] = ab(G, j, x, θ, c, F)
                 t_old[j] = t[j]
                 Q[j] = t[j] + poisson_time(a[j], b[j], rand())
