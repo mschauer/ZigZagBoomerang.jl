@@ -13,7 +13,7 @@ eventposition(x) = x[2]
 
 # waiting times
 ab(x, θ, c, ::ZigZag1d) = (c + θ*x, θ^2)
-ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + ((x - B.μ)/sqrt(B.Σ))^2)*c, zero(x))
+ab(x, θ, c, B::Boomerang1d) = (sqrt(θ^2 + ((x - B.μ))^2)*c, zero(x))
 
 # waiting_time
 waiting_time_ref(::ZigZag1d) = Inf
@@ -32,8 +32,6 @@ Returns vector of tuples `(t, x, θ)` (time, location, velocity) of
 direction change events.
 """
 function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=2.0)
-    scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
-    T = T*scaleT
     t = zero(T)
     Ξ = [(t, x, θ)]
     t_ref = t + waiting_time_ref(Flow)
@@ -43,7 +41,7 @@ function pdmp(∇ϕ, x, θ, T, c, Flow::ContinuousDynamics; adapt=false, factor=
     while t < T
         if t_ref < t′
             t, x, θ = move_forward(t_ref - t, t, x, θ, Flow)
-            θ = randn()
+            θ = sqrt(Flow.Σ)*randn()
             t_ref = t +  waiting_time_ref(Flow)
             push!(Ξ, (t, x, θ))
         else
