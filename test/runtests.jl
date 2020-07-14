@@ -194,7 +194,7 @@ end
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    c = 5.0
+    c = 6.0
     Γ0 = copy(Γ)
     B = Boomerang(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
