@@ -77,8 +77,6 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 out to be too small.)
 """
 function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, factor=2.0)
-    scaleT = Flow isa Boomerang1d ? 1.25 : 1.0
-    T = T*scaleT
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     Ξ = Trace(t0, x0, θ0, Flow)
     τref = waiting_time_ref(Flow)

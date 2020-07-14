@@ -62,9 +62,9 @@ out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.6, B)
     traj = ZigZagBoomerang.discretize(out2, B, dt)
     @test abs(-(extrema(diff(traj.t[1:end÷3]))...)) < 1e-10
     est = mean(traj.x)
-    @test abs(est - pi/2) < 10/sqrt(length(out2))
+    @test abs(est - pi/2) < 5/sqrt(length(out2))
     est2 = var(traj.x)
-    @test abs(est2 - σ2) < 50/sqrt(length(out2))
+    @test abs(est2 - σ2) < 11/sqrt(length(out2))
 end
 
 B = Boomerang1d(1.1, 1.2, 0.5)
@@ -142,16 +142,17 @@ end
 @testset "FactBoomerang" begin
 
     t0 = 0.0
-    x0 = rand(d)
-    θ0 = rand([-1.0,1.0], d)
+    x0 = 0.2rand(d)
 
     #Γ0 = sparse(I, d, d)
-    c = 10.5*[norm(Γ[:, i], 2) for i in 1:d]
+    c = [norm(Γ[:, i], 2) for i in 1:d]
     Γ0 = copy(Γ)
     for i in 1:d
         #Γ0[d,d] = 1
     end
-    Z = FactBoomerang(0.9Γ0, x0*0, 0.5)
+    Z = FactBoomerang(0.85Γ0, x0*0, 0.1)
+    θ0 = sqrt(Diagonal(Z.Γ))\randn(d)
+
     T = 3000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)
@@ -168,15 +169,15 @@ end
 
     t0 = 0.0
     x0 = rand(d)
-    θ0 = rand([-1.0,1.0], d)
 
     #Γ0 = sparse(I, d, d)
-    c = 10.5*[norm(Γ[:, i], 2) for i in 1:d]
+    c = [norm(Γ[:, i], 2) for i in 1:d]
     Γ0 = copy(Γ)
     for i in 1:d
         #Γ0[d,d] = 1
     end
-    Z = FactBoomerang(0.9Γ0, x0*0, 0.5)
+    Z = FactBoomerang(1.2Γ0, x0*0, 0.5)
+    θ0 = sqrt(Diagonal(Z.Γ))\randn(d)
     T = 3000.0
 
     trace, _, acc = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)

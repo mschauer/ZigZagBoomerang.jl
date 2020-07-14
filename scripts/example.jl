@@ -38,8 +38,10 @@ num = zeros(Int, 4)
 
 trace1, _, (acc[1], num[1]) = @time pdmp(∇ϕ, t0, x0, rand([-1.0,1.0], n*n), T, sqrt(eps())*ones(n*n), ZigZag(Γ, x0*0), Γ);
 trace1, _, (acc[1], num[1]) = @time spdmp(∇ϕ, t0, x0, rand([-1.0,1.0], n*n), T, sqrt(eps())*ones(n*n), ZigZag(Γ, x0*0), Γ);
-trace2, _, (acc[2], num[2]) = @time spdmp(∇ϕ, t0, x0, sqrt(Diagonal(Γ))*randn(n*n), T, 0.5*c, FactBoomerang(I + eps()*Γ, x0*0, 0.1), Γ, adapt=true);
-trace2, _, (acc[2], num[2]) = @time pdmp(∇ϕ, t0, x0, sqrt(Diagonal(Γ))\randn(n*n), T, 0.5*c, FactBoomerang(Γ, x0*0, 0.1), Γ, adapt=true);
+#trace2, _, (acc[2], num[2]) = @time spdmp(∇ϕ, t0, x0, sqrt(Diagonal(Γ))*randn(n*n), T, c, FactBoomerang(I + eps()*Γ, x0*0, 0.1), Γ);
+#trace2, _, (acc[2], num[2]) = @time spdmp(∇ϕ, t0, x0, sqrt(Diagonal(Γ))\randn(n*n), T, 1.01c, FactBoomerang(Γ, x0*0, 0.1), Γ);
+trace2, _, (acc[2], num[2]) = @time spdmp(∇ϕ, t0, x0, sqrt(Diagonal(0.5Γ))\randn(n*n), T, 2.01c, FactBoomerang(0.5Γ, x0*0, 0.1), Γ);
+
 trace3, _, (acc[3], num[3]) = @time pdmp(∇ϕ!, t0, x0, randn(n*n), T, 1.0, Boomerang(Γ, x0*0, 0.1), Γ, adapt=true);
 trace4, _, (acc[4], num[4]) = @time pdmp(∇ϕ!, t0, x0, rand([-1.0,1.0], n*n), T, sqrt(eps()), BouncyParticle(Γ, x0*0, 0.01), Γ);
 

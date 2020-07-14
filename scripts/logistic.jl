@@ -116,7 +116,7 @@ t0 = 0.0
 
 
 # Define ZigZag
-c = 5*[norm(Γ[:, i], 2) for i in 1:p] # Rejection bounds
+c = [norm(Γ[:, i], 2) for i in 1:p] # Rejection bounds
 Z = ZigZag(Γ, μ)
 T = 2000.0
 

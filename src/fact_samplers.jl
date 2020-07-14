@@ -55,7 +55,9 @@ end
 
 function ab(G, i, x, θ, c, Z::FactBoomerang)
     nhd = neighbours(G, i)
-    a = c[i]*sqrt(normsq((x[j] - Z.μ[j]) for j in nhd) + normsq(θ[nhd]))
+    z = sqrt(sum((x[j] - Z.μ[j])^2 + θ[j]^2 for j in nhd))
+    z2 = (x[i]^2 + θ[i]^2)
+    a = c[i]*sqrt(z2)*z + z2*Z.Γ[i,i]
     b = 0.0
     a, b
 end
@@ -136,7 +138,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 return t, x, θ, (acc, num), c, a, b, t_old
             end
             # Move a, b, t_old inside the queue as auxiliary variables
-            a[i], b[i]= ab(G, i, x, θ, c, F)
+            a[i], b[i] = ab(G, i, x, θ, c, F)
             t_old[i] = t
             enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand()))
         end
