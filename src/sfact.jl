@@ -26,7 +26,7 @@ function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
 end
 
 
-function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
+function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
     n = length(x)
     while true
@@ -35,6 +35,7 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         i = ii - refresh*n
         t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
         if refresh
+            t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
             θ[i] = sqrt(F.Γ[i,i])\randn()
             #renew refreshment
             Q[(n + i)] = t[i] + poisson_time(F.λref)
@@ -55,6 +56,7 @@ function spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     !adapt && error("Tuning parameter `c` too small.")
                     c[i] *= factor
                 end
+                t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
                 θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
                     a[j], b[j] = ab(G, j, x, θ, c, F)
@@ -96,6 +98,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     t′ = t0
     t = fill(t′, size(θ0)...)
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
+    G2 = [i => setdiff(union((G[j].second for j in G[i].second)...), G[i].second) for i in eachindex(G)]
     x, θ = copy(x0), copy(θ0)
     num = acc = 0
     Q = SPriorityQueue{Int,Float64}()
@@ -111,7 +114,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        t, x, θ, t′, (acc, num), c,  a, b, t_old = spdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q,
+        t, x, θ, t′, (acc, num), c,  a, b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
                     c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)

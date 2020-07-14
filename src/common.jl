@@ -30,3 +30,5 @@ Squared 2-norm.
 """
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
+
+sep(x) = first.(x), last.(x)
