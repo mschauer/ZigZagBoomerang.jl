@@ -105,10 +105,10 @@ const Γ = S*S'
     T = 1000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
 
-    @show acc[1]/acc[2]
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
@@ -128,10 +128,9 @@ end
     T = 1000.0
 
     trace, _, acc = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
-
-    @show acc[1]/acc[2]
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
@@ -156,10 +155,9 @@ end
     T = 3000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)
+    @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
-
-    @show acc[1]/acc[2]
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
@@ -181,10 +179,10 @@ end
     T = 3000.0
 
     trace, _, acc = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Z.Γ)
+    @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
 
-    @show acc[1]/acc[2]
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
@@ -200,6 +198,7 @@ end
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
     trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    @show acc[1]/acc[2]
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
@@ -216,6 +215,7 @@ end
     ∇ϕ!(y, x) = mul!(y, Γ, x)
     T = 3000.0
     trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    @show acc[1]/acc[2]
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
@@ -236,10 +236,10 @@ end
     T = 1000.0
 
     trace, _, acc = @time pdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
 
-    @show acc[1]/acc[2]
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
@@ -260,9 +260,9 @@ end
     Γ = sparse(Matrix(1.0I, n, n))
     B = FactBoomerang(Γ, x0*0, λref)
     trace, _,  acc = pdmp(∇ϕ, t0, x0, θ0, T, c, B)
+    @show acc[1]/acc[2]
     m = mean(last.(collect(trace)))
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
-    @show acc[2]/acc[1]
     @test mean(xs)[1] < 2.5/sqrt(T)
 end
