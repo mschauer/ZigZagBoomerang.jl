@@ -92,4 +92,4 @@ p3 = lines(r, [f(y, m) for y in r])
 linesegments!(p3, [repeat(Yobs, inner=2) repeat([0,0.05], outer=N)])
 
 p = hbox(title(p3, "est. density and obs."), title(p2, "Trace p[k]"), title(p1, "Trace μ[k] ± σ[k]"))
-save("galaxy.png", title(p, "Galaxy dataset"))
+save(joinpath("figures", "galaxy.png"), title(p, "Galaxy dataset"))

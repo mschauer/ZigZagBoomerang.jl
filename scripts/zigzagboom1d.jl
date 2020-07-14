@@ -22,15 +22,15 @@ out2, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
 
 using Makie
 p1 = Makie.lines(eventtime.(out1), eventposition.(out1))
-save("zigzag.png", title(p1, "ZigZag 1d"))
+save("figures/zigzag.png", title(p1, "ZigZag 1d"))
 
 dt = 0.01
 xx = ZigZagBoomerang.discretize(out2, B, dt)
 p2 = Makie.lines(xx.t, xx.x, linewidth=0.4)
-save("boomerang.png", title(p2, "Boomerang 1d"))
+save("figures/boomerang.png", title(p2, "Boomerang 1d"))
 
 dt = 0.1
 xx = ZigZagBoomerang.discretize(out2, B, dt)
 p2 = Makie.lines(xx.t[1:end÷3], xx.x[1:end÷3], linewidth=0.2)
 Makie.scatter!(p2, xx.t[1:end÷3], xx.x[1:end÷3], markersize=0.3)
-save("boomerangshort.png", title(p2, "Boomerang 1d"))
+save("figures/boomerangshort.png", title(p2, "Boomerang 1d"))

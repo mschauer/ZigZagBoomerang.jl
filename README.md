@@ -1,5 +1,5 @@
 # ZigZagBoomerang
-<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/fastforward.png" width="200">
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/fastforward.png" width="200">
 
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mschauer.github.io/ZigZagBoomerang.jl/stable)
@@ -30,11 +30,11 @@ The factorised samplers make use of a sparse Gaussian approximation of the targe
 
 ## Gallery
 
-<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/zigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/boomerang.png" width="300">
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/zigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/boomerang.png" width="300">
 
-<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/localzigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/factboom.png" width="300">
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/localzigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/factboom.png" width="300">
 
-<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/localzigzag3d.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/factboom3d.png" width="300">
+<img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/localzigzag3d.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/factboom3d.png" width="300">
 
 <img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf10.png" width="200"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf30.png" width="200"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/surf50.png" width="200">
 
