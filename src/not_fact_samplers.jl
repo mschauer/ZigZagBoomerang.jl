@@ -15,8 +15,7 @@ function ab(x, θ, c, B::BouncyParticle)
 end
 
 function ab(x, θ, c, B::Boomerang)
-    G = B.Γ .!= 0
-    (sqrt(normsq(G*θ) + normsq(G*(x - B.μ)))*c, 0.0)
+    (sqrt(normsq(θ) + normsq((x - B.μ)))*c, 0.0)
 end
 
 waiting_time_ref(F::Union{Boomerang, BouncyParticle}) = poisson_time(F.λref)
