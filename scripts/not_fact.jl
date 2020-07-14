@@ -11,15 +11,8 @@ n = 10 # 10-dimensional problem
 # Create sparse 10-dimensional precision matrix
 GS = [1=>2:10, 2=>3:5, 3=>5:10, 4=>[5], 5=>[], 6=>7:8, 7=>[], 8=>[], 9=>[10], 10=>[]] # start from conditional dependence tree
 S = Matrix(1.0I, n, n)
-for (i, nb) in GS
-    if !isempty(nb) && i >= minimum(nb)
-        error("not a tree")
-    end
-    if !isempty(nb)
-        for j in nb
-            S[i, j] = 0.3randn()
-        end
-    end
+for (i, nb) in GS, j in nb
+    S[i, j] = 0.3randn()
 end
 Γ = sparse(S * S')
 

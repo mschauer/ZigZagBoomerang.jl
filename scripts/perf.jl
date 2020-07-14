@@ -17,6 +17,12 @@ n = 100
 # ∇ϕ gives the negative partial derivative of log density
 ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # partial derivative of ϕ(x) with respect to x[i]
 
+function ∇ϕ!(y, x, Γ)
+    for i in eachindex(x)
+        y[i] = ZigZagBoomerang.idot(Γ, i, x) # partial derivative of ϕ(x) with respect to x[i]
+    end
+    y
+end
 # Random initial values
 t0 = 0.0
 x0 = randn(n*n)
@@ -29,9 +35,11 @@ c = [norm(Γ[:, i], 2) for i in 1:n*n]
 Z = ZigZag(Γ, x0*0)
 # or try the FactBoomerang
 #Z = FactBoomerang(Γ, x0*0, 0.1)
+#Z = Boomerang(Γ, x0*0, 0.1)
 
 # Run sparse ZigZag for T time units and collect trajectory
 T = 30.0
 trace, _, (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ);
+#trace, _, (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, Z, Γ);
 @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ);
 0
