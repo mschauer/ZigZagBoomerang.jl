@@ -78,4 +78,7 @@ end
 Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
 """
-reflect!(∇ϕx, θ, x, ::Union{BouncyParticle, Boomerang}) = θ .-= 2*dot(∇ϕx, θ)/normsq(∇ϕx)*∇ϕx
+function reflect!(∇ϕx, x, θ, ::Union{BouncyParticle, Boomerang})
+    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx
+    θ
+end

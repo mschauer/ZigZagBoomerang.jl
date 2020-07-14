@@ -11,7 +11,7 @@ end
 
 # Here use sparsity as the factorised samplers
 function ab(x, θ, c, B::BouncyParticle)
-    (c + θ'*B.Γ*x, θ'*B.Γ*θ)
+    (c + θ'*(B.Γ*x), θ'*(B.Γ*θ))
 end
 
 function ab(x, θ, c, B::Boomerang)
@@ -48,7 +48,7 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
                     !adapt && error("Tuning parameter `c` too small.")
                     c *= factor
                 end
-                θ = reflect!(∇ϕx, θ, x, Flow)
+                θ = reflect!(∇ϕx, x, θ, Flow)
                 push!(Ξ, event(t, x, θ, Flow))
                 a, b = ab(x, θ, c, Flow)
                 t′ = t + poisson_time(a, b, rand())
