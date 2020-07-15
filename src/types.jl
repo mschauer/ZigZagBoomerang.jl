@@ -13,10 +13,14 @@ any independence structure of the target measure,
 in form the argument `Γ`, a sparse precision matrix approximating
 target precision. `μ` is the approximate target mean.
 """
-struct ZigZag{T,S} <: ContinuousDynamics
+struct ZigZag{T,S,R} <: ContinuousDynamics
     Γ::T
     μ::S
+    σ::S
+    λref::R
+    ρ::R
 end
+ZigZag(Γ, μ, σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0) = ZigZag(Γ, μ, σ, λref, ρ)
 
 """
     BouncyParticle(λ) <: ContinuousDynamics
@@ -55,9 +59,11 @@ target precision. `μ` is the approximate target mean.
 struct FactBoomerang{R, T, S} <: ContinuousDynamics
     Γ::R
     μ::T
+    σ::T
     λref::S
+    ρ::S
 end
-FactBoomerang(Γ, λ) = FactBoomerang(Γ, 0.0, λ)
+FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ)
 
 """
     ZigZag1d <: ContinuousDynamics

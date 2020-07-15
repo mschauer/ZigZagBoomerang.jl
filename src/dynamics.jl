@@ -82,3 +82,5 @@ function reflect!(∇ϕx, x, θ, ::Union{BouncyParticle, Boomerang})
     θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx
     θ
 end
+
+waiting_time_ref(F) = poisson_time(F.λref)
