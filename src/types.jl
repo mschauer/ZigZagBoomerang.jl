@@ -32,7 +32,9 @@ struct BouncyParticle{T, S, R} <: ContinuousDynamics
     Γ::T
     μ::S
     λref::R
+    ρ::R
 end
+BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ)
 
 """
     Boomerang(μ, λ) <: ContinuousDynamics
@@ -44,8 +46,9 @@ struct Boomerang{U, T, S} <: ContinuousDynamics
     Γ::U
     μ::T
     λref::S
+    ρ::S
 end
-Boomerang(Γ, λ) = Boomerang(Γ, 0.0, λ)
+Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ)
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 
