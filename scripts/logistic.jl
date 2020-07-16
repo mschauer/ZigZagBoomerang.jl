@@ -168,6 +168,10 @@ for i in 1:p0
     xlabel!(p_i, "t")
     push!(pis, p_i)
 end
-p1 = title(hbox(pis...), "Sparse logistic regression n=$(m*n), p=$p")
+p1 = title(hbox(pis...), "Sparse design logistic regression n=$(m*n), p=$p", textsize=20)
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
+
+p2 = title(vbox(hbox([text("$p", show_axis=false, textsize=10) for p in ps]...),
+    [hbox([i==j ? lines(ts, X[i,:]) : lines(X[i, :], X[j, :]) for i in ps]...) for j in ps]...), "$ps")
+
 p1
