@@ -37,8 +37,10 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         if refresh
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
             θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
+            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn()
+
             #renew refreshment
-            Q[(n + i)] = t[i] + poisson_time(F.λref)
+            Q[(n + i)] = t[i] + waiting_time_ref(F)
             #update reflections
             for j in neighbours(G, i)
                 a[j], b[j] = ab(G, j, x, θ, c, F)
@@ -52,6 +54,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 acc += 1
                 if l >= lb
                     !adapt && error("Tuning parameter `c` too small.")
+                    acc = num = 0
                     c[i] *= factor
                 end
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
@@ -70,7 +73,6 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         end
         push!(Ξ, event(i, t, x, θ, F))
         return t, x, θ, t′, (acc, num), c,  a, b, t_old
-
     end
 end
 
@@ -110,7 +112,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     end
     if hasrefresh(F)
         for i in eachindex(θ)
-            enqueue!(Q, (n + i)=>poisson_time(F.λref))
+            enqueue!(Q, (n + i)=>waiting_time_ref(F))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)

@@ -14,7 +14,7 @@ Return extended neighbourhood of `i` including `i`.
 neighbours(G::Vector{<:Pair}, i) = G[i].second
 #need refreshments
 hasrefresh(::FactBoomerang) = true
-hasrefresh(::ZigZag) = false
+hasrefresh(Z::ZigZag) = Z.λref > 0
 
 
 
@@ -36,7 +36,7 @@ function λ(∇ϕ, i, x, θ, B::FactBoomerang, args...)
     pos((∇ϕ(x, i, args...) - (x[i] - B.μ[i])*B.Γ[i,i])*θ[i])
 end
 
-
+loosen(c, x) = c + x #+ log(c+1)*abs(x)/100
 """
     ab(G, i, x, θ, c, Flow)
 
@@ -46,8 +46,8 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function ab(G, i, x, θ, c, Z::ZigZag)
-    a = c[i] + θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ))
-    b = θ[i]*idot(Z.Γ, i, θ)
+    a = loosen(c[i], θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ)))
+    b = loosen(c[i]/100, θ[i]*idot(Z.Γ, i, θ))
     a, b
 end
 
@@ -108,17 +108,15 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         end
         t, x, θ = move_forward!(t′ - t, t, x, θ, F)
         if refresh
-            θ[i] = sqrt(F.Γ[i,i])\randn()
+            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn()
             #renew refreshment
-            enqueue!(Q, (true, i) => t + poisson_time(F.λref))
+            enqueue!(Q, (true, i) => t + waiting_time_ref(F))
             #update reflections
             for j in neighbours(G, i)
                 a[j], b[j] = ab(G, j, x, θ, c, F)
                 t_old[j] = t
                 Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
             end
-            push!(Ξ, event(i, t, x, θ, F))
-            return t, x, θ, (acc, num), c, a, b, t_old
         else
             l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t - t_old[i]))
             num += 1
@@ -134,14 +132,16 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     t_old[j] = t
                     Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
                 end
-                push!(Ξ, event(i, t, x, θ, F))
-                return t, x, θ, (acc, num), c, a, b, t_old
+            else
+                # Move a, b, t_old inside the queue as auxiliary variables
+                a[i], b[i] = ab(G, i, x, θ, c, F)
+                t_old[i] = t
+                enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand()))
+                continue
             end
-            # Move a, b, t_old inside the queue as auxiliary variables
-            a[i], b[i] = ab(G, i, x, θ, c, F)
-            t_old[i] = t
-            enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand()))
         end
+        push!(Ξ, event(i, t, x, θ, F))
+        return t, x, θ, (acc, num), c, a, b, t_old
     end
 end
 
@@ -182,7 +182,7 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         t_old[i] = t
         enqueue!(Q, (false, i) => poisson_time(a[i], b[i], rand()))
         if hasrefresh(F)
-            enqueue!(Q, (true, i)=>poisson_time(F.λref))
+            enqueue!(Q, (true, i)=>waiting_time_ref(F))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)

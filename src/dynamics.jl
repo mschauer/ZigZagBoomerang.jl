@@ -82,3 +82,14 @@ function reflect!(∇ϕx, x, θ, ::Union{BouncyParticle, Boomerang})
     θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx
     θ
 end
+
+waiting_time_ref(F) = poisson_time(F.λref)
+
+
+function refresh!(θ, F)
+    ρ̄ = sqrt(1-F.ρ^2)
+    @inbounds for i in eachindex(θ)
+        θ[i] = F.ρ*θ[i] + ρ̄*randn()
+    end
+    θ
+end

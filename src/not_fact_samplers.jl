@@ -18,8 +18,6 @@ function ab(x, θ, c, B::Boomerang)
     (sqrt(normsq(θ) + normsq((x - B.μ)))*c, 0.0)
 end
 
-waiting_time_ref(F::Union{Boomerang, BouncyParticle}) = poisson_time(F.λref)
-
 function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ)
 end
@@ -29,7 +27,8 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
     while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
-            θ = randn!(θ)
+            #θ = randn!(θ)
+            θ = refresh!(θ, Flow)
             τref = t + waiting_time_ref(Flow)
             a, b = ab(x, θ, c, Flow)
             t′ = t + poisson_time(a, b, rand())

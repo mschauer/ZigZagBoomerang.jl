@@ -160,7 +160,7 @@ end
     ts, xs = sep(collect(discretize(trace, dt)))
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 3/sqrt(T)
 end
 
 @testset "SFactBoomerang" begin
