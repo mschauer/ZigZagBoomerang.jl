@@ -13,10 +13,15 @@ any independence structure of the target measure,
 in form the argument `Γ`, a sparse precision matrix approximating
 target precision. `μ` is the approximate target mean.
 """
-struct ZigZag{T,S} <: ContinuousDynamics
+struct ZigZag{T,S,R} <: ContinuousDynamics
     Γ::T
     μ::S
+    σ::S
+    λref::R
+    ρ::R
+    ρ̄::R
 end
+ZigZag(Γ, μ, σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0) = ZigZag(Γ, μ, σ, λref, ρ, sqrt(1-ρ^2))
 
 """
     BouncyParticle(λ) <: ContinuousDynamics
@@ -28,7 +33,9 @@ struct BouncyParticle{T, S, R} <: ContinuousDynamics
     Γ::T
     μ::S
     λref::R
+    ρ::R
 end
+BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ)
 
 """
     Boomerang(μ, λ) <: ContinuousDynamics
@@ -40,8 +47,9 @@ struct Boomerang{U, T, S} <: ContinuousDynamics
     Γ::U
     μ::T
     λref::S
+    ρ::S
 end
-Boomerang(Γ, λ) = Boomerang(Γ, 0.0, λ)
+Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ)
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 
@@ -55,9 +63,12 @@ target precision. `μ` is the approximate target mean.
 struct FactBoomerang{R, T, S} <: ContinuousDynamics
     Γ::R
     μ::T
+    σ::T
     λref::S
+    ρ::S
+    ρ̄::S    
 end
-FactBoomerang(Γ, λ) = FactBoomerang(Γ, 0.0, λ)
+FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ, sqrt(1-ρ^2))
 
 """
     ZigZag1d <: ContinuousDynamics

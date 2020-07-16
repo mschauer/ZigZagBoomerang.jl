@@ -36,7 +36,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
         if refresh
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-            θ[i] = sqrt(F.Γ[i,i])\randn()
+            θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
             #renew refreshment
             Q[(n + i)] = t[i] + poisson_time(F.λref)
             #update reflections
@@ -45,8 +45,6 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 t_old[j] = t[j]
                 Q[j] = t[j] + poisson_time(a[j], b[j], rand())
             end
-            push!(Ξ, event(i, t, x, θ, F))
-            return t, x, θ, t′, (acc, num), c,  a, b, t_old
         else
             l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t[i] - t_old[i]))
             num += 1
@@ -63,13 +61,16 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     t_old[j] = t[j]
                     Q[j] = t[j] + poisson_time(a[j], b[j], rand())
                 end
-                push!(Ξ, event(i, t, x, θ, F))
-                return t, x, θ, t′, (acc, num), c,  a, b, t_old
+            else
+                a[i], b[i] = ab(G, i, x, θ, c, F)
+                t_old[i] = t[i]
+                Q[i] = t[i] + poisson_time(a[i], b[i], rand())
+                continue
             end
-            a[i], b[i] = ab(G, i, x, θ, c, F)
-            t_old[i] = t[i]
-            Q[i] = t[i] + poisson_time(a[i], b[i], rand())
         end
+        push!(Ξ, event(i, t, x, θ, F))
+        return t, x, θ, t′, (acc, num), c,  a, b, t_old
+
     end
 end
 
