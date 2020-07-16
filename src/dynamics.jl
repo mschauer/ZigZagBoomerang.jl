@@ -26,9 +26,10 @@ dynamics preserving the Gaussian measure:
 `x`: current location, `θ`: current velocity, `t`: current time.
 """
 function move_forward!(τ, t, x, θ, B::Union{Boomerang, FactBoomerang})
+    s, c = sincos(τ)
     for i in eachindex(x)
-        x[i], θ[i] = (x[i] - B.μ[i])*cos(τ) + θ[i]*sin(τ) + B.μ[i],
-                    -(x[i] - B.μ[i])*sin(τ) + θ[i]*cos(τ)
+        x[i], θ[i] = (x[i] - B.μ[i])*c + θ[i]*s + B.μ[i],
+                    -(x[i] - B.μ[i])*s + θ[i]*c
     end
     t + τ, x, θ
 end

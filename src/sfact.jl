@@ -36,7 +36,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
         if refresh
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn()
+            θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
 
             #renew refreshment
             Q[(n + i)] = t[i] + waiting_time_ref(F)
