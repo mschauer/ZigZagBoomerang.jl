@@ -19,8 +19,9 @@ struct ZigZag{T,S,R} <: ContinuousDynamics
     σ::S
     λref::R
     ρ::R
+    ρ̄::R
 end
-ZigZag(Γ, μ, σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0) = ZigZag(Γ, μ, σ, λref, ρ)
+ZigZag(Γ, μ, σ=(Vector(diag(Γ))).^(-0.5); λref=0.0, ρ=0.0) = ZigZag(Γ, μ, σ, λref, ρ, sqrt(1-ρ^2))
 
 """
     BouncyParticle(λ) <: ContinuousDynamics
@@ -65,8 +66,9 @@ struct FactBoomerang{R, T, S} <: ContinuousDynamics
     σ::T
     λref::S
     ρ::S
+    ρ̄::S    
 end
-FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ)
+FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ, sqrt(1-ρ^2))
 
 """
     ZigZag1d <: ContinuousDynamics
