@@ -66,8 +66,9 @@ struct FactBoomerang{R, T, S} <: ContinuousDynamics
     σ::T
     λref::S
     ρ::S
+    ρ̄::S    
 end
-FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ)
+FactBoomerang(Γ, μ, λ, σ=(Vector(diag(Γ))).^(-0.5); ρ=0.0) = FactBoomerang(Γ, μ, σ, λ, ρ, sqrt(1-ρ^2))
 
 """
     ZigZag1d <: ContinuousDynamics
