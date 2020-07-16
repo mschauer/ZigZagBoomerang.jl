@@ -18,7 +18,7 @@ function sparse_design(d = (5,5,5), r = 5, m = 100)
         end
         for _ in 1:r
             j += 1
-            A[i, j] = 0.2*randn()
+            A[i, j] = 0.1*randn()
         end
         @assert j == p
     end

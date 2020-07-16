@@ -54,7 +54,7 @@ function fdot(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y)
 end
 
 # helper function for sparse gradient estimate through subsampling
-function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y, k)
+function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, μ, y, k)
    rows = rowvals(A)
    vals = nonzeros(A)
    s = zero(eltype(A))
@@ -64,6 +64,7 @@ function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y, k)
    @inbounds for _ in 1:k
        i = rand(sampler)
        s += l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
+       s -= l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], μ)) # control variate, note that μ is a minimum
    end
    s
 end
@@ -76,7 +77,7 @@ nsigmoid(x) = -sigmoid(x)
 # Element i of the gradient exploiting sparsity
 ∇ϕ(x, i, A, At, y, ny = m .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
 # Element i of the gradient exploiting sparsity and random subsampling
-∇ϕr(x, i, A, At, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, y, k) - fdotr(A, At, nsigmoid, i, x, ny, k)
+∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, μ, y, k) - fdotr(A, At, nsigmoid, i, x, μ, ny, k)
 
 # Tests, to be sure
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
@@ -112,30 +113,29 @@ println("Precision Γ is ", 100*nnz(Γ)/length(Γ), "% filled")
 
 # Random initial values
 t0 = 0.0
-θ0 = rand([-1.0,1.0], p)
 
 
 # Define ZigZag
-c = [norm(Γ[:, i], 2) for i in 1:p] # Rejection bounds
-Z = ZigZag(Γ, μ)
+c = 0.01*ones(p) # Rejection bounds
+c0 = copy(c)
+σ = sqrt.(diag(inv(Matrix(Γ))))
+#σ = (Vector(diag(Γ))).^(-0.5) # cheaper
+
+Z = ZigZag(Γ, μ, σ, ρ=0.5, λref=0.00)
 T = 2000.0
 
-# Or try Boomerang
-if false
-    θ0 = [sqrt(Γ[i, i])\randn() for i in 1:p]
-    Z = FactBoomerang(Γ, μ, 1/25)
-    c = 0.1*[norm(Γ[:, i], 2) for i in 1:p]
-    T = 2000.0
-end
+θ0 = rand([-1.0,1.0], p) .* σ
+
 
 # Run sparse ZigZag for T time units and collect trajectory
 println("Distance starting point")
 @show norm(x0 - xtrue)
 
 println("Run spdmp")
-traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, y, m .- y, 15; adapt=true)
+traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
-@show maximum(c ./ ([norm(Γ[:, i], 2) for i in 1:p]))
+@show acc/num
+@show extrema(c ./ c0)
 
 dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
@@ -168,6 +168,6 @@ for i in 1:p0
     xlabel!(p_i, "t")
     push!(pis, p_i)
 end
-p1 = title(hbox(pis...), "Sparse logistic regression n=$n, p=$p")
+p1 = title(hbox(pis...), "Sparse logistic regression n=$(m*n), p=$p")
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
 p1
