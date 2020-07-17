@@ -19,8 +19,9 @@ function smove_forward!(G, i, t, x, θ, t′, B::Union{Boomerang, FactBoomerang}
     nhd = neighbours(G, i)
     for i in nhd
         τ = t′ - t[i]
-        t[i], x[i], θ[i] = t′, (x[i] - B.μ[i])*cos(τ) + θ[i]*sin(τ) + B.μ[i],
-                    -(x[i] - B.μ[i])*sin(τ) + θ[i]*cos(τ)
+        s, c = sincos(τ)
+        t[i], x[i], θ[i] = t′, (x[i] - B.μ[i])*c + θ[i]*s + B.μ[i],
+                    -(x[i] - B.μ[i])*s + θ[i]*c
     end
     t, x, θ
 end
