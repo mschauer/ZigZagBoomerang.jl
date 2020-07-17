@@ -1,5 +1,5 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
-#using CairoMakie
+# using CairoMakie
 # Drift
 b(x) = -0.1x + 2sin(2pi*x)
 # First derivative
@@ -13,10 +13,8 @@ b″(x) = -2*(2pi)^2*sin(2pi*x)
 Λ(t, l⁻::Int64, T::Float64) = Λ(t*(1<<l⁻), T)/sqrt(1<<l⁻)
 
 # Linear function for final and initial value of the Bridge
-Λbar(t, T::Float64, final)  = final ? t/T : 1 - t/T
-
-
-
+Λbar(t, T::Float64, final::Val{true})  =  t/T
+Λbar(t, T::Float64, final::Val{false})  = 1 - t/T
 
 
 """
@@ -26,8 +24,8 @@ coefficients `ξ`, output the value of the diffuion bridge at time `s` (`r`)
 with initial value `u` at time 0 and final value `v` at `T`.
 """
 function dotψ(ξ, s, L, T, u, v)
-    0 <= s < T || error("out of bounds")
-    r = Λbar(s, T, false)*u + Λbar(s, T, true)*v
+    0 <= s <= T || error("out of bounds")
+    r = Λbar(s, T, Val(false))*u + Λbar(s, T, Val(true))*v
     for i in 0:L
         j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i) #to change
         r += ξ[j]*Λ(s, L-i, T)
@@ -47,7 +45,7 @@ value of diffuion bridge at time `s` with initial value `u` at time 0 and final 
 """
 function dotψmoving(t, ξ, θ, t′, s, F, L, T, u, v)
     0 <= s < T || error("out of bounds")
-    r = Λbar(s, T, false)*u + Λbar(s, T, true)*v
+    r = Λbar(s, T, Val(false))*u + Λbar(s, T, Val(true))*v
     for i in 0:L
         j = floor(Int, s/T*(1 << (L - i)))*(2 << i) + (1 << i) #to change
         ZigZagBoomerang.smove_forward!(j, t, ξ, θ, t′, F)
@@ -66,6 +64,7 @@ function lvl(i)
     l
 end
 
+# ↓ not used
 """
 Unbiased estimate for the `i`th partial derivative of the potential function.
 The variance of the estimate can be reduced by averaging over `K` independent realization.
@@ -75,7 +74,7 @@ The bridge has initial value `u` at time 0 and final value `v` at `T`.
 function ∇ϕ(ξ, i, K, L, T, u, v) # formula (17)
     l = lvl(i)
     k = i ÷ (2 << l)
-    δ = T/(1 << (L-l))
+    δ = T/(1 << (L-l)) # T/(2^(L-l))
     r = 0.0
     for _ in 1:K
         s = δ*(k + rand())
@@ -89,17 +88,17 @@ end
 Jointly updates the coefficeints (locally) and estimates
 the `i`th partial derivative of the potential function.
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
-
 """
 function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T, u, v) # formula (17)
     l = lvl(i)
     k = i ÷ (2 << l)
-    δ = 1/(1 << (L-l))
-    s = T*δ*(k + rand())
+    δ = T/(1 << (L-l))
+    s = δ*(k + rand())
     x = dotψmoving(t, ξ, θ, t′, s, F, L,  T, u, v)
     0.5*δ*Λ(s, L-l, T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
 end
 
+# ↓ not used
 """
     ∇ϕ!(y, ξ, k, L,  T, u, v)
 In-place evaluation of the gradient of the potential function.
@@ -113,14 +112,14 @@ function ∇ϕ!(y, ξ, k, L, T, u, v)
     y
 end
 
-L = 11
+L = 7
 n = (2 << L) - 1
-u = 0.0
-v =  0.0
-T = 10.0
+u = -.5
+v =  .5
+T = 2.0 # length diffusion bridge
 ξ0 = 0randn(n)
 θ0 = randn(n)
-T′ = 100.0 #final clock of the pdmp
+T′ = 2000.0 # final clock of the pdmp
 
 Γ = sparse(1.0I, n, n)
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ!, 0.0, ξ0, θ0, T, 10.0, Boomerang(Γ, ξ0*0, 0.1; ρ=0.9), 1, L, adapt=false);
@@ -148,3 +147,11 @@ p3 = hbox([lines(ts, getindex.(ξs, i)) for i in [1,2,4,8,16,(n+1)÷2]]...)
 
 save("figures/diffbridges.png", p1)
 vbox(p1, p2, p3)
+
+
+
+prova(s, fin::Val{true}) = s
+prova(s, fin::Val{false}) = 1-s
+
+
+prova(0.2, Val(false))
