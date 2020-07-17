@@ -5,6 +5,10 @@ function smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     end
     t, x, θ
 end
+function smove_forward!(i::Int, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+    t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
+end
+
 function smove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     for i in eachindex(x)
         t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
@@ -25,9 +29,22 @@ function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
     t[i], i, x[i], θ[i]
 end
 
+"""
+    SelfMoving()
+
+Indicates as `args[1]` that `∇ϕ` depends only on few coeffients
+and takes responsibility to call `smove_forward!`
+"""
+struct SelfMoving
+end
+export SelfMoving
+sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, args...) = λ(∇ϕ, i, x, θ, Z, args...)
+function sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, ::SelfMoving, args...)
+    pos(∇ϕ(t, x, θ, i, t′, Z, args...)*θ[i]) # needs to call smove_forward
+end
 
 function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
-     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -36,8 +53,18 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
         if refresh
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-            θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
-
+            if adaptscale
+                effi = (1 + 2*F.ρ/(1 - F.ρ))
+                τ = effi/(t[i]*F.λref)
+                if τ < 0.2
+                    F.σ[i] = F.σ[i]*exp(((0.3t[i]/acc[i] > 1.66) - (0.3t[i]/acc[i] < 0.6))*0.03*min(1.0, sqrt(τ/F.λref)))
+                end
+            end
+            if F isa ZigZag
+                θ[i] = F.σ[i]*rand((-1,1))
+            else
+                θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
+            end
             #renew refreshment
             Q[(n + i)] = t[i] + waiting_time_ref(F)
             #update reflections
@@ -47,7 +74,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 Q[j] = t[j] + poisson_time(a[j], b[j], rand())
             end
         else
-            l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t[i] - t_old[i]))
+            l, lb = sλ(∇ϕ, i, t, x, θ, t′, F, args...), pos(a[i] + b[i]*(t[i] - t_old[i]))
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -91,7 +118,7 @@ out to be too small.) The final time, location and momentum at `T` can be obtain
 with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.8, adapt=false)
+        factor=1.8, adapt=false, adaptscale=false)
     #sparsity graph
     a = zero(x0)
     b = zero(x0)
@@ -117,7 +144,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
         t, x, θ, t′, (acc, num), c,  a, b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
-                    c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
+                    c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt, adaptscale=adaptscale)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c

@@ -7,15 +7,26 @@ b″(x) = -2*(2pi)^2*sin(2pi*x)
 Λ(t) = 0.5 - abs((t % 1.0) - 1/2)
 Λ(t, l⁻) = Λ(t*(1<<l⁻))/sqrt(1<<l⁻)
 
-function dotψ(ξ, t, L)
-    0 <= t < 1.0 || error("out of bounds")
+function dotψ(ξ, s, L)
+    0 <= s < 1.0 || error("out of bounds")
     r = 0.0
     for i in 0:L
-        j = floor(Int, t * (1 << (L - i)))*(2 << i) + (1 << i)
-        r += ξ[j]*Λ(t, L-i)
+        j = floor(Int, s * (1 << (L - i)))*(2 << i) + (1 << i)
+        r += ξ[j]*Λ(s, L-i)
     end
     r
 end
+function dotψmoving(t, ξ, θ, t′, s, F, L)
+    0 <= s < 1.0 || error("out of bounds")
+    r = 0.0
+    for i in 0:L
+        j = floor(Int, s * (1 << (L - i)))*(2 << i) + (1 << i)
+        ZigZagBoomerang.smove_forward!(j, t, ξ, θ, t′, F)
+        r += ξ[j]*Λ(s, L-i)
+    end
+    r
+end
+
 function lvl(i)
     l = 0
     while (i & 1) == 0
@@ -37,6 +48,14 @@ function ∇ϕ(ξ, i, K, L) # formula (17)
     end
     r/K
 end
+function ∇ϕmoving(t, ξ, θ, i, t′, F, L) # formula (17)
+    l = lvl(i)
+    k = i ÷ (2 << l)
+    δ = 1/(1 << (L-l))
+    s = δ*(k + rand())
+    x = dotψmoving(t, ξ, θ, t′, s, F, L)
+    δ*Λ(s, L-l)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+end
 function ∇ϕ!(y, ξ, k, L)
     for i in eachindex(ξ)
         y[i] = ∇ϕ(ξ, i, k, L)
@@ -44,14 +63,15 @@ function ∇ϕ!(y, ξ, k, L)
     y
 end
 
-L = 7
+L = 11
 n = (2 << L) - 1
 ξ0 = 0randn(n)
 θ0 = randn(n)
-T = 2000.0
+T = 1000.0
 Γ = sparse(1.0I, n, n)
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ!, 0.0, ξ0, θ0, T, 10.0, Boomerang(Γ, ξ0*0, 0.1; ρ=0.9), 1, L, adapt=false);
-trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0, 1.0), n), T, 40.0*ones(n), ZigZag(Γ, ξ0*0), 5, L, adapt=false);
+#trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0, 1.0), n), T, 40.0*ones(n), ZigZag(Γ, ξ0*0), 5, L, adapt=false);
+trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, rand((-1.0, 1.0), n), T, ones(n), ZigZag(Γ, ξ0*0), SelfMoving(), L, adapt=true);
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0,1.0), n), T, 100.0*ones(n), FactBoomerang(Γ, ξ0*0, 0.1), 5, L, adapt=false);
 
 ts, ξs = splitpairs(discretize(trace, T/n))
@@ -66,4 +86,6 @@ p2 = surface([dotψ(ξ, s, L) for s in S, ξ in ξs], shading=false, show_axis=f
 scale!(p2, 1.0, 1.0, 100.)
 
 p3 = hbox([lines(ts, getindex.(ξs, i)) for i in [1,2,4,8,16,(n+1)÷2]]...)
+
+save("figures/diffbridges.png", p1)
 vbox(p1, p2, p3)
