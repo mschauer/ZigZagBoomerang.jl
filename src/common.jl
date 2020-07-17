@@ -32,3 +32,11 @@ normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
 
 sep(x) = first.(x), last.(x)
+
+"""
+    splitpairs(tx) = t, x
+
+Splits a vector of pairs into a pair of vectors.
+"""
+splitpairs(x) = first.(x) => last.(x)
+export splitpairs
