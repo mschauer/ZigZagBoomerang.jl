@@ -42,3 +42,5 @@ end
 function poisson_time(a)
     randexp()/a
 end
+
+poisson_time((a, b)::Tuple, u=randn()) = poisson_time(a, b, u)

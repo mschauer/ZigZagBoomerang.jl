@@ -19,8 +19,9 @@ function smove_forward!(G, i, t, x, θ, t′, B::Union{Boomerang, FactBoomerang}
     nhd = neighbours(G, i)
     for i in nhd
         τ = t′ - t[i]
-        t[i], x[i], θ[i] = t′, (x[i] - B.μ[i])*cos(τ) + θ[i]*sin(τ) + B.μ[i],
-                    -(x[i] - B.μ[i])*sin(τ) + θ[i]*cos(τ)
+        s, c = sincos(τ)
+        t[i], x[i], θ[i] = t′, (x[i] - B.μ[i])*c + θ[i]*s + B.μ[i],
+                    -(x[i] - B.μ[i])*s + θ[i]*c
     end
     t, x, θ
 end
@@ -42,8 +43,9 @@ sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, args...) = λ(∇�
 function sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, ::SelfMoving, args...)
     pos(∇ϕ(t, x, θ, i, t′, Z, args...)*θ[i]) # needs to call smove_forward
 end
+sλ̄((a,b), Δt) = pos(a + b*Δt)
 
-function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
+function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
@@ -69,12 +71,12 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
             Q[(n + i)] = t[i] + waiting_time_ref(F)
             #update reflections
             for j in neighbours(G, i)
-                a[j], b[j] = ab(G, j, x, θ, c, F)
+                b[j] = ab(G, j, x, θ, c, F)
                 t_old[j] = t[j]
-                Q[j] = t[j] + poisson_time(a[j], b[j], rand())
+                Q[j] = t[j] + poisson_time(b[j], rand())
             end
         else
-            l, lb = sλ(∇ϕ, i, t, x, θ, t′, F, args...), pos(a[i] + b[i]*(t[i] - t_old[i]))
+            l, lb = sλ(∇ϕ, i, t, x, θ, t′, F, args...), sλ̄(b[i], t[i] - t_old[i])
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -86,26 +88,26 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
                 θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
-                    a[j], b[j] = ab(G, j, x, θ, c, F)
+                    b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t[j]
-                    Q[j] = t[j] + poisson_time(a[j], b[j], rand())
+                    Q[j] = t[j] + poisson_time(b[j], rand())
                 end
             else
-                a[i], b[i] = ab(G, i, x, θ, c, F)
+                b[i] = ab(G, i, x, θ, c, F)
                 t_old[i] = t[i]
-                Q[i] = t[i] + poisson_time(a[i], b[i], rand())
+                Q[i] = t[i] + poisson_time(b[i], rand())
                 continue
             end
         end
         push!(Ξ, event(i, t, x, θ, F))
-        return t, x, θ, t′, (acc, num), c,  a, b, t_old
+        return t, x, θ, t′, (acc, num), c, b, t_old
     end
 end
 
 """
     spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
-        = Ξ, (t, x, θ), (acc, num), c, a, b, t_old
+        = Ξ, (t, x, θ), (acc, num), c
 
 Version of spdmp which assumes that `i` only depends on coordinates
 `x[j] for j in neighbours(G, i)`.
@@ -119,32 +121,28 @@ with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.8, adapt=false, adaptscale=false)
-    #sparsity graph
-    a = zero(x0)
-    b = zero(x0)
-    t_old = zero(x0)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
+    t_old = copy(t)
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     G2 = [i => setdiff(union((G[j].second for j in G[i].second)...), G[i].second) for i in eachindex(G)]
     x, θ = copy(x0), copy(θ0)
     num = acc = 0
     Q = SPriorityQueue{Int,Float64}()
+    b = [ab(G, i, x, θ, c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
-        a[i], b[i] = ab(G, i, x, θ, c, F)
-        t_old[i] = t[i]
-        enqueue!(Q, i =>poisson_time(a[i], b[i] , rand()))
+        enqueue!(Q, i => poisson_time(b[i], rand()))
     end
     if hasrefresh(F)
         for i in eachindex(θ)
-            enqueue!(Q, (n + i)=>waiting_time_ref(F))
+            enqueue!(Q, (n + i) => waiting_time_ref(F))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        t, x, θ, t′, (acc, num), c,  a, b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
-                    c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt, adaptscale=adaptscale)
+        t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
+                    c, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt, adaptscale=adaptscale)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c

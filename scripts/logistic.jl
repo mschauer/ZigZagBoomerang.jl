@@ -4,7 +4,7 @@ using Random
 using SparseArrays
 using Distributions
 using Statistics
-using ZigZagBoomerang: idot
+using ZigZagBoomerang: idot, idot_moving!
 using ReverseDiff
 using Test
 using FileIO
@@ -18,13 +18,13 @@ sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
 include("sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
-A = sparse_design((20,20), 2, 20)
+A = sparse_design((20,20), 2, 4*20)
 n, p = size(A)
 @show n, p
 Γ = A'*A
 @show sparsity(A), sparsity(Γ)
 
-const m = 4 # m Bernoulli samples for each set of covariates
+const m = 1 # m Bernoulli samples for each set of covariates
 println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", row ", mean(sum(A .!= 0, dims=2)))
 
 At = SparseMatrixCSC(A')
@@ -53,8 +53,10 @@ function fdot(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, y)
    s
 end
 
+sigmoidn(x) = sigmoid(-x)
+nsigmoid(x) = -sigmoid(x)
 # helper function for sparse gradient estimate through subsampling
-function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, μ, y, k)
+function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, j, x, μ, y, ny, k)
    rows = rowvals(A)
    vals = nonzeros(A)
    s = zero(eltype(A))
@@ -63,13 +65,36 @@ function fdotr(A::SparseMatrixCSC, At::SparseMatrixCSC, f, j, x, μ, y, k)
    l = length(r)
    @inbounds for _ in 1:k
        i = rand(sampler)
-       s += l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], x))
-       s -= l/k*vals[i]*y[rows[i]]*f(idot(At, rows[i], μ)) # control variate, note that μ is a minimum
+       u = idot(At, rows[i], x)
+       s += l/k*vals[i]*y[rows[i]]*sigmoidn(u)
+       s += l/k*vals[i]*ny[rows[i]]*nsigmoid(u)
+       u0 = idot(At, rows[i], μ)
+       s -= l/k*vals[i]*y[rows[i]]*sigmoidn(u0)
+       s -= l/k*vals[i]*ny[rows[i]]*nsigmoid(u0)   end
+   s
+end
+
+# the same, but advancing only the coordinates necessary with `idot_moving!`
+function fdot_moving(A::SparseMatrixCSC, At::SparseMatrixCSC, j, t, x, θ, t′, F, μ, y, ny, k)
+   rows = rowvals(A)
+   vals = nonzeros(A)
+   s = zero(eltype(A))
+   r = nzrange(A, j)
+   sampler = Random.SamplerRangeNDL(r)
+   l = length(r)
+   @inbounds for _ in 1:k
+       i = rand(sampler)
+       u = idot_moving!(At, rows[i], t, x, θ, t′, F)
+       s += l/k*vals[i]*y[rows[i]]*sigmoidn(u)
+       s += l/k*vals[i]*ny[rows[i]]*nsigmoid(u)
+       u0 = idot(At, rows[i], μ)
+       s -= l/k*vals[i]*y[rows[i]]*sigmoidn(u0)
+       s -= l/k*vals[i]*ny[rows[i]]*nsigmoid(u0)
    end
    s
 end
-sigmoidn(x) = sigmoid(-x)
-nsigmoid(x) = -sigmoid(x)
+
+
 
 # Gradient (found using http://www.matrixcalculus.org/ S. Laue, M. Mitterreiter, and J. Giesen. A Simple and Efficient Tensor Calculus, AAAI 2020.)
 ∇ϕ(x, A, At, y) = γ0*x - A'*(y .* sigmoidn.(A*x)) - A'*((m .- y).*nsigmoid.(A*x))
@@ -77,8 +102,9 @@ nsigmoid(x) = -sigmoid(x)
 # Element i of the gradient exploiting sparsity
 ∇ϕ(x, i, A, At, y, ny = m .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
 # Element i of the gradient exploiting sparsity and random subsampling
-∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, sigmoidn, i, x, μ, y, k) - fdotr(A, At, nsigmoid, i, x, μ, ny, k)
-
+∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, i, x, μ, y, ny, k)
+# The same, but exploiting that only dependencies in subsamples need to be evaluated
+∇ϕmoving(t, x, θ, i, t′, F, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdot_moving(A, At, i, t, x, θ, t′, F, μ, y, ny, k)
 # Tests, to be sure
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
@@ -104,12 +130,15 @@ norm(xtrue - x0)
 # precision matrix estimate
 Γ0 = A'*A
 nonzeros(Γ0) .= 1
-#@time Γ = sparse(inv(vcov(res)) .* Γ0)
-#Γ = sparse(ReverseDiff.hessian(x->ϕ(x, A, y), x0))
+
 Γ = hcat((sparse(ReverseDiff.gradient(x -> ∇ϕ(x, i, A, At, y), x0)) for i in 1:p)...)
 μ = copy(x0)
 
+Γdrop = droptol!(copy(Γ), 1e-2)
+@assert nnz(diag(Γdrop)) == p
 println("Precision Γ is ", 100*nnz(Γ)/length(Γ), "% filled")
+println("Dropped precision is ", 100*nnz(Γdrop)/length(Γdrop), "% filled")
+
 
 # Random initial values
 t0 = 0.0
@@ -122,6 +151,8 @@ c0 = copy(c)
 #σ = (Vector(diag(Γ))).^(-0.5) # cheaper
 
 Z = ZigZag(Γ, μ, σ, ρ=0.5, λref=0.00)
+Zdiag = ZigZag(sparse(Diagonal(Γ)), μ, σ, ρ=0.5, λref=0.00)
+Zdrop = ZigZag(Γdrop, μ, σ, ρ=0.5, λref=0.00)
 T = 2000.0
 
 θ0 = rand([-1.0,1.0], p) .* σ
@@ -132,7 +163,8 @@ println("Distance starting point")
 @show norm(x0 - xtrue)
 
 println("Run spdmp")
-traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
+#traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
+traj, u, (acc,num), c = @time spdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, SelfMoving(), A, At, μ, y, m .- y, 10; adapt=true, factor=5)
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show acc/num
 @show extrema(c ./ c0)

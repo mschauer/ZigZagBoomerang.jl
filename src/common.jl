@@ -23,6 +23,25 @@ function idot(A::SparseMatrixCSC, j, x)
     s
 end
 
+
+"""
+    idot_moving!(A::SparseMatrixCSC, j, t, x, θ, t′, F)
+
+Compute column-vector dot product exploiting sparsity of `A`.
+Move all coordinates needed to their position at time `t′`
+"""
+function idot_moving!(A::SparseMatrixCSC, j, t, x, θ, t′, F)
+    rows = rowvals(A)
+    vals = nonzeros(A)
+    s = zero(eltype(A))
+    @inbounds for i in nzrange(A, j)
+        smove_forward!(rows[i], t, x, θ, t′, F)
+        s += vals[i]*x[rows[i]]
+    end
+    s
+end
+
+
 """
     normsq(x)
 
