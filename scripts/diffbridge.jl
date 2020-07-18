@@ -1,7 +1,7 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
 # using CairoMakie
 # Drift
-b(x) = -0.1x + 2sin(2pi*x)
+b(x) = -0.1x +sin(2pi*x)
 # First derivative
 b′(x) = -0.1 + 2*2pi*cos(2pi*x)
 # Second derivative
@@ -129,7 +129,6 @@ trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0,
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0,1.0), n), T, 100.0*ones(n), FactBoomerang(Γ, ξ0*0, 0.1), 5, L, adapt=false);
 
 ts, ξs = splitpairs(discretize(trace, T′/n))
-error("stop here")
 S = T*(0:n)/(n+1)
 
 
@@ -140,18 +139,10 @@ for ξ in ξs[1:5:end]
 end
 display(p1)
 
-p2 = surface([dotψ(ξ, s, L) for s in S, ξ in ξs], shading=false, show_axis=false, colormap = :deep)
+p2 = surface([dotψ(ξ, s, L, T, u, v) for s in S, ξ in ξs], shading=false, show_axis=false, colormap = :deep)
 scale!(p2, 1.0, 1.0, 100.)
 
 p3 = hbox([lines(ts, getindex.(ξs, i)) for i in [1,2,4,8,16,(n+1)÷2]]...)
 
 save("figures/diffbridges.png", p1)
 vbox(p1, p2, p3)
-
-
-
-prova(s, fin::Val{true}) = s
-prova(s, fin::Val{false}) = 1-s
-
-
-prova(0.2, Val(false))
