@@ -25,9 +25,9 @@ with initial value `u` at time 0 and final value `v` at `T`.
 """
 function dotψ(ξ, s, L, T)
     0 <= s < T || error("out of bounds")
-    r = sqrt(s)*ξ[end]
+    r = s/sqrt(T)*ξ[end]
     for i in 0:L
-        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i) #to change
+        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i)  #to change
         r += ξ[j]*Λ(s, L-i, T)
     end
     r
@@ -45,7 +45,7 @@ value of diffuion bridge at time `s` with initial value `u` at time 0 and final 
 """
 function dotψmoving(t, ξ, θ, t′, s, F, L, T)
     0 <= s <= T || error("out of bounds")
-    r = sqrt(s)*ξ[end]
+    r = s/sqrt(T)*ξ[end]
     for i in 0:L
         j = floor(Int, s/T*(1 << (L - i)))*(2 << i) + (1 << i) #to change
         ZigZagBoomerang.smove_forward!(j, t, ξ, θ, t′, F)
