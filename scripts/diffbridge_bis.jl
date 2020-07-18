@@ -123,11 +123,11 @@ with rate of the form λ(t) = a + (b + c*t)^+, where `c`,`a`> 0 ,`b` ∈ R, `u` 
 """
 function poisson_time(a, b, c, u) # formula (22)
     if b>0
-        return -(b+a) + sqrt((b + a)^2 - 2.0*c*log(u))/c # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) = 0
+        return (-(b+a) + sqrt((b + a)^2 - 2.0*c*log(u)))/c # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) = 0
     elseif a*b/c <= log(u)
         return -log(u)/a
     else
-        -(a + b) + sqrt((a + b)^2 - 2.0*c*(b*b*0.5/c + log(u)))/c    # # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) + b*b*0.5/c = 0
+        return (-(a + b) + sqrt((a + b)^2 - 2.0*c*(b*b*0.5/c + log(u))))/c    # # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) + b*b*0.5/c = 0
     end
 end
 
@@ -141,6 +141,7 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function abc(G, i, x, θ, Z::ZigZag, L::Int64, T::Float64)
+    l = lvl(i)
     a = T^(1.5)/2^((L-l)*1.5 + 2)*(α^2 + α)*abs(θ[i]) # formula (22)
     b = x[i]*θ[i]
     c = θ[i]*θ[i]
@@ -244,12 +245,12 @@ end
 
 L = 6
 n = (2 << L) - 1
-u = 0.0
-v = 0.0
-T = 1.0 # length diffusion bridge
+u = -float(π)
+v = float(3π)
+T = 50.0 # length diffusion bridge
 ξ0 = 0randn(n)
 θ0 = randn(n)
-T′ = 10000.0 # final clock of the pdmp
+T′ = 20000.0 # final clock of the pdmp
 
 Γ = sparse(1.0I, n, n)
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ!, 0.0, ξ0, θ0, T, 10.0, Boomerang(Γ, ξ0*0, 0.1; ρ=0.9), 1, L, adapt=false);
@@ -260,7 +261,7 @@ trace, (t, ξ, θ), (acc, num) = @time spdmp_specific(∇ϕmoving, 0.0, ξ0,
 
 ts, ξs = splitpairs(discretize(trace, 1.0))
 S = T*(0:n)/(n+1)
-
+error("")
 
 
 p1 = lines(S, [dotψ(ξ, s, L, T, u, v) for s in S],  color=(:purple, 0.1))
@@ -268,7 +269,7 @@ for ξ in ξs[1:10:end]
     lines!(p1, S, [dotψ(ξ, s, L, T, u, v) for s in S], linewidth=0.3,  color=(:purple, 0.1))
 end
 display(p1)
-p1
+
 p2 = surface([dotψ(ξ, s, L, T, u, v) for s in S, ξ in ξs], shading=false, show_axis=false, colormap = :deep)
 scale!(p2, 1.0, 1.0, 100.)
 
