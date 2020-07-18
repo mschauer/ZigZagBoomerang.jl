@@ -25,9 +25,9 @@ with initial value `u` at time 0 and final value `v` at `T`.
 """
 function dotψ(ξ, s, L, T)
     0 <= s < T || error("out of bounds")
-    r = s/sqrt(T)*ξ[end]
+    r = s/sqrt(T)*ξ[end] + sqrt(T)*(1 - s/T)*ξ[1]
     for i in 0:L
-        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i)  #to change
+        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i) + 1 
         r += ξ[j]*Λ(s, L-i, T)
     end
     r
@@ -45,9 +45,9 @@ value of diffuion bridge at time `s` with initial value `u` at time 0 and final 
 """
 function dotψmoving(t, ξ, θ, t′, s, F, L, T)
     0 <= s <= T || error("out of bounds")
-    r = s/sqrt(T)*ξ[end]
+    r = s/sqrt(T)*ξ[end] + sqrt(T)*(1 - s/T)*ξ[1]
     for i in 0:L
-        j = floor(Int, s/T*(1 << (L - i)))*(2 << i) + (1 << i) #to change
+        j = floor(Int, s/T*(1 << (L - i)))*(2 << i) + (1 << i) + 1
         ZigZagBoomerang.smove_forward!(j, t, ξ, θ, t′, F)
         r += ξ[j]*Λ(s, L-i, T)
     end
@@ -71,13 +71,17 @@ The variance of the estimate can be reduced by averaging over `K` independent re
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕ(ξ, i, K, L, T) # formula (17)
-    if i == 2 << L
+    if i == (2 << L) + 1
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T*sqrt(s)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i]
+    elseif i == 1
+        s = T*(rand())
+        x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
+        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i)
-        k = i ÷ (2 << l)
+        l = lvl(i - 1)
+        k = (i - 1) ÷ (2 << l)
         δ = T/(1 << (L-l)) # T/(2^(L-l))
         r = 0.0
         for _ in 1:K
@@ -97,13 +101,17 @@ the `i`th partial derivative of the potential function.
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
-    if  i == 2 << L
+    if  i == (2 << L) + 1
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T*sqrt(s)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i]
+    elseif i == 1
+        s = T*(rand())
+        x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
+        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i)
-        k = i ÷ (2 << l)
+        l = lvl(i-1)
+        k = (i-1) ÷ (2 << l)
         δ = T/(1 << (L-l))
         s = δ*(k + rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
@@ -128,16 +136,16 @@ function ∇ϕ!(y, ξ, k, L, T)
 end
 
 L = 7
-n = (2 << L)
+n = (2 << L) + 1
 T = 2.0 # length diffusion bridge
 ξ0 = 0randn(n)
-v = 1.5  # fianl point
+u, v = 1.5, -0.5  # initial and fianl point
+ξ0[1] = u/sqrt(T)
 ξ0[end] = v/sqrt(T)
-
 c = ones(n)
-c[end] = 0.0
+c[end] = c[1] = 0.0
 θ0 = rand((-1.0, 1.0), n)
-θ0[end] = 0.0 # fix final point
+θ0[end] = θ0[1] =  0.0 # fix final point
 T′ = 2000.0 # final clock of the pdmp
 
 Γ = sparse(1.0I, n, n)
