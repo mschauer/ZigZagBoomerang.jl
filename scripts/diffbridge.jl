@@ -1,10 +1,11 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
 # using CairoMakie
 # Drift
-const α = 0.0
-b(x) = -0.1x + α*sin(2pi*x)
+const α = 1.0
+const β = 0.1
+b(x) = -β*x + α*sin(2pi*x)
 # First derivative
-b′(x) = -0.1 + 2*α*2pi*cos(2pi*x)
+b′(x) = -β + 2*α*2pi*cos(2pi*x)
 # Second derivative
 b″(x) = -2*α*(2pi)^2*sin(2pi*x)
 # Firt Faber Schauder Basis evaluated at time `t`
@@ -85,11 +86,11 @@ function ∇ϕ(ξ, i, K, L, T) # formula (17)
     if i == (2 << L) + 1    # final point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i] - ξ[1]
+        return -b(ξ[end]*sqrt(T))*sqrt(T) + 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i] - ξ[1]
     elseif i == 1   # initial point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+        return b(ξ[1]*sqrt(T))*sqrt(T) + 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -115,11 +116,11 @@ function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
     if i == (2 << L) + 1    # final point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[1]
+        return -b(ξ[end]*sqrt(T))*sqrt(T) + 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[1]
     elseif i == 1   # initial point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[end]
+        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[1]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -175,11 +176,9 @@ for ξ in ξs[1:5:end]
     lines!(p1, S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
 end
 display(p1)
-error("")
-p2 = surface([dotψ(ξ, s, L, T, u, v) for s in S, ξ in ξs], shading=false, show_axis=false, colormap = :deep)
-scale!(p2, 1.0, 1.0, 100.)
+
 
 p3 = hbox([lines(ts, getindex.(ξs, i)) for i in [1,2,4,8,16,(n+1)÷2]]...)
 
 save("figures/diffbridges.png", p1)
-vbox(p1, p2, p3)
+p0 = vbox(p1, p3)

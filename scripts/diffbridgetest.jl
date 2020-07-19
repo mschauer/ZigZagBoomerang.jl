@@ -34,5 +34,6 @@ vbox(p1, p3)
 
 using Statistics
 p4 = lines(S, [mean(dotψ(ξ, s, L, T) for ξ in ξs) for s in S])
-p4 = lines!(p4, S, @.(u*exp(-0.1*S)))
-hbox(p1, p3, p4)
+p4 = lines!(p4, S, @.(u*exp(-β*S)))
+p0 = vbox(hbox(p1, p4), p3)
+save("figures/diffbridges2.png", p0)
