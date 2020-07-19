@@ -83,7 +83,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 if l >= lb
                     !adapt && error("Tuning parameter `c` too small.")
                     acc = num = 0
-                    c[i] *= factor
+                    adapt!(c, i, factor)
                 end
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
                 θ = reflect!(i, x, θ, F)

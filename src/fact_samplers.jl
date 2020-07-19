@@ -62,7 +62,10 @@ function ab(G, i, x, θ, c, Z::FactBoomerang)
     a, b
 end
 
-
+function adapt!(c, i, factor)
+    c[i] *= factor
+    c
+end
 
 """
     λ_bar(G, i, x, θ, c, Z)

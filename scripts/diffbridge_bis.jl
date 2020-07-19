@@ -1,5 +1,5 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
-using CairoMakie
+#using CairoMakie
 const ZZB = ZigZagBoomerang
 # Drift
 const α = 1.5
@@ -161,8 +161,12 @@ trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, θ0, T′
 ######################################################################################
 ##### Overloafing Poisson times in order to have tighter upperbounds
 ######################################################################################
-struct MyBound end
-
+struct MyBound
+    c::Float64
+end
+function ZZB.adapt!(b::Vector{MyBound}, i, x)
+    b[i] = MyBound(b[i].c * x)
+end
 
 """
     poisson_time(a, b, c, u)
@@ -190,14 +194,14 @@ from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` a
 can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
 the Graph `G`
 """
-function ZZB.ab(G, i, x, θ, c::MyBound, F)
+function ZZB.ab(G, i, x, θ, c::Vector{MyBound}, F::ZigZag)
     l = lvl(i)
-    a = T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
+    a = c[i].c + T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
     b1 = x[i] * θ[i]
     b2 = θ[i] * θ[i]
     a, b1, b2
 end
 
-c = [MyBound() for i in 1:n]
+c = [MyBound(1.01) for i in 1:n]
 trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, θ0, T′, c, ZigZag(Γ, ξ0 * 0),
                         SelfMoving(), L, T, adapt = true);
