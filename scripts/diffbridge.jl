@@ -81,14 +81,14 @@ The variance of the estimate can be reduced by averaging over `K` independent re
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕ(ξ, i, K, L, T) # formula (17)
-    if i == (2 << L) + 1
+    if i == (2 << L) + 1    # final point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i]
-    elseif i == 1
+        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i] - ξ[1]
+    elseif i == 1   # initial point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i] - ξ[end]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -111,21 +111,21 @@ the `i`th partial derivative of the potential function.
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
-    if  i == (2 << L) + 1
-        s = T*(rand())
-        x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*sqrt(T)*s*(2b(x)*b′(x) + b″(x)) + ξ[i]
-    elseif i == 1
-        s = T*(rand())
-        x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+    if i == (2 << L) + 1    # final point
+        s = T * (rand())
+        x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
+        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[1]
+    elseif i == 1   # initial point
+        s = T * (rand())
+        x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
+        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[end]
     else
         l = lvl(i, L)
-        k = (i-1) ÷ (2 << l)
-        δ = T/(1 << (L-l))
-        s = δ*(k + rand())
-        x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*δ*Λ(s, L-l, T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
+        k = (i - 1) ÷ (2 << l)
+        δ = T / (1 << (L - l))
+        s = δ * (k + rand())
+        x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
+        return 0.5 * δ * Λ(s, L - l, T) * (2b(x) * b′(x) + b″(x)) + ξ[i]
     end
 end
 

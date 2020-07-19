@@ -3,7 +3,7 @@
 # and with adapted Poisson rate. Reference: https://arxiv.org/abs/2001.05889.   #
 #################################################################################
 
-using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
+using ZigZagBoomerang, SparseArrays, LinearAlgebra
 #using CairoMakie
 const ZZB = ZigZagBoomerang
 # Drift
@@ -89,14 +89,14 @@ The variance of the estimate can be reduced by averaging over `K` independent re
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕ(ξ, i, K, L, T) # formula (17)
-    if i == (2 << L) + 1
+    if i == (2 << L) + 1    # final point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i]
-    elseif i == 1
+        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[1]
+    elseif i == 1   # initial point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i]
+        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[end]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -119,14 +119,14 @@ the `i`th partial derivative of the potential function.
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
 function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
-    if i == (2 << L) + 1
+    if i == (2 << L) + 1 # final point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i]
-    elseif i == 1
+        return 0.5 * sqrt(T) * s * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[1]
+    elseif i == 1 # initial point
         s = T * (rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
-        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i]
+        return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i] - ξ[end]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -161,7 +161,7 @@ c = ones(n)
 c[end] = c[1] = 0.0
 θ0 = rand((-1.0, 1.0), n)
 θ0[end] = θ0[1] = 0.0 # fix final point
-T′ = 2000.0 # final clock of the pdmp
+T′ = 30000.0 # final clock of the pdmp
 
 Γ = sparse(1.0I, n, n)
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ!, 0.0, ξ0, θ0, T, 10.0, Boomerang(Γ, ξ0*0, 0.1; ρ=0.9), 1, L, adapt=false);
@@ -206,13 +206,20 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function ZZB.ab(G, i, x, θ, c::Vector{MyBound}, F::ZigZag)
-    if i == 1 || i == (2 << L) + 1
-        return 0.0, 0.0, 0.0 #this way the Poisson time for the initial and final values will be infinity
-    else
-        l = lvl(i, L)
-        a = c[i].c + T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
-        b1 = x[i] * θ[i]
-        b2 = θ[i] * θ[i]
+        if i == 1
+            a = c[i].c + T^(1.5)*0.5*(α^2 + α) * abs(θ[i])  # initial point
+            b1 = θ[i]*(x[i] - x[end])
+            b2  θ[i]*(θ[i] - θ[end])
+        elseif i == (2 << L) + 1
+            a = c[i].c + T^(1.5)*0.5*(α^2 + α) * abs(θ[i])  # final point
+            b1 = θ[i]*(x[i] - x[1])
+            b2  θ[i]*(θ[i] - θ[1])
+        else
+            l = lvl(i, L)
+            a = c[i].c + T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
+            b1 = x[i] * θ[i]
+            b2 = θ[i] * θ[i]
+        end
         return a, b1, b2
     end
 end
@@ -226,6 +233,7 @@ trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, θ0, T′
 ts, ξs = splitpairs(discretize(trace, T′/n))
 S = T*(0:n)/(n+1)
 
+error("")
 
 #using CairoMakie
 p1 = lines(S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
@@ -233,3 +241,15 @@ for ξ in ξs[1:5:end]
     lines!(p1, S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
 end
 display(p1)
+
+
+using Plots
+using ColorSchemes
+
+t = Vector(0.0:0.1:1.0)
+ones(length(t))
+color = :RdYlBu
+
+plot(t, [i+ randn() for i in t], color = )
+
+color
