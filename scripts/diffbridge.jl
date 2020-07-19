@@ -27,7 +27,7 @@ function dotψ(ξ, s, L, T)
     0 <= s < T || error("out of bounds")
     r = s/sqrt(T)*ξ[end] + sqrt(T)*(1 - s/T)*ξ[1]
     for i in 0:L
-        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i) + 1 
+        j = floor(Int, s/T * (1 << (L - i)))*(2 << i) + (1 << i) + 1
         r += ξ[j]*Λ(s, L-i, T)
     end
     r
@@ -55,7 +55,7 @@ function dotψmoving(t, ξ, θ, t′, s, F, L, T)
 end
 
 # find level of index i
-function lvl(i)
+function lvl_(i)
     l = 0
     while (i & 1) == 0
         l += 1
@@ -63,6 +63,16 @@ function lvl(i)
     end
     l
 end
+
+function lvl(i, L)
+    if i == 1 || i == (2 << L) + 1
+        return L
+    else
+        return lvl_(i-1)
+    end
+end
+
+
 # ↓ not used
 """
 Unbiased estimate for the `i`th partial derivative of the potential function.
@@ -80,7 +90,7 @@ function ∇ϕ(ξ, i, K, L, T) # formula (17)
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
         return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i - 1)
+        l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
         δ = T/(1 << (L-l)) # T/(2^(L-l))
         r = 0.0
@@ -110,7 +120,7 @@ function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
         return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i-1)
+        l = lvl(i, L)
         k = (i-1) ÷ (2 << l)
         δ = T/(1 << (L-l))
         s = δ*(k + rand())

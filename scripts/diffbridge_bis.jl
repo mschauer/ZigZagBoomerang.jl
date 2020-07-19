@@ -1,3 +1,8 @@
+#################################################################################
+# Comparison of Zig-Zag for diffusion bridges with tailored Poisson rates       #
+# and with adapted Poisson rate. Reference: https://arxiv.org/abs/2001.05889.   #
+#################################################################################
+
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
 #using CairoMakie
 const ZZB = ZigZagBoomerang
@@ -59,7 +64,7 @@ function dotψmoving(t, ξ, θ, t′, s, F, L, T)
 end
 
 # find level of index i
-function lvl(i)
+function lvl_(i)
     l = 0
     while (i & 1) == 0
         l += 1
@@ -67,6 +72,15 @@ function lvl(i)
     end
     l
 end
+
+function lvl(i, L)
+    if i == 1 || i == (2 << L) + 1
+        return L
+    else
+        return lvl_(i-1)
+    end
+end
+
 # ↓ not used
 """
 Unbiased estimate for the `i`th partial derivative of the potential function.
@@ -84,7 +98,7 @@ function ∇ϕ(ξ, i, K, L, T) # formula (17)
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
         return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i - 1)
+        l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
         δ = T / (1 << (L - l)) # T/(2^(L-l))
         r = 0.0
@@ -114,7 +128,7 @@ function ∇ϕmoving(t, ξ, θ, i, t′, F, L, T) # formula (17)
         x = dotψmoving(t, ξ, θ, t′, s, F, L, T)
         return 0.5 * T^(1.5) * (1 - s / T) * (2b(x) * b′(x) + b″(x)) + ξ[i]
     else
-        l = lvl(i - 1)
+        l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
         δ = T / (1 << (L - l))
         s = δ * (k + rand())
@@ -138,11 +152,9 @@ function ∇ϕ!(y, ξ, k, L, T)
     end
     y
 end
-L = 7
 n = (2 << L) + 1
-T = 50.0 # length diffusion bridge
 ξ0 = 0randn(n)
-u, v = -π, -3π  # initial and fianl point
+u, v = -π, 3π  # initial and fianl point
 ξ0[1] = u / sqrt(T)
 ξ0[end] = v / sqrt(T)
 c = ones(n)
@@ -158,6 +170,7 @@ trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, θ0, T′
                         SelfMoving(), L, T, adapt = true);
 
 
+@show acc/num
 ######################################################################################
 ##### Overloafing Poisson times in order to have tighter upperbounds
 ######################################################################################
@@ -179,9 +192,7 @@ function ZZB.poisson_time((a, b, c)::NTuple{3}, u = rand()) # formula (22)
     elseif a * b / c <= log(u)
         return -log(u) / a
     else
-        return (
-            -(a + b) + sqrt((a + b)^2 - 2.0 * c * (b * b * 0.5 / c + log(u)))
-        ) / c    # # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) + b*b*0.5/c = 0
+        return (-(a + b) + sqrt((a + b)^2 - 2.0 * c * (b * b * 0.5 / c + log(u)))) / c    # positive solution of quadratic equation c*0.5 x^2 + (b + a) x + log(u) + b*b*0.5/c = 0
     end
 end
 
@@ -195,13 +206,30 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function ZZB.ab(G, i, x, θ, c::Vector{MyBound}, F::ZigZag)
-    l = lvl(i)
-    a = c[i].c + T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
-    b1 = x[i] * θ[i]
-    b2 = θ[i] * θ[i]
-    a, b1, b2
+    if i == 1 || i == (2 << L) + 1
+        return 0.0, 0.0, 0.0 #this way the Poisson time for the initial and final values will be infinity
+    else
+        l = lvl(i, L)
+        a = c[i].c + T^(1.5) / 2^((L - l) * 1.5 + 2) * (α^2 + α) * abs(θ[i]) # formula (22)
+        b1 = x[i] * θ[i]
+        b2 = θ[i] * θ[i]
+        return a, b1, b2
+    end
 end
 
-c = [MyBound(1.01) for i in 1:n]
+c = [MyBound(0.0) for i in 1:n]
 trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, θ0, T′, c, ZigZag(Γ, ξ0 * 0),
-                        SelfMoving(), L, T, adapt = true);
+                        SelfMoving(), L, T, adapt = false);
+
+
+@show acc/num
+ts, ξs = splitpairs(discretize(trace, T′/n))
+S = T*(0:n)/(n+1)
+
+
+#using CairoMakie
+p1 = lines(S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
+for ξ in ξs[1:5:end]
+    lines!(p1, S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
+end
+display(p1)
