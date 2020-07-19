@@ -1,11 +1,12 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
 # using CairoMakie
 # Drift
-b(x) = -0.1x +sin(2pi*x)
+const α = 0.0
+b(x) = -0.1x + α*sin(2pi*x)
 # First derivative
-b′(x) = -0.1 + 2*2pi*cos(2pi*x)
+b′(x) = -0.1 + 2*α*2pi*cos(2pi*x)
 # Second derivative
-b″(x) = -2*(2pi)^2*sin(2pi*x)
+b″(x) = -2*α*(2pi)^2*sin(2pi*x)
 # Firt Faber Schauder Basis evaluated at time `t`
 Λ(t, T::Float64) = sqrt(T)*0.5 - abs((t % T)/sqrt(T) - sqrt(T)*0.5)
 
@@ -88,7 +89,7 @@ function ∇ϕ(ξ, i, K, L, T) # formula (17)
     elseif i == 1   # initial point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
-        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i] - ξ[end]
+        return 0.5*T^(1.5)*(1 - s/T)*(2b(x)*b′(x) + b″(x)) + ξ[i]
     else
         l = lvl(i, L)
         k = (i - 1) ÷ (2 << l)
@@ -168,7 +169,7 @@ ts, ξs = splitpairs(discretize(trace, T′/n))
 S = T*(0:n)/(n+1)
 
 
-using CairoMakie
+#using CairoMakie
 p1 = lines(S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
 for ξ in ξs[1:5:end]
     lines!(p1, S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
