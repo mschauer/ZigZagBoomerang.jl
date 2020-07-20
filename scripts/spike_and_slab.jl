@@ -69,3 +69,39 @@ out1, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
 @show acc
 using Makie, CairoMakie
 p1 = lines(eventtime.(out1), eventposition.(out1))
+
+## TEST probability of x being 0 euqal to total time divided by time spent on 0
+function prob_of_zero(out1)
+    k = 0
+    freeze =false
+    for event in out1
+        if freeze == true
+            k += event[1]
+        end
+        if event[3] == 0.0
+            freeze = true
+            k -= event[1]
+        else
+            freeze = false
+        end
+    end
+    k/out1[end][1]
+end
+
+x0, θ0 = randn(), 1.0
+T = 10000.0
+c = 1.0
+
+k = 0.5
+out1, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
+k1 = prob_of_zero(out1)
+
+k = k*2
+out2, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
+k2 = prob_of_zero(out2)
+
+k = k*2
+out3, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
+k3 = prob_of_zero(out3)
+
+println("by doubling the constant k, the probabilty to be in 0 has the following sequence: $k1, $k2, $k3,...")
