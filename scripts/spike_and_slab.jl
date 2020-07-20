@@ -17,18 +17,17 @@ function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=fals
     a, b = ZZB.ab(x, θ, c, Flow)
     t_ref = t + ZZB.waiting_time_ref(Flow)
     t′ =  t + poisson_time(a, b, rand())
-    tˣ = t + freezing_time(t, x, θ)
+    tˣ = t + freezing_time(x, θ)
+    println("freezing time $(tˣ)")
     while t < T
-        if  tˣ < min(t_ref, t')
-            #t, x, θ = ZZB.move_forward(tˣ - t, t, x, θ, Flow) # go to 0
-            #@assert -0.0001 < x < 0.0001 #check
-            t, x , θ = tˣ, 0.0, θ #go to 0
+        if  tˣ < min(t_ref, t′)
+            t, x, θ = ZZB.move_forward(tˣ - t, t, x, θ, Flow) # go to 0
+            @assert -0.0001 < x < 0.0001 #check
+            #t, x , θ = tˣ, 0.0, θ #go to 0
             push!(Ξ, (t, x, 0.0))
             t = t - log(rand())/k #wait exponential time
             push!(Ξ, (t, x, θ))
-            t_ref += tˣ - t #not need to recompute it
-            t′ += tˣ - t #not need to recompute it
-            tˣ = Inf #leave state 0
+            tˣ  = Inf
         elseif t_ref < t′
             t, x, θ = ZZB.move_forward(t_ref - t, t, x, θ, Flow)
             θ = sqrt(Flow.Σ)*randn()
@@ -62,10 +61,11 @@ end
 ∇ϕ(x) = x
 
 # Example: ZigZag
-x0, θ0 = randn(), 1.0
+x0, θ0 = -1.0, 1.0
 T = 300.0
 c = 1.0
 k = 1.0
 out1, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
 @show acc
-using Makie
+using Makie, CairoMakie
+p1 = lines(eventtime.(out1), eventposition.(out1))
