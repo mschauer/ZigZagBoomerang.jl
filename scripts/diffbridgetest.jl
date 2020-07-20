@@ -1,3 +1,18 @@
+###
+# Test by simulating OU with known transition density
+###
+using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
+# using CairoMakie
+include("faberschauder.jl")
+
+# Drift
+const β = 1.0
+b(x) = -β*x
+# First derivative
+b′(x) = -β
+# Second derivative
+b″(x) = zero(x)
+
 L = 7
 n = (2 << L) + 1
 T = 2.0 # length diffusion bridge
