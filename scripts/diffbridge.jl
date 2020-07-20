@@ -1,91 +1,48 @@
 using Makie, ZigZagBoomerang, SparseArrays, LinearAlgebra
+# using CairoMakie
+include("faberschauder.jl")
 
-b(x) = -0.1x + 2sin(2pi*x)
-b′(x) = -0.1 + 2*2pi*cos(2pi*x)
-b″(x) = -2*(2pi)^2*sin(2pi*x)
+# Drift
+const α = 1.0
+const β = 0.1
+b(x) = -β*x + α*sin(2pi*x)
+# First derivative
+b′(x) = -β + 2*α*2pi*cos(2pi*x)
+# Second derivative
+b″(x) = -2*α*(2pi)^2*sin(2pi*x)
 
-Λ(t) = 0.5 - abs((t % 1.0) - 1/2)
-Λ(t, l⁻) = Λ(t*(1<<l⁻))/sqrt(1<<l⁻)
-
-function dotψ(ξ, s, L)
-    0 <= s < 1.0 || error("out of bounds")
-    r = 0.0
-    for i in 0:L
-        j = floor(Int, s * (1 << (L - i)))*(2 << i) + (1 << i)
-        r += ξ[j]*Λ(s, L-i)
-    end
-    r
-end
-function dotψmoving(t, ξ, θ, t′, s, F, L)
-    0 <= s < 1.0 || error("out of bounds")
-    r = 0.0
-    for i in 0:L
-        j = floor(Int, s * (1 << (L - i)))*(2 << i) + (1 << i)
-        ZigZagBoomerang.smove_forward!(j, t, ξ, θ, t′, F)
-        r += ξ[j]*Λ(s, L-i)
-    end
-    r
-end
-
-function lvl(i)
-    l = 0
-    while (i & 1) == 0
-        l += 1
-        i = i >> 1
-    end
-    l
-end
-# l in 0:L
-function ∇ϕ(ξ, i, K, L) # formula (17)
-    l = lvl(i)
-    k = i ÷ (2 << l)
-    δ = 1/(1 << (L-l))
-    r = 0.0
-    for _ in 1:K
-        s = δ*(k + rand())
-        x = dotψ(ξ, s, L)
-        r += δ*Λ(s, L-l)*(2b(x)*b′(x) + b″(x)) + ξ[i]
-    end
-    r/K
-end
-function ∇ϕmoving(t, ξ, θ, i, t′, F, L) # formula (17)
-    l = lvl(i)
-    k = i ÷ (2 << l)
-    δ = 1/(1 << (L-l))
-    s = δ*(k + rand())
-    x = dotψmoving(t, ξ, θ, t′, s, F, L)
-    δ*Λ(s, L-l)*(2b(x)*b′(x) + b″(x)) + ξ[i]
-end
-function ∇ϕ!(y, ξ, k, L)
-    for i in eachindex(ξ)
-        y[i] = ∇ϕ(ξ, i, k, L)
-    end
-    y
-end
-
-L = 11
-n = (2 << L) - 1
+L = 7
+n = (2 << L) + 1
+T = 2.0 # length diffusion bridge
 ξ0 = 0randn(n)
-θ0 = randn(n)
-T = 1000.0
+u, v = 1.5, -0.5  # initial and fianl point
+ξ0[1] = u/sqrt(T)
+ξ0[end] = v/sqrt(T)
+c = ones(n)
+c[end] = c[1] = 0.0
+θ0 = rand((-1.0, 1.0), n)
+θ0[end] = θ0[1] =  0.0 # fix final point
+T′ = 2000.0 # final clock of the pdmp
+
 Γ = sparse(1.0I, n, n)
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ!, 0.0, ξ0, θ0, T, 10.0, Boomerang(Γ, ξ0*0, 0.1; ρ=0.9), 1, L, adapt=false);
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0, 1.0), n), T, 40.0*ones(n), ZigZag(Γ, ξ0*0), 5, L, adapt=false);
-trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0, rand((-1.0, 1.0), n), T, ones(n), ZigZag(Γ, ξ0*0), SelfMoving(), L, adapt=true);
+trace, (t, ξ, θ), (acc, num), c = @time spdmp(∇ϕmoving, 0.0, ξ0,
+    θ0, T′, c, ZigZag(Γ, ξ0*0), SelfMoving(), L, T, adapt=true);
 #trace, (t, ξ, θ), (acc, num) = @time pdmp(∇ϕ, 0.0, ξ0, rand((-1.0,1.0), n), T, 100.0*ones(n), FactBoomerang(Γ, ξ0*0, 0.1), 5, L, adapt=false);
+ts, ξs = splitpairs(discretize(trace, T′/n))
+S = T*(0:n)/(n+1)
 
-ts, ξs = splitpairs(discretize(trace, T/n))
 
-S = (0:n)/(n+1)
-p1 = lines(S, [dotψ(ξ, s, L) for s in S], linewidth=0.3)
+#using CairoMakie
+p1 = lines(S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
 for ξ in ξs[1:5:end]
-    lines!(p1, S, [dotψ(ξ, s, L) for s in S], linewidth=0.3)
+    lines!(p1, S, [dotψ(ξ, s, L, T) for s in S], linewidth=0.3)
 end
+display(p1)
 
-p2 = surface([dotψ(ξ, s, L) for s in S, ξ in ξs], shading=false, show_axis=false, colormap = :deep)
-scale!(p2, 1.0, 1.0, 100.)
 
 p3 = hbox([lines(ts, getindex.(ξs, i)) for i in [1,2,4,8,16,(n+1)÷2]]...)
 
 save("figures/diffbridges.png", p1)
-vbox(p1, p2, p3)
+p0 = vbox(p1, p3)
