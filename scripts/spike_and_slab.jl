@@ -18,7 +18,6 @@ function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=fals
     t_ref = t + ZZB.waiting_time_ref(Flow)
     t′ =  t + poisson_time(a, b, rand())
     tˣ = t + freezing_time(x, θ)
-    println("freezing time $(tˣ)")
     while t < T
         if  tˣ < min(t_ref, t′)
             t, x, θ = ZZB.move_forward(tˣ - t, t, x, θ, Flow) # go to 0
@@ -57,6 +56,7 @@ function ss_pdmp(∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=fals
     return Ξ, acc/num
 end
 
+
 ϕ(x) = x^2/2 #not used
 ∇ϕ(x) = x
 
@@ -88,20 +88,19 @@ function prob_of_zero(out1)
     k/out1[end][1]
 end
 
-x0, θ0 = randn(), 1.0
-T = 10000.0
-c = 1.0
-
-k = 0.5
+const μ = 1.0
+ϕ(x) = (x-μ)^2/2 #not used
+∇ϕ(x) = x - μ
+# Example: ZigZag
+x0, θ0 = -1.0, 1.0
+T = 2000.0
+c = 10.01
+k = 0.1
+@show acc
 out1, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
-k1 = prob_of_zero(out1)
+using Makie, CairoMakie
+p1 = lines(eventtime.(out1), eventposition.(out1), linewidth = 0.3)
+prob_of_zero(out1)
 
-k = k*2
-out2, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
-k2 = prob_of_zero(out2)
-
-k = k*2
-out3, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
-k3 = prob_of_zero(out3)
-
-println("by doubling the constant k, the probabilty to be in 0 has the following sequence: $k1, $k2, $k3,...")
+f0 = 1/(sqrt(2*pi))*exp(-1/2*μ^2)
+1/(k/f0 + 1)
