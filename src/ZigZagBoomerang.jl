@@ -18,7 +18,7 @@ include("not_fact_samplers.jl")
 include("priorityqueue.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
-
+include("ssfact.jl")
 
 
 include("zigzagboom1d.jl")
