@@ -16,7 +16,7 @@ idot(A, j, x) = dot((@view A[:, j]), x)
 function idot(A::SparseMatrixCSC, j, x)
     rows = rowvals(A)
     vals = nonzeros(A)
-    s = zero(eltype(A))
+    s = zero(eltype(x))
     @inbounds for i in nzrange(A, j)
         s += vals[i]*x[rows[i]]
     end

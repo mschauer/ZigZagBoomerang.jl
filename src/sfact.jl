@@ -39,10 +39,9 @@ and takes responsibility to call `smove_forward!`
 struct SelfMoving
 end
 export SelfMoving
-sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, args...) = λ(∇ϕ, i, x, θ, Z, args...)
-function sλ(∇ϕ, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, ::SelfMoving, args...)
-    pos(∇ϕ(t, x, θ, i, t′, Z, args...)*θ[i]) # needs to call smove_forward
-end
+∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, args...) = ∇ϕ(x, i, args...)
+∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, S, args...)
+sλ(∇ϕi, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, args...) = λ(∇ϕi, i, x, θ, Z, args...)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
 function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
@@ -62,10 +61,10 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                     F.σ[i] = F.σ[i]*exp(((0.3t[i]/acc[i] > 1.66) - (0.3t[i]/acc[i] < 0.6))*0.03*min(1.0, sqrt(τ/F.λref)))
                 end
             end
-            if F isa ZigZag
+            if F isa ZigZag && eltype(θ) <: Number
                 θ[i] = F.σ[i]*rand((-1,1))
             else
-                θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn()
+                θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn(eltype(θ))
             end
             #renew refreshment
             Q[(n + i)] = t[i] + waiting_time_ref(F)
@@ -76,7 +75,8 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 Q[j] = t[j] + poisson_time(b[j], rand())
             end
         else
-            l, lb = sλ(∇ϕ, i, t, x, θ, t′, F, args...), sλ̄(b[i], t[i] - t_old[i])
+            ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
+            l, lb = sλ(∇ϕi, i, t, x, θ, t′, F, args...), sλ̄(b[i], t[i] - t_old[i])
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -86,7 +86,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                     adapt!(c, i, factor)
                 end
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-                θ = reflect!(i, x, θ, F)
+                θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G, i)
                     b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t[j]
