@@ -40,8 +40,8 @@ struct SelfMoving
 end
 export SelfMoving
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, args...) = ∇ϕ(x, i, args...)
-∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, S, args...)
-sλ(∇ϕi, i, t, x, θ, t′, Z::Union{ZigZag,FactBoomerang}, args...) = λ(∇ϕi, i, x, θ, Z, args...)
+∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, args...)
+sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
 function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
@@ -76,7 +76,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
             end
         else
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
-            l, lb = sλ(∇ϕi, i, t, x, θ, t′, F, args...), sλ̄(b[i], t[i] - t_old[i])
+            l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
             num += 1
             if rand()*lb < l
                 acc += 1

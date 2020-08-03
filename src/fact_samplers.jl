@@ -23,7 +23,7 @@ hasrefresh(Z::ZigZag) = Z.λref > 0
     λ(∇ϕ, i, x, θ, Z::ZigZag)
 `i`th Poisson rate of the `ZigZag` sampler
 """
-function λ(∇ϕi, i, x, θ, Z::ZigZag, args...)
+function λ(∇ϕi, i, x, θ, Z::ZigZag)
     pos(∇ϕi'*θ[i])
 end
 
@@ -32,7 +32,7 @@ end
     λ(∇ϕ, i, x, θ, Z::FactBoomerang)
 `i`th Poisson rate of the `FactBoomerang` sampler
 """
-function λ(∇ϕi, i, x, θ, B::FactBoomerang, args...)
+function λ(∇ϕi, i, x, θ, B::FactBoomerang)
     pos((∇ϕi - (x[i] - B.μ[i])*B.Γ[i,i])*θ[i])
 end
 
@@ -122,7 +122,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
             end
         else
             ∇ϕi = ∇ϕ(x, i, args...)
-            l, lb = λ(∇ϕi, i, x, θ, F, args...), pos(a[i] + b[i]*(t - t_old[i]))
+            l, lb = λ(∇ϕi, i, x, θ, F), pos(a[i] + b[i]*(t - t_old[i]))
             num += 1
             if rand()*lb < l
                 acc += 1
