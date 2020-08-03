@@ -266,3 +266,5 @@ end
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(xs)[1] < 2.5/sqrt(T)
 end
+
+include("staticarrays.jl")
