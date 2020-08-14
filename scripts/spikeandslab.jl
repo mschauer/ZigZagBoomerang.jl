@@ -63,24 +63,25 @@ function ∇ϕ(x, i, A, y) # partial derivative
     return s
 end
 
-function ∇ϕr(x, i, A, y, control, μ, bias, k) # with subsampling and control variate
-    s = ∇pri(x[i])
+function ∇ϕr(x, i, A, y, control, μ, bias, k) # with subsampling and optional control variate
+    s = ∇pri(x[i]) + control*(bias[i] - pri(μ[i]))
     n, p = size(A)
     sampler = Random.SamplerRangeNDL(1:n)
     for _ in 1:k
         j = rand(sampler)
         z = sum(A[j,r]*x[r] for r in 1:p)
-        s += -A[j,i]*(y[j]*sigmoidn(z) + (m - y[j])*nsigmoid(z))
+        s += -n/k*A[j,i]*(y[j]*sigmoidn(z) + (m - y[j])*nsigmoid(z))
         if control
             z2 = sum(A[j,r]*μ[r] for r in 1:p)
-            s -= -A[j,i]*(y[j]*sigmoidn(z2) + (m - y[j])*nsigmoid(z2))
+            s -= -n/k*A[j,i]*(y[j]*sigmoidn(z2) + (m - y[j])*nsigmoid(z2))
         end
     end
-    return s*n/k + control*bias[i]
+    return s
 end
 
 
 # Some Newton steps towards the mode as starting point
+# The mode can be used as control variate
 println("Newton steps")
 x0 = zeros(p)
 @time for i in 1:8
@@ -96,6 +97,7 @@ end
 Γfull = ReverseDiff.jacobian(x -> ∇ϕ(x, A, y), μ)
 Γ = sparse(1.0I, p, p)
 bias = ∇ϕ(μ, A, y)
+@show norm(bias)
 
 xtest = randn(p)
 i = 8
@@ -103,7 +105,7 @@ i = 8
 #@test ∇ϕ(xtest, i, A, y) ≈ mean(∇ϕr(xtest, i, A, y, false, μ, bias, 100) for k in 1:20000)
 #@test ∇ϕ(xtest, i, A, y) ≈ mean(∇ϕr(xtest, i, A, y, true, μ, bias, 100) for k in 1:20000)
 
-# Random initial values
+# Initial values
 t0 = 0.0
 
 
