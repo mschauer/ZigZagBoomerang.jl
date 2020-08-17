@@ -3,10 +3,18 @@
 using LinearAlgebra
 
 grad_correct!(y, x, F::Union{BouncyParticle, ZigZag}) = y
-function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
+function grad_correct!(y, x, F::FactBoomerang)
     @. y -= (x - F.μ)
     y
 end
+# Here the reference measure is N(μ,Σ) and `Σinv` is inv(Σ)
+function grad_correct!(y, x, F::Boomerang)
+    y .-= F.Σinv*(F.x - F.μ)
+    y
+end
+
+
+
 λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
 
 # Here use sparsity as the factorised samplers
@@ -15,11 +23,18 @@ function ab(x, θ, c, B::BouncyParticle)
 end
 
 function ab(x, θ, c, B::Boomerang)
-    (sqrt(normsq(θ) + normsq((x - B.μ)))*c, 0.0)
+    (sqrt(normsq(θ) + normsq(B.Σinv*(x - B.μ)))*c, 0.0)
 end
 
 function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ)
+end
+# Sample new velocity from N(0, Σ) with preconditioned Crank Nicolson scheme.
+# The correlated random variables are simulated with the cholesky factorization
+# of the reference covariance Σ.
+function refresh!(θ, B::Boomerang)
+    ρ̄ = sqrt(1-B.ρ^2)
+    θ .= B.ρ*θ .+ ρ̄*B.L*randn!(θ)
 end
 
 function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num),

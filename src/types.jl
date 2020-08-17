@@ -41,15 +41,34 @@ BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ)
     Boomerang(μ, λ) <: ContinuousDynamics
 
 Dynamics preserving the `N(μ, Σ)` measure (Boomerang)
-with refreshment time `λ`
+with refreshment time `λref`. `Γ` defines the sparse dependency graph of the target measure,
+`Σinv` and `Σ12` are the inverse and the square root of `Σ` and `L` is the lower triangular matrix
+of `Σ` computed with the cholesky decomposition such that L*L' = Σ. ρ is used for a Crank Nicolson scheme
+when refreshing the velocities.
 """
-struct Boomerang{U, T, S} <: ContinuousDynamics
+struct Boomerang{U, T, S, L, V} <: ContinuousDynamics
     Γ::U
+    Σ::L
+    Σinv::L
+    Σ12::L
+    L::V
     μ::T
     λref::S
     ρ::S
 end
-Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ)
+# Construcors
+function Boomerang(Γ, Σ, μ, λ; ρ=0.0)
+    Σ12 = sqrt(Σ)
+    Σinv = inv(Σ)
+    L = cholesky(Σ).L
+    Boomerang(Γ, Σ, Σinv, Σ12, L, μ, λ, ρ)
+end
+
+function Boomerang(Γ, μ, λ; ρ=0.0)
+    Σ = Σ12 = Σinv = L = I(length(μ))
+    Boomerang(Γ, Σ, Σinv, Σ12, L, μ, λ, ρ)
+end
+
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 

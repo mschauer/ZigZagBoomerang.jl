@@ -78,12 +78,23 @@ function move_forward(τ, t, x, θ, B::Boomerang1d)
 end
 
 """
-    reflect!(∇ϕx, θ, F::BouncyParticle, Boomerang)
+    reflect!(∇ϕx, x, θ, F::Boomerang)
 
 Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
 """
-function reflect!(∇ϕx, x, θ, ::Union{BouncyParticle, Boomerang})
+function reflect!(∇ϕx, x, θ, F::Boomerang)
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.Σ12*∇ϕx))*F.Σ*∇ϕx
+    θ
+end
+
+"""
+    reflect!(∇ϕx, θ, F::BouncyParticle)
+
+Reflection rule of sampler `F` at reflection time.
+x`: position, `θ`: velocity
+"""
+function reflect!(∇ϕx, x, θ, ::BouncyParticle)
     θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx
     θ
 end
