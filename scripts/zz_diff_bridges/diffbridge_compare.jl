@@ -240,7 +240,7 @@ function mala_sampler(ϕ, ∇ϕ, ξ₀::Vector{Float64}, niter::Int64, args...)
                     else
                         τ = min(1.0, τ + 0.0001)
                     end
-                    #println("Adaptive step: ar: $(count/100), new tau: $τ")
+                    println("Adaptive step: ar: $(count/100), new tau: $τ")
                     count = 0
                 end
                 ξtrace[:,i] = ξ₀
@@ -268,7 +268,7 @@ function runall()
     u, v = -π, 3π  # initial and fianl point
     ξ₀[1] = u / sqrt(T)
     ξ₀[end] = v / sqrt(T)
-    niter = 135000
+    niter = 1000
     dt = 1/(2 << L)
     xx = mala_sampler(ϕ, ∇ϕ, ξ₀, niter, L, α, T)
     S = T*(0:n)/(n+1)
@@ -279,4 +279,30 @@ function runall()
     display(p1)
 end
 
+# With Automatic Integration (TOO SLOW)
+using QuadGK
+# sin application
+function ϕ(ξ, t, L, α, T)
+    Xₜ = dotψ(ξ, t, L, T)
+    0.5*α*(α*sin(Xₜ)^2 + cos(Xₜ))
+end
+function ∇ϕ(l, t, ξ,  L, α, T)
+    Xₜ = dotψ(ξ, t, L, T)
+    #println(Λ(t, L - l, T)*0.5*(α^2*sin(2.0*Xₜ) - α*sin(Xₜ)))
+    0.5*(α^2*sin(2.0*Xₜ) - α*sin(Xₜ))*Λ(t, L - l, T)
+end
+
+function get_info(ϕ, ∇ϕ, ξ, L, α, T)
+    U = 0.5*dot(ξ, ξ) #gaussian part
+    ∇U = deepcopy(ξ) #gaussian part
+    U += quadgk(t ->  ϕ(ξ, t, L, α, T), 0.0, T, rtol = 1e-1)[1]
+    for i in 2:(length(ξ)-1)
+        l = lvl(i, L)
+        k = (i - 1) ÷ (2 << l)
+        δ = T / (1 << (L - l))
+        ∇U[i] += quadgk(t -> ∇ϕ(l, t, ξ, L, α, T), δ*k, δ*(k+1), 1e-1)[1]
+    end
+    ∇U[1] = ∇U[end] = 0.0
+    return ∇U, U
+end
 runall()
