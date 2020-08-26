@@ -8,7 +8,8 @@ function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
     y
 end
 λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
-
+sλ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = λ(∇ϕx, θ, F)
+sλ̄((a,b), Δt) = pos(a + b*Δt)
 # Here use sparsity as the factorised samplers
 function ab(x, θ, c, B::BouncyParticle)
     (c + θ'*(B.Γ*x), θ'*(B.Γ*θ))
@@ -22,7 +23,7 @@ function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ)
 end
 
-function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num),
+function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, τref, (acc, num),
      Flow::Union{BouncyParticle, Boomerang}, args...; factor=1.5, adapt=false)
     while true
         if τref < t′
@@ -30,16 +31,16 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
             #θ = randn!(θ)
             θ = refresh!(θ, Flow)
             τref = t + waiting_time_ref(Flow)
-            a, b = ab(x, θ, c, Flow)
-            t′ = t + poisson_time(a, b, rand())
+            b = ab(x, θ, c, Flow)
+            t′ = t + poisson_time(b, rand())
             push!(Ξ, event(t, x, θ, Flow))
-            return t, x, θ, (acc, num), c, a, b, t′, τref
+            return t, x, θ, (acc, num), c, b, t′, τref
         else
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
             ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
-            l, lb = λ(∇ϕx, θ, Flow), pos(a + b*τ)
+            l, lb = sλ(∇ϕx, θ, Flow), sλ̄(b, τ)
             num += 1
             if rand()*lb <= l
                 acc += 1
@@ -49,12 +50,12 @@ function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, n
                 end
                 θ = reflect!(∇ϕx, x, θ, Flow)
                 push!(Ξ, event(t, x, θ, Flow))
-                a, b = ab(x, θ, c, Flow)
-                t′ = t + poisson_time(a, b, rand())
-                return t, x, θ, (acc, num), c, a, b, t′, τref
+                b = ab(x, θ, c, Flow)
+                t′ = t + poisson_time(b, rand())
+                return t, x, θ, (acc, num), c, b, t′, τref
             end
-            a, b = ab(x, θ, c, Flow)
-            t′ = t + poisson_time(a, b, rand())
+            b = ab(x, θ, c, Flow)
+            t′ = t + poisson_time(b, rand())
         end
     end
 end
@@ -79,10 +80,10 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang},
     Ξ = Trace(t0, x0, θ0, Flow)
     τref = waiting_time_ref(Flow)
     num = acc = 0
-    a, b = ab(x, θ, c, Flow)
-    t′ = t + poisson_time(a, b, rand())
+    b = ab(x, θ, c, Flow)
+    t′ = t + poisson_time(b, rand())
     while t < T
-        t, x, θ, (acc, num), c, a, b, t′, τref = pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num), Flow, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c, b, t′, τref = pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, τref, (acc, num), Flow, args...; factor=factor, adapt=adapt)
     end
     return Ξ, (t, x, θ), (acc, num), c
 end
