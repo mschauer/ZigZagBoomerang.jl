@@ -94,7 +94,7 @@ The variance of the estimate can be reduced by averaging over `K` independent re
 `ξ` is the current position of the coefficients, `L` the truncation level.
 The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
-function ∇ϕ(ξ, i, K, L, T) # formula (17)
+function ∇ϕ(ξ, i, L, T; K = 1) # formula (17)
     if i == (2 << L) + 1    # final point
         s = T*(rand())
         x = dotψmoving(t, ξ, θ, t′, s, F, L,  T)
@@ -151,9 +151,9 @@ In-place evaluation of the gradient of the potential function.
 `ξ` is the current position, `k` is the number of MC realization,
 `L` is the truncation level. The bridge has initial value `u` at time 0 and final value `v` at `T`.
 """
-function ∇ϕ!(y, ξ, k, L, T)
+function ∇ϕ!(y, ξ, L, T; K = 1)
     for i in eachindex(ξ)
-        y[i] = ∇ϕ(ξ, i, k, L, T)
+        y[i] = ∇ϕ(ξ, i, L, T, K)
     end
     y
 end
