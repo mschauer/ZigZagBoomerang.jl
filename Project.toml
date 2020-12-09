@@ -12,13 +12,13 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 
 [compat]
-DataStructures = "0.17"
+DataStructures = "0.17, 0.18"
 Trajectories = "0"
 julia = "1"
 
 [extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "StaticArrays"]
