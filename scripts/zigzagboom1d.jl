@@ -8,6 +8,7 @@ Random.seed!(1)
 # gradient of ϕ(x)
 ∇ϕ(x) = -π*sin(π*x) + x # (REPLACE IT WITH AUTOMATIC DIFFERENTIATION)
 
+∇ϕ(x) = x
 
 # Example: ZigZag
 x0, θ0 = randn(), 1.0
@@ -16,11 +17,11 @@ out1, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.2π, ZigZag1d())
 @show acc
 
 # Example: Boomerang
-B = Boomerang1d(0.2)
-out2, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 3.5π, B)
+B = Boomerang1d(0.1)
+out2, acc = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 0.00001, B)
 @show acc
 
-using Makie
+using Makie, CairoMakie
 p1 = Makie.lines(eventtime.(out1), eventposition.(out1))
 save("figures/zigzag.png", title(p1, "ZigZag 1d"))
 

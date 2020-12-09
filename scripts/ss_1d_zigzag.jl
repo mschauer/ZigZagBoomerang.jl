@@ -66,6 +66,16 @@ T = 300.0
 c = 1.0
 k = 1.0
 out1, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, ZigZag1d())
+
+# Boomerang
+function freezing_time(x, θ)
+    if θ*x > 0
+        return Inf
+    else
+        return -x/θ
+    end
+end
+out2, acc = ss_pdmp(∇ϕ, x0, θ0, T, c, k, Boomerang1d(0.1))
 @show acc
 using Makie, CairoMakie
 p1 = lines(eventtime.(out1), eventposition.(out1))
