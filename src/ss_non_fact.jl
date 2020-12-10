@@ -22,7 +22,7 @@ end
 
 
 function subnormsq(∇ϕx, θ)
-    res = 0
+    res = 0.0
     for i in eachindex(θ)
         if θ[i] == 0
             continue
