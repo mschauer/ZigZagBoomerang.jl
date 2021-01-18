@@ -34,10 +34,10 @@ c = 0.1*ones(n)
 ts0, xs0 = splitpairs(trace0)
 # AbstractPlotting.available_marker_symbols()
 
-fig  = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98))
+fig  = Figure(resolution = (1000, 500))
 p1 = fig[1, 1] = Axis(fig, title = "ZigZag")
 
-co = [(:black, 0.4) for i in 1:length(xs0)-1]
+co = [(:black, 0.5) for i in 1:length(xs0)-1]
 #co[8] = co[4] = co[3] = (:red, 0.5)
 #co[12] = co[4] = (:blue, 0.5)
 fr1 = findall(x->x[1]==0, diff(xs0))
@@ -48,16 +48,16 @@ co[fr2] .=  [(:blue, 0.5)]
 
 segs = [xs0[1:end-1]';xs0[2:end]'][:]
 #lines!(getindex.(xs0,1), getindex.(xs0,2), color=co, markersize=0.1)
-linesegments!(first.(segs), last.(segs), color=co)
-arrows!(first.(xs0)[1:1],last.(xs0)[1:1],first.(xs0)[2:2].-first.(xs0)[1:1],last.(xs0)[2:2].-last.(xs0)[1:1], arrowsize = 6.0, lengthscale = 0.5)
+linesegments!(first.(segs), last.(segs), linewidth=1.5,color=co)
+arrows!(first.(xs0)[1:1],last.(xs0)[1:1],first.(xs0)[2:2].-first.(xs0)[1:1],last.(xs0)[2:2].-last.(xs0)[1:1], arrowsize = 10.0, lengthscale = 0.5)
 
 y1 = zz_sticky_events(xs0, 1)
 y2 = zz_sticky_events(xs0, 2)
 scatter!(getindex.(y1,1), getindex.(y1,2),
-    color = (:red, 0.3), strokecolor = (:red, 0.3), markersize = 15, marker = :star4)
+    color = (:red, 0.4), strokecolor = (:red, 0.6), markersize = 15, marker = :star4)
 scatter!(getindex.(y2,1), getindex.(y2,2),
-    color = (:blue, 0.3), strokecolor = (:blue, 0.3), markersize = 15, marker = :star4)
-scatter!([xs0[1][1]], [xs0[1][2]], color = (:black, 1.0), strokecolor = (:black, 1.0), markersize = 2.5)
+    color = (:blue, 0.4), strokecolor = (:blue, 0.6), markersize = 15, marker = :star4)
+scatter!([xs0[1][1]], [xs0[1][2]], color = (:black, 1.0), strokecolor = (:black, 1.0), markersize = 5.5)
 #text!("x(0), y(0)", textsize = 0.25, position = (xs0[1][1]- 0.05, xs0[1][2] + 0.05))
 p1.xlabel = "x"
 p1.ylabel = "y"
