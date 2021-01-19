@@ -2,12 +2,14 @@ using Revise
 using CairoMakie, ZigZagBoomerang, SparseArrays, LinearAlgebra
 using Random
 
-function zz_sticky_events(xs0, i)
+function zz_sticky_events(ts0, xs0, i)
     first = true
     y = []
-    for x in xs0
+    t = Float64[]
+    for (s, x) in zip(ts0, xs0)
         if x[i] == 0.0  && first == true
             push!(y, x)
+            push!(t, s)
             first = false
         elseif x[i] == 0.0 && first == false
             continue
@@ -15,12 +17,12 @@ function zz_sticky_events(xs0, i)
             first = true
         end
     end
-    return y
+    return t, y
 end
 
 Random.seed!(10)
 function ϕ(x, i, μ)
-x[i] - μ[i]
+    x[i] - μ[i]
 end
 κ = .5
 n = 2
@@ -45,14 +47,14 @@ fr2 = findall(x->x[2]==0, diff(xs0))
 co[fr1] .=  [(:red, 0.5)]
 co[fr2] .=  [(:blue, 0.5)]
 
-
-segs = [xs0[1:end-1]';xs0[2:end]'][:]
+dupl(x) = [x[1:end-1]'; x[2:end]'][:] 
+segs = dupl(xs0)
 #lines!(getindex.(xs0,1), getindex.(xs0,2), color=co, markersize=0.1)
 linesegments!(first.(segs), last.(segs), linewidth=1.5,color=co)
 arrows!(first.(xs0)[1:1],last.(xs0)[1:1],first.(xs0)[2:2].-first.(xs0)[1:1],last.(xs0)[2:2].-last.(xs0)[1:1], arrowsize = 10.0, lengthscale = 0.5)
 
-y1 = zz_sticky_events(xs0, 1)
-y2 = zz_sticky_events(xs0, 2)
+t1, y1 = zz_sticky_events(ts0, xs0, 1)
+t2, y2 = zz_sticky_events(ts0, xs0, 2)
 scatter!(getindex.(y1,1), getindex.(y1,2),
     color = (:red, 0.4), strokecolor = (:red, 0.6), markersize = 15, marker = :star4)
 scatter!(getindex.(y2,1), getindex.(y2,2),
@@ -66,14 +68,31 @@ p1.aspect = DataAspect()
 
 p2 = fig[1,2] = Axis(fig, title = "Coordinates")
 
-lines!(p2, ts0, getindex.(xs0,1), color = (:red, 0.5), label = "x1", leg = true)
-lines!(p2, ts0, getindex.(xs0,2), color = (:blue, 0.5), label = "x2")
-hidespines!(p2)
+co1 = [(:black, 0.5) for i in 1:length(xs0)-1]
+co2 = [(:black, 0.5) for i in 1:length(xs0)-1]
 
+fr1 = findall(x->x[1]==0, diff(xs0))
+fr2 = findall(x->x[2]==0, diff(xs0))
+co1[fr1] .= [(:red, 0.5)]
+co2[fr2] .= [(:blue, 0.5)]
+p2.aspect = DataAspect()
+
+
+times = dupl(ts0)
+linesegments!(times, getindex.(segs,1), color = co1, label = "x1", leg = true)
+linesegments!(times, getindex.(segs,2), color = co2, label = "x2")
+
+scatter!(t1, getindex.(y1,1),
+    color = (:red, 0.4), strokecolor = (:red, 0.6), markersize = 15, marker = :star4)
+scatter!(t2, getindex.(y2,2),
+    color = (:blue, 0.4), strokecolor = (:blue, 0.6), markersize = 15, marker = :star4)
+hidespines!(p2)
 p2.xlabel = "t"
 p2.ylabel = "x,y"
-
-#p2.aspect = DataAspect()
+scatter!(ts0[1:1], first.(xs0[1:1]),
+    color = (:red, 0.4), strokecolor = (:red, 1.0), markersize = 5.5)
+scatter!(ts0[1:1], getindex.(xs0[1:1],2),
+    color = (:blue, 0.4), strokecolor = (:blue, 1.0), markersize = 5.5)
 
 
 
