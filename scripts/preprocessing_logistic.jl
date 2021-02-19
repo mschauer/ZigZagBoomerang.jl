@@ -17,7 +17,6 @@ end
 
 println("Preprocessing data")
 ξref = randn(d)
-precision = 1.0
 println("Distance before optimization: $(norm(ξref - ξtrue))")
 results = optimize(x -> ϕ(x, X, y), (G, x) -> ∇ϕ!(G, x, X, y),  ξref)
 println("Optimization success: $(results.ls_success)")
