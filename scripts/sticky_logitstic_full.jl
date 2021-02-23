@@ -13,17 +13,21 @@ const ZZB = ZigZagBoomerang
 # partial derivative
 include("./fulldesign.jl")
 Random.seed!(1)
-ξtrue = rand(10).> 0.7
-(X, y) = generate_data(ξtrue, 10, 2000)
+p = 100
+N = 1000
+w = 0.95
+ξtrue = 2*(rand(p).> w)
+(X, y) = generate_data(ξtrue, p, N)
+
 N, d = size(X)
+
 
 ### Finding the mode ###
 # Energy function logistic
-
 # smooth component of the prior measure
 const prec = 0.01
 function pri(x)
-    -prec*dot(x,x)*0.5
+    sqrt(prec)*exp(-prec*dot(x,x)*0.5)/sqrt(2π)
 end
 
 # gradient of the smooth component of the prior
@@ -81,19 +85,26 @@ end
 
 
 F = ZigZag(ones(d,d), zeros(d))
-adapt=false
-su = true
-κ = 0.5
+adapt = false
+su = true #strong upperbounds which continue to be upperbounds after
+κ = getkappa(w, pri)
 t0, x0, θ0, T = 0.0, randn(d), ones(d), 100.0
 Ξ, (t, x, θ), (acc, num), c = ZZB.sspdmp(∂ϕ!, t0, x0, θ0, T, c, F, κ,
                                     ∇ϕξref, ξref, ∇pri, y, X, N;
                                     strong_upperbounds = su ,
                                      adapt = adapt)
 
-head(Ξ)
-
 error("")
 
+first2((t,x)) = t => x[1:2]
+sep(x) = first.(x), last.(x)
+ts1, xs1 = sep(discretize(Ξ, 0.05))
+p1 = plot(ts1, getindex.(xs1,1), leg = false)
+savefig(p1, "figure1" )
+p2 = plot(ts1, getindex.(xs1,7), leg = false)
+savefig(p2, "figure2")
+save
+#
 #
 # #############################################################################
 # ####### SUBSAMPLING OVER DIMENSIONS WITH CONTROL VARIATES ###################
