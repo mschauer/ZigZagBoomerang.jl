@@ -6,7 +6,7 @@ using Random
 using SparseArrays
 using Test
 using FileIO
-using Makie
+using CairoMakie, AbstractPlotting
 
 include("gridlaplace.jl")
 
@@ -37,9 +37,16 @@ Z = ZigZag(Γ, x0*0)
 # or try the FactBoomerang
 #Z = FactBoomerang(Γ, x0*0, 0.1)
 
+κ = 1.0
 # Run sparse ZigZag for T time units and collect trajectory
 T = 20.0
 @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+su = false
+adapt = true
+trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ;
+                                                strong_upperbounds = su ,
+                                                adapt = adapt)
+
 @time traj = collect(discretize(trace, 0.1))
 
 # Prepare surface plot
