@@ -45,7 +45,7 @@ from the upper upper bounding rates λᵢ(t) = max(a + b*t)^2. The factors `a` a
 can be function of the current position `x`, velocity `θ`, tuning parameter `c` and
 the Graph `G`
 """
-function ab(G, i, x, θ, c, Z::ZigZag)
+function ab(G, i, x, θ, c, Z::ZigZag, args...)
     a = loosen(c[i], θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ)))
     b = loosen(c[i]/100, θ[i]*idot(Z.Γ, i, θ))
     a, b
