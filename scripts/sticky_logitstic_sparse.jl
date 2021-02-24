@@ -31,8 +31,8 @@ println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", r
 At = SparseMatrixCSC(A')
 γ0 = 0.01
 # Data from the model
-w = 0.9
-xtrue = 2.0.*(rand(p) .> w)  # either 2 or 0
+wc = 0.5
+xtrue = 2.0.*(rand(p) .> wc)  # either 2 or 0
 sigmoid(x) = inv(one(x) + exp(-x))
 lsigmoid(x) = -log(one(x) + exp(-x))
 y_ = Matrix(rand(n, m) .< sigmoid.(A*xtrue))
@@ -170,7 +170,6 @@ end
 # a and b
 function ZZB.ab(G, i, x, θ, c::Vector{MyBoundLog}, F::ZigZag, args...)
     # NB: if ξ and θ are sparse vectors, this implemention is not efficient
-    # error("stop here")
     max(0, θ[i]*(fullgradx0[i] + γ0*x[i])) + abs(θ[i])*c[i].c*norm(x - μ), abs(θ[i])*c[i].c*norm(θ)
 end
 
@@ -193,23 +192,22 @@ println("Distance starting point")
 println("Run spdmp")
 #traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
 # Probability of not being 0 with spike and slab prior
-w = 0.2
+w = 1- wc
 #kappa given the prior (here gauusian) and w
 κ = (γ0/sqrt(2π))/(1/w -1)
 
-t0, x0, T = 0.0, randn(p), 10.0
+t0, x0, T = 0.0, randn(p), 1000.0
 su = true #strong upperbounds
 adapt = false
-Ξ, (t, x, θ), (acc, num), c = @time ZZB.sspdmp(∇ϕr, t0, x0, θ0, T, c, Z, κ,
+traj, (t, x, θ), (acc, num), c = @time ZZB.sspdmp(∇ϕr, t0, x0, θ0, T, c, Z, κ,
                                                 A, At, μ, y, m .- y, 12;
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
-error("")
 
 
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show acc/num
-@show extrema(c ./ c0)
+# @show extrema(c ./ c0)
 
 dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
@@ -225,9 +223,9 @@ X = reshape(X, p, length(X)÷p)
 
 @show norm(xtrue - μ)
 @show norm(xtrue - x̂)
-
+error("")
 println("Plot")
-using Makie
+using CairoMakie, AbstractPlotting
 using Colors
 using GoldenSequences
 
@@ -237,12 +235,13 @@ cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
 pis = []
 for i in 1:p0
     p_i = lines(ts, X[ps[i], :], color=cs[i])
-    lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
-    ylabel!(p_i, "var$(ps[i])")
-    xlabel!(p_i, "t")
+    # lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], linewidth=2.0)
+    # ylabel!(p_i, "var$(ps[i])")
+    # xlabel!(p_i, "t")
     push!(pis, p_i)
 end
 p1 = title(hbox(pis...), "Sparse design logistic regression n=$(m*n), p=$p", textsize=20)
+pis[6]
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
 
 p2 = title(vbox(hbox([text("$p", show_axis=false, textsize=10) for p in ps]...),
