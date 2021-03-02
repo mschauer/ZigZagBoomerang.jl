@@ -88,26 +88,32 @@ end
 # vector to matrix
 
 # stupid: getting column of matrix from vector indexation of matrix
-# col(k,n) = div(k-1, n) + 1
-# row(k,n) = rem(k-1, n)+1
+col(k,n) = div(k-1, n) + 1
+row(k,n) = rem(k-1, n)+1
 
-firstelement(k, n) = div(k-1,n)*n + 1
-lastelement(k, n) = (div(k-1,n)+1)*(n)
+firstcol(k, n) = div(k-1,n)*n + 1
+firstrow(k, n) = rem(k-1, n)*n + 1
+
 # partial ϕi (Gaussian)
 function ∇ϕ(x, k, tilde_Ψ, tilde_Ψt, Ψ, γ0, n)
-    k1, k2 = firstelement(k, n), lastelement(k, n)
-    if !(k1 <= k <= k2)
-        error("something is wrong")
-    end
-    return -tilde_Ψt[k] + sdot(x[k1:k2], Ψ[k1:k2]) + γ0*x[k]
+    # c1, r1 = firstcol(k, n), firstrow(k, n)
+    # c2 , r2 = c1 + n - 1, r1 + n - 1
+    i, j = row(k,n), col(k,n)
+    x1 = reshape(x, n,n)
+    return -tilde_Ψt[k] + sdot(x1[i,:], Ψ[:,j]) + γ0*x[k]
 end
 
 
 ## Override ab
 function ZZB.ab(G, k, x, θ, c, F::ZigZag,  tilde_Ψ, tilde_Ψt, Ψ, γ0, n)
-    k1, k2 = firstelement(k, n), lastelement(k, n)
-    a = c + (θ[k]*(-tilde_Ψt[k] + sdot(x[k1:k2], Ψ[k1:k2]) + γ0*x[k]))
-    b = θ[k]*(sdot(θ[k1:k2], Ψ[k1:k2]) + γ0*θ[k])
+    # c1, r1 = firstcol(k, n), firstrow(k, n)
+    # c2 , r2 = c1 + n - 1, r1 + n - 1
+    # a = c + (θ[k]*(-tilde_Ψt[k] + sdot(x[c1:c2], Ψ[r1:r2]) + γ0*x[k]))
+    i, j = row(k,n), col(k,n)
+    x1 = reshape(x, n,n)
+    θ1 = reshape(θ, n,n)
+    a = c + (θ[k]*(-tilde_Ψt[k] + sdot(x1[i,:], Ψ[:,j]) + γ0*x[k]))
+    b = θ[k]*(sdot(θ1[i,:], Ψ[:,j]) + γ0*θ[k])
     return a, b
 end
 
@@ -116,7 +122,7 @@ end
 #kappa given the prior (here Gaussian) and w
 nz = sum(X[:] .!= 0) #non zero elements
 w = nz/(n*n) # proportion of non zero elemenets
-κ = (γ0/sqrt(2π))/(1/w -1) 
+κ = (γ0/sqrt(2π))/(1/w -1)
 p = n*n
 μ = zeros(p)
 # TODO
@@ -125,12 +131,12 @@ p = n*n
 
 
 Z = ZigZag(Γ, μ)
-c = 0.001
+c = 1.0
 t0, x0, T = 0.0, randn(p), 1000.0
 θ0 = rand([-1.0,1.0], p)
 su = false #strong upperbounds
 adapt = false
 traj, (t, x, θ), (acc, num), c = @time ZZB.sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ,
-                                                 tilde_Ψ, tilde_Ψt, Ψ, n;
+                                                 tilde_Ψ, tilde_Ψt, Ψ, γ0, n;
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
