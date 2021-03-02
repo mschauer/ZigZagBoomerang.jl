@@ -193,7 +193,7 @@ println("Run spdmp")
 #traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
 # Probability of not being 0 with spike and slab prior
 w = 1- wc
-#kappa given the prior (here gauusian) and w
+#kappa given the prior (here Gaussian) and w
 κ = (γ0/sqrt(2π))/(1/w -1)
 
 t0, x0, T = 0.0, randn(p), 1000.0

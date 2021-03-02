@@ -11,7 +11,8 @@ for i in 1:n
     X[i,j] = 1.0
 end
 X = 2.0*X
-
+X
+real.(eigvals(X))
 
 
 # Simulate data y
@@ -20,8 +21,8 @@ function simulate_data(X)
     σ = 0.1
     b(y) = X*y
     sigma(x) = fill(σ, n)
-    δt = 0.01
-    T = 1.0
+    δt = 0.001
+    T = 10.0
     tt = range(0.0, step = δt, stop = T)
     Y = zeros(n, length(tt))
     y0 = randn(n)
@@ -96,24 +97,27 @@ firstrow(k, n) = rem(k-1, n)*n + 1
 
 # partial ϕi (Gaussian)
 function ∇ϕ(x, k, tilde_Ψ, tilde_Ψt, Ψ, γ0, n)
-    # c1, r1 = firstcol(k, n), firstrow(k, n)
-    # c2 , r2 = c1 + n - 1, r1 + n - 1
     i, j = row(k,n), col(k,n)
-    x1 = reshape(x, n,n)
+    x1 = reshape(x, n, n)
     return -tilde_Ψt[k] + sdot(x1[i,:], Ψ[:,j]) + γ0*x[k]
 end
 
+function ∇ϕ(x, k, tilde_Ψ, tilde_Ψt, Ψ, γ0, n)
+    i, j = row(k,n), col(k,n)
+    x1 = reshape(x, n, n)
+    return -tilde_Ψt[k] + sdot(x1[i,:], Ψ[:,j]) + γ0*x[k]
+    # return -tilde_Ψt[k] +  γ0*x[k]
+end
 
 ## Override ab
 function ZZB.ab(G, k, x, θ, c, F::ZigZag,  tilde_Ψ, tilde_Ψt, Ψ, γ0, n)
-    # c1, r1 = firstcol(k, n), firstrow(k, n)
-    # c2 , r2 = c1 + n - 1, r1 + n - 1
-    # a = c + (θ[k]*(-tilde_Ψt[k] + sdot(x[c1:c2], Ψ[r1:r2]) + γ0*x[k]))
     i, j = row(k,n), col(k,n)
     x1 = reshape(x, n,n)
     θ1 = reshape(θ, n,n)
     a = c + (θ[k]*(-tilde_Ψt[k] + sdot(x1[i,:], Ψ[:,j]) + γ0*x[k]))
-    b = θ[k]*(sdot(θ1[i,:], Ψ[:,j]) + γ0*θ[k])
+    # a = c + (θ[k]*(-tilde_Ψt[k] + γ0*x[k]))
+    b =  θ[k]*(sdot(θ1[i,:], Ψ[:,j]) + γ0*θ[k])
+    # return c + θ[k]*γ0*(x[k] - 1.0), θ[k]^2*γ0
     return a, b
 end
 
@@ -125,13 +129,14 @@ w = nz/(n*n) # proportion of non zero elemenets
 κ = (γ0/sqrt(2π))/(1/w -1)
 p = n*n
 μ = zeros(p)
+
 # TODO
 # Γ = ones(p,p)
 Γ = ones(p,p)
 
 
 Z = ZigZag(Γ, μ)
-c = 1.0
+c = 0.00001
 t0, x0, T = 0.0, randn(p), 1000.0
 θ0 = rand([-1.0,1.0], p)
 su = false #strong upperbounds

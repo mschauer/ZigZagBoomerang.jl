@@ -1,6 +1,4 @@
-
-
-λ(∇ϕx, θ, Flow::ZigZag) = pos(∇ϕx*θ)
+λ(∇ϕxi, θi, Flow::ZigZag) = pos(∇ϕx*θ)
 
 function event(t, x, θ, Z::ZigZag)
     t, copy(x), copy(θ)

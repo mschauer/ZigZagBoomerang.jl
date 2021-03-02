@@ -71,8 +71,8 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             num += 1
             if rand()*lb < l # was a reflection time
                 acc += 1
-                if l >= lb
-                    !adapt && error("Tuning parameter `c` too small.")
+                if l > lb
+                    !adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
                     acc = num = 0
                     adapt!(c, i, factor)
                 end
