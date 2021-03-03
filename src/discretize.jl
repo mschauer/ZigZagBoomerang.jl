@@ -39,11 +39,14 @@ function discretize(x::Vector, Flow::Union{ZigZag1d, Boomerang1d}, dt0)
     Ω
 end
 
+## THIS FUNCTION IS DEPRECATED. See src/trace.jl
 """
     discretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt)
 
 Transform the output of the algorithm (a skeleton of points) to
 a trajectory. multi-dimensional version.
+
+Old version that would not work with the sticky Boomerang sampler not centered in 0
 """
 function discretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
     k = 1
