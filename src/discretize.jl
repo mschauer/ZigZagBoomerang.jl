@@ -45,9 +45,8 @@ end
 Transform the output of the algorithm (a skeleton of points) to
 a trajectory. multi-dimensional version.
 """
-function discretize(y::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
+function discretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
     k = 1
-    x = deepcopy(y)
     _, ξ, θ = x[k]
     τ = x[k+1][1]
     clock = 0.0

@@ -12,7 +12,7 @@ end
 function refresh_sticky_vel!(θ,  θf, F::BouncyParticle)
     for i in eachindex(θ)
         if θ[i] == 0.0
-            θf[i] = abs(randn())sign(θf[i])
+            θf[i] = abs(randn())*sign(θf[i])
         else
             θ[i] = randn()
         end
