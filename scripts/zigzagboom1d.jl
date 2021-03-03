@@ -8,7 +8,6 @@ Random.seed!(1)
 # gradient of ϕ(x)
 ∇ϕ(x) = -π*sin(π*x) + x # (REPLACE IT WITH AUTOMATIC DIFFERENTIATION)
 
-∇ϕ(x) = x
 
 # Example: ZigZag
 x0, θ0 = randn(), 1.0
