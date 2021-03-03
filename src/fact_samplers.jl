@@ -23,8 +23,8 @@ hasrefresh(Z::ZigZag) = Z.λref > 0
     λ(∇ϕ, i, x, θ, Z::ZigZag)
 `i`th Poisson rate of the `ZigZag` sampler
 """
-function λ(∇ϕ, i, x, θ, Z::ZigZag, args...)
-    pos(∇ϕ(x, i, args...)*θ[i])
+function λ(∇ϕi, i, x, θ, Z::ZigZag)
+    pos(∇ϕi'*θ[i])
 end
 
 
@@ -32,8 +32,8 @@ end
     λ(∇ϕ, i, x, θ, Z::FactBoomerang)
 `i`th Poisson rate of the `FactBoomerang` sampler
 """
-function λ(∇ϕ, i, x, θ, B::FactBoomerang, args...)
-    pos((∇ϕ(x, i, args...) - (x[i] - B.μ[i])*B.Γ[i,i])*θ[i])
+function λ(∇ϕi, i, x, θ, B::FactBoomerang)
+    pos((∇ϕi - (x[i] - B.μ[i])*B.Γ[i,i])*θ[i])
 end
 
 loosen(c, x) = c + x #+ log(c+1)*abs(x)/100
@@ -46,8 +46,8 @@ can be function of the current position `x`, velocity `θ`, tuning parameter `c`
 the Graph `G`
 """
 function ab(G, i, x, θ, c, Z::ZigZag, args...)
-    a = loosen(c[i], θ[i]*(idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ)))
-    b = loosen(c[i]/100, θ[i]*idot(Z.Γ, i, θ))
+    a = loosen(c[i], (idot(Z.Γ, i, x)  - idot(Z.Γ, i, Z.μ))'*θ[i])
+    b = loosen(c[i]/100, θ[i]'*idot(Z.Γ, i, θ))
     a, b
 end
 
@@ -111,7 +111,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         end
         t, x, θ = move_forward!(t′ - t, t, x, θ, F)
         if refresh
-            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn()
+            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn(eltype(θ))
             #renew refreshment
             enqueue!(Q, (true, i) => t + waiting_time_ref(F))
             #update reflections
@@ -121,7 +121,8 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
             end
         else
-            l, lb = λ(∇ϕ, i, x, θ, F, args...), pos(a[i] + b[i]*(t - t_old[i]))
+            ∇ϕi = ∇ϕ(x, i, args...)
+            l, lb = λ(∇ϕi, i, x, θ, F), pos(a[i] + b[i]*(t - t_old[i]))
             num += 1
             if rand()*lb < l
                 acc += 1
@@ -129,7 +130,7 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     !adapt && error("Tuning parameter `c` too small.")
                     c[i] *= factor
                 end
-                θ = reflect!(i, x, θ, F)
+                θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G, i)
                     a[j], b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t
@@ -172,9 +173,10 @@ see [`spdmp`](@ref).
 """
 function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
-    a = zero(x0)
-    b = zero(x0)
-    t_old = zero(x0)
+    n = length(x0)
+    a = zeros(n)
+    b = zeros(n)
+    t_old = zeros(n)
     #sparsity graph
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     t, x, θ = t0, copy(x0), copy(θ0)
