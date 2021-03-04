@@ -5,7 +5,8 @@ using SparseArrays
 using Distributions
 using Statistics
 using ZigZagBoomerang: idot, idot_moving!
-using ReverseDiff
+const ZZB = ZigZagBoomerang
+using ReverseDiff #ReverseDiffSparse?
 using Test
 using FileIO
 using GLM
@@ -18,7 +19,7 @@ sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
 include("sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
-A = sparse_design([20,20], 2, 4*20)
+A = sparse_design((20,20), 2, 4*20)
 n, p = size(A)
 @show n, p
 Γ = A'*A
@@ -30,14 +31,18 @@ println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", r
 At = SparseMatrixCSC(A')
 γ0 = 0.01
 # Data from the model
-xtrue = 5*randn(p)
+wc = 0.5
+xtrue = 2.0.*(rand(p) .> wc)  # either 2 or 0
 sigmoid(x) = inv(one(x) + exp(-x))
 lsigmoid(x) = -log(one(x) + exp(-x))
 y_ = Matrix(rand(n, m) .< sigmoid.(A*xtrue))
 y = sum(y_, dims=2)[:]
 ny = m .- y
-# prior and potential
+
+### prior and potential
 # prior precision
+# dot(x,x) might be more efficient if we know that many of those elements are 0.
+# A*x might be more efficient if we know that many of those elements are 0.
 ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (m .- y) .* lsigmoid.(-A*x))
 
 
@@ -101,13 +106,7 @@ end
 
 # Element i of the gradient exploiting sparsity
 ∇ϕ(x, i, A, At, y, ny = m .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
-# Element i of the gradient exploiting sparsity and random subsampling
-∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, i, x, μ, y, ny, k)
-# The same, but exploiting that only dependencies in subsamples need to be evaluated
-∇ϕmoving(t, x, θ, i, t′, F, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdot_moving(A, At, i, t, x, θ, t′, F, μ, y, ny, k)
-# Tests, to be sure
-#@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
-#@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
+
 
 
 
@@ -124,6 +123,18 @@ x0 = 0.1rand(p)
     x0 = x0 - (Symmetric(0.00I + H))\[∇ϕ(x0, i, A, At, y, ny) for i in 1:p]
 end
 norm(xtrue - x0)
+fullgradx0 = ∇ϕ(x0, A, At, y)
+# Element i of the gradient exploiting sparsity and random subsampling
+∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, i, x, μ, y, ny, k) - fullgradx0[i]
+
+# The same, but exploiting that only dependencies in subsamples need to be evaluated
+∇ϕmoving(t, x, θ, i, t′, F, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdot_moving(A, At, i, t, x, θ, t′, F, μ, y, ny, k) - fullgradx0[i]
+# Tests, to be sure
+#@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
+#@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
+
+
+
 
 # Note that the A'A has the same sparsity structure as the Hessian of ϕ
 # We can use it to tune the doubly local ZigZig with spdmp sparsifying the
@@ -139,22 +150,38 @@ nonzeros(Γ0) .= 1
 println("Precision Γ is ", 100*nnz(Γ)/length(Γ), "% filled")
 println("Dropped precision is ", 100*nnz(Γdrop)/length(Γdrop), "% filled")
 
+#defining tailored bounds
+struct MyBoundLog
+    c::Float64
+end
+
+c = [MyBoundLog(0.0) for i in 1:p]
+rows = rowvals(A)
+vals = nonzeros(A)
+for i in 1:p
+    C_i = 0.0
+    Ni = length(nzrange(A, i))
+    for j in nzrange(A, i)
+        row = rows[j]
+        C_i = max(C_i, Ni*0.25*abs(vals[j])*norm(A[row,:]))
+    end
+    c[i] = MyBoundLog(C_i)
+end
+# a and b
+function ZZB.ab(G, i, x, θ, c::Vector{MyBoundLog}, F::ZigZag, args...)
+    # NB: if ξ and θ are sparse vectors, this implemention is not efficient
+    max(0, θ[i]*(fullgradx0[i] + γ0*x[i])) + abs(θ[i])*c[i].c*norm(x - μ), abs(θ[i])*c[i].c*norm(θ)
+end
 
 # Random initial values
 t0 = 0.0
-
-
 # Define ZigZag
-c = 0.01*ones(p) # Rejection bounds
-c0 = copy(c)
 σ = sqrt.(diag(inv(Matrix(Γ))))
 #σ = (Vector(diag(Γ))).^(-0.5) # cheaper
-
+μ = copy(x0)
 Z = ZigZag(Γ, μ, σ, ρ=0.5, λref=0.00)
 Zdiag = ZigZag(sparse(Diagonal(Γ)), μ, σ, ρ=0.5, λref=0.00)
 Zdrop = ZigZag(Γdrop, μ, σ, ρ=0.5, λref=0.00)
-T = 2000.0
-
 θ0 = rand([-1.0,1.0], p) .* σ
 
 
@@ -164,10 +191,23 @@ println("Distance starting point")
 
 println("Run spdmp")
 #traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
-traj, u, (acc,num), c = @time spdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, SelfMoving(), A, At, μ, y, m .- y, 10; adapt=true, factor=5)
+# Probability of not being 0 with spike and slab prior
+w = 1- wc
+#kappa given the prior (here Gaussian) and w
+κ = (γ0/sqrt(2π))/(1/w -1)
+
+t0, x0, T = 0.0, randn(p), 1000.0
+su = true #strong upperbounds
+adapt = false
+traj, (t, x, θ), (acc, num), c = @time ZZB.sspdmp(∇ϕr, t0, x0, θ0, T, c, Z, κ,
+                                                A, At, μ, y, m .- y, 12;
+                                                strong_upperbounds = su ,
+                                                adapt = adapt)
+
+
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show acc/num
-@show extrema(c ./ c0)
+# @show extrema(c ./ c0)
 
 dt = T/4000
 x̂ = mean(x for (t,x) in discretize(traj, dt))
@@ -183,9 +223,9 @@ X = reshape(X, p, length(X)÷p)
 
 @show norm(xtrue - μ)
 @show norm(xtrue - x̂)
-
+error("")
 println("Plot")
-using Makie
+using CairoMakie, AbstractPlotting
 using Colors
 using GoldenSequences
 
@@ -195,15 +235,14 @@ cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
 pis = []
 for i in 1:p0
     p_i = lines(ts, X[ps[i], :], color=cs[i])
-    lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
-    ylabel!(p_i, "var$(ps[i])")
-    xlabel!(p_i, "t")
+    # lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], linewidth=2.0)
+    # ylabel!(p_i, "var$(ps[i])")
+    # xlabel!(p_i, "t")
     push!(pis, p_i)
 end
 p1 = title(hbox(pis...), "Sparse design logistic regression n=$(m*n), p=$p", textsize=20)
+pis[6]
 save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
 
 p2 = title(vbox(hbox([text("$p", show_axis=false, textsize=10) for p in ps]...),
     [hbox([i==j ? lines(ts, X[i,:]) : lines(X[i, :], X[j, :]) for i in ps]...) for j in ps]...), "$ps")
-
-p1

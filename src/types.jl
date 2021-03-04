@@ -36,7 +36,8 @@ struct BouncyParticle{T, S, R} <: ContinuousDynamics
     ρ::R
 end
 BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ)
-
+# simple constructor for first experiments
+BouncyParticle(λ, d) = BouncyParticle(I(d), zeros(d), λ, 0.0)
 """
     Boomerang(μ, λ) <: ContinuousDynamics
 
@@ -89,3 +90,4 @@ struct Boomerang1d{S,T} <: ContinuousDynamics
     λref::T
 end
 Boomerang1d(λ) = Boomerang1d(1.0, 0.0, λ)
+Boomerang1d(μstar, λ) = Boomerang1d(1.0, μstar, λ)
