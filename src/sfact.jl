@@ -87,7 +87,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                     adapt!(c, i, factor)
                 end
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-                θ = reflect!(i, ∇ϕi, x, θ, F)
+                θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
                     b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t[j]
