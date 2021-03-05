@@ -1,6 +1,11 @@
 using SparseArrays
 const SA = SparseArrays
 
+"""
+    τ = freezing_time(x, θ)
+computes the hitting time of a 1d particle with
+constant velocity `θ` to hit 0 given the position `x`
+"""
 function freezing_time(x, θ)
     if θ*x >= 0 # sic!
         return Inf
@@ -37,6 +42,11 @@ function ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     t, x, θ
 end
 
+"""
+Computes the (proposed) reflection time and the freezing time of the
+ith coordinate and enqueue the first one. `f[i] = true` if the first
+time is a freezing time.
+"""
 function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
     trefl = poisson_time(b[i], rand())
     tfreeze = freezing_time(x[i], θ[i])
@@ -50,8 +60,15 @@ function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
     return Q
 end
 
+"""
+    sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
+            F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+Inner loop of the sticky ZigZag sampler. `G[i]` is the set of indices used to derive the
+bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (neighbours of neighbours)
 
-
+If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of x_i
+with i in G[i].
+"""
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
