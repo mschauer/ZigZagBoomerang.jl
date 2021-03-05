@@ -3,6 +3,7 @@ const SA = SparseArrays
 
 """
     τ = freezing_time(x, θ)
+
 computes the hitting time of a 1d particle with
 constant velocity `θ` to hit 0 given the position `x`
 """
