@@ -76,7 +76,7 @@ If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of 
 with i in G[i].
 """
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ::Vector{Float64}, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -92,7 +92,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             θf[i], θ[i] = θ[i], 0.0 # stop and save speed
             t_old[i] = t[i]
             f[i] = false
-            Q[i] = t[i] - log(rand())/κ
+            Q[i] = t[i] - log(rand())/κ[i]
             if !strong_upperbounds
                 t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F)
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F)
@@ -152,7 +152,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ::Vector{Float64}, args...; strong_upperbounds = false,
         factor=1.5, adapt=false)
     n = length(x0)
     t′ = t0
