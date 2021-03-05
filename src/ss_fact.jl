@@ -68,7 +68,7 @@ end
 """
     sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
             F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
-            
+
 Inner loop of the sticky ZigZag sampler. `G[i]` is the set of indices used to derive the
 bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (neighbours of neighbours)
 
@@ -76,7 +76,7 @@ If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of 
 with i in G[i].
 """
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ::Vector{Float64}, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -118,7 +118,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                 end
             end
         else # was either a reflection time or an event time from the upper bound
-            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             # do it here so ∇ϕ is right event without self moving
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
             l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
@@ -132,7 +132,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                 end
                 # already done above t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
-                θ[i] = -θ[i]
+                θ = reflect!(i, x, θ, F)
                 for j in neighbours(G, i)
                     if θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
@@ -152,7 +152,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ::Vector{Float64}, args...; strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbounds = false,
         factor=1.5, adapt=false)
     n = length(x0)
     t′ = t0
