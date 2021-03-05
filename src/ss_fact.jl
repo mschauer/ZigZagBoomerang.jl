@@ -32,6 +32,7 @@ function ssmove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
 end
 """
     t, x, θ = smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+
 moves forward only the non_frozen particles neighbours of i
 """
 function ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
@@ -45,6 +46,8 @@ function ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
 end
 
 """
+    queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
+
 Computes the (proposed) reflection time and the freezing time of the
 ith coordinate and enqueue the first one. `f[i] = true` if the first
 time is a freezing time.
@@ -65,6 +68,7 @@ end
 """
     sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
             F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+            
 Inner loop of the sticky ZigZag sampler. `G[i]` is the set of indices used to derive the
 bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (neighbours of neighbours)
 
