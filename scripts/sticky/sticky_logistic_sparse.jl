@@ -16,7 +16,7 @@ println("Sparse logistic regression")
 # Design matrix
 Random.seed!(2)
 sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
-include("sparsedesign.jl")
+include("./../sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
 A = sparse_design((20,20), 2, 4*20)
@@ -199,12 +199,14 @@ w = 1- wc
 t0, x0, T = 0.0, randn(p), 1000.0
 su = true #strong upperbounds
 adapt = false
+
 traj, (t, x, θ), (acc, num), c = @time ZZB.sspdmp(∇ϕr, t0, x0, θ0, T, c, Z, κ,
                                                 A, At, μ, y, m .- y, 12;
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
 
 
+error("")
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
 @show acc/num
 # @show extrema(c ./ c0)

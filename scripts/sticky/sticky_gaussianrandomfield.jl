@@ -8,7 +8,7 @@ using Test
 using FileIO
 using CairoMakie, AbstractPlotting
 
-include("gridlaplace.jl")
+include("./../gridlaplace.jl")
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 n = 100
@@ -47,6 +47,7 @@ trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ,
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
 
+ 
 @time traj = collect(discretize(trace, 0.1))
 
 # Prepare surface plot
