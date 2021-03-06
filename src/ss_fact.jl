@@ -31,7 +31,8 @@ function ssmove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     t, x, θ
 end
 """
-    t, x, θ = smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+    t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+    
 
 moves forward only the non_frozen particles neighbours of i
 """
