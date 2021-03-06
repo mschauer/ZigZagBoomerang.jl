@@ -3,7 +3,8 @@ using Statistics
 using Random
 using LinearAlgebra
 using ZigZagBoomerang
-using ZigZagBoomerang: poisson_time
+using ZigZagBoomerang: poisson_time, sep
+
 Random.seed!(1)
 
 
