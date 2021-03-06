@@ -41,8 +41,12 @@ Reflection rule of sampler `F` at reflection time.
 `i`: coordinate which flips sign, `x`: position, `θ`: velocity (position
 not used for the `ZigZag` and `FactBoomerang`.)
 """
-function reflect!(i, x, θ, F::Union{ZigZag, FactBoomerang})
+function reflect!(i, ∇ϕx::Number, x, θ, F::Union{ZigZag, FactBoomerang})
     θ[i] = -θ[i]
+    θ
+end
+function reflect!(i, ∇ϕx, x, θ, F::Union{ZigZag, FactBoomerang})
+    θ[i] = θ[i] - (2*dot(∇ϕx, θ[i])/normsq(∇ϕx))*∇ϕx
     θ
 end
 
