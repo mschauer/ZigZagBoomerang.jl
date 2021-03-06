@@ -7,6 +7,7 @@ function smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
 end
 function smove_forward!(i::Int, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
+    return t, x, θ
 end
 
 function smove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})

@@ -1,16 +1,61 @@
 using SparseArrays
 const SA = SparseArrays
 
+"""
+    τ = freezing_time(x, θ)
 
-function smove_forward!(i::Int, t, x, θ, t′, Z::ZigZag)
-    t[i], x[i], θ = t′, x[i] + θ[i]*(t′ - t[i]), θ
-    t, x, θ
+computes the hitting time of a 1d particle with
+constant velocity `θ` to hit 0 given the position `x`
+"""
+function freezing_time(x, θ, F::Union{BouncyParticle, ZigZag})
+    if θ*x >= 0 # sic!
+        return Inf
+    else
+        return -x/θ
+    end
 end
 
 
+
+"""
+    t, x, θ = ssmove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+
+moves forward only the non_frozen particles
+"""
+function ssmove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+    for i in eachindex(x)
+        if θ[i] != 0.0
+            t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
+        end
+    end
+    t, x, θ
+end
+"""
+    t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+
+
+moves forward only the non_frozen particles neighbours of i
+"""
+function ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
+    nhd = neighbours(G, i)
+    for i in nhd
+        if θ[i] != 0.0
+            t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
+        end
+    end
+    t, x, θ
+end
+
+"""
+    queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
+
+Computes the (proposed) reflection time and the freezing time of the
+ith coordinate and enqueue the first one. `f[i] = true` if the first
+time is a freezing time.
+"""
 function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
     trefl = poisson_time(b[i], rand())
-    tfreeze = freezing_time(x[i], θ[i])
+    tfreeze = freezing_time(x[i], θ[i], Z)
     if tfreeze <= trefl
         f[i] = true
         Q[i] = t[i] + tfreeze
@@ -18,11 +63,19 @@ function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
         f[i] = false
         Q[i] = t[i] + trefl
     end
-    return
+    return Q
 end
 
+"""
+    sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
+            F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
 
+Inner loop of the sticky ZigZag sampler. `G[i]` is the set of indices used to derive the
+bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (neighbours of neighbours)
 
+If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of x_i
+with i in G[i].
+"""
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
@@ -31,9 +84,8 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
         refresh = ii > n
         i = ii - refresh*n
         refresh && error("refreshment not implemented")
-        #t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
-        t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
-        if f[i] # to be frozen
+        if f[i] # case 1) to be frozen
+            t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             if abs(x[i]) > 1e-8
                 error("x[i] = $(x[i]) !≈ 0")
             end
@@ -41,33 +93,36 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             θf[i], θ[i] = θ[i], 0.0 # stop and save speed
             t_old[i] = t[i]
             f[i] = false
-            Q[i] = t[i] - log(rand())/κ
-            if strong_upperbounds
-                t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
+            Q[i] = t[i] - log(rand())/κ[i]
+            if !strong_upperbounds
+                t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F)
+                t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F)
                 for j in neighbours(G, i)
                     if θ[j] != 0 # only non-frozen, especially not i
                         b[j] = ab(G, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
-                        queue_time!(Q, t, x, θ, j, b, f, F)
+                        Q = queue_time!(Q, t, x, θ, j, b, f, F)
                     end
                 end
             end
-        elseif x[i] == 0 && θ[i] == 0 # was frozen
+        elseif x[i] == 0 && θ[i] == 0 # case 2) was frozen
+            t[i] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i], θf[i] = θf[i], 0.0 # unfreeze, restore speed
             t_old[i] = t[i]
-            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
-            t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
+            t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
             for j in neighbours(G, i)
                 if θ[j] != 0 # only non-frozen, including i
                     b[j] = ab(G, j, x, θ, c, F, args...)
                     t_old[j] = t[j]
-                    queue_time!(Q, t, x, θ, j, b, f, F)
+                    Q = queue_time!(Q, t, x, θ, j, b, f, F)
                 end
             end
         else # was either a reflection time or an event time from the upper bound
-            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) #TO CHANGE
-            l = sλ(∇ϕ, i, t, x, θ, t′, F, args...)
-            l, lb = sλ(∇ϕ, i, t, x, θ, t′, F, args...), sλ̄(b[i], t[i] - t_old[i])
+            t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            # do it here so ∇ϕ is right event without self moving
+            ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
+            l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
             num += 1
             if rand()*lb < l # was a reflection time
                 acc += 1
@@ -76,9 +131,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                     acc = num = 0
                     adapt!(c, i, factor)
                 end
-                t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
-                t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
-                θ = reflect!(i, x, θ, F)
+                # already done above t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
+                t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
+                θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G, i)
                     if θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
@@ -87,10 +142,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                     end
                 end
             else # was an event time from upperbound -> nothing happens
-                t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
                 b[i] = ab(G, i, x, θ, c, F, args...)
                 t_old[i] = t[i]
-                queue_time!(Q, t, x, θ, i, b, f, κ)
+                queue_time!(Q, t, x, θ, i, b, f, F)
                 continue
             end
         end
@@ -116,7 +170,7 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbo
     b = [ab(G, i, x, θ, c, F, args...) for i in eachindex(θ)]
     for i in eachindex(θ)
         trefl = poisson_time(b[i], rand())
-        tfreez = freezing_time(x[i], θ[i])
+        tfreez = freezing_time(x[i], θ[i], F)
         if trefl > tfreez
             f[i] = true
             enqueue!(Q, i => tfreez)
