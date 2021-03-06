@@ -7,7 +7,7 @@ const SA = SparseArrays
 computes the hitting time of a 1d particle with
 constant velocity `θ` to hit 0 given the position `x`
 """
-function freezing_time(x, θ)
+function freezing_time(x, θ, F::Union{BouncyParticle, ZigZag})
     if θ*x >= 0 # sic!
         return Inf
     else
@@ -32,7 +32,7 @@ function ssmove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
 end
 """
     t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
-    
+
 
 moves forward only the non_frozen particles neighbours of i
 """
@@ -55,7 +55,7 @@ time is a freezing time.
 """
 function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
     trefl = poisson_time(b[i], rand())
-    tfreeze = freezing_time(x[i], θ[i])
+    tfreeze = freezing_time(x[i], θ[i], Z)
     if tfreeze <= trefl
         f[i] = true
         Q[i] = t[i] + tfreeze
@@ -133,7 +133,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                 end
                 # already done above t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
-                θ = reflect!(i, x, θ, F)
+                θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G, i)
                     if θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
@@ -170,7 +170,7 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbo
     b = [ab(G, i, x, θ, c, F, args...) for i in eachindex(θ)]
     for i in eachindex(θ)
         trefl = poisson_time(b[i], rand())
-        tfreez = freezing_time(x[i], θ[i])
+        tfreez = freezing_time(x[i], θ[i], F)
         if trefl > tfreez
             f[i] = true
             enqueue!(Q, i => tfreez)
