@@ -77,7 +77,7 @@ If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of 
 with i in G[i].
 """
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -108,6 +108,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
         elseif x[i] == 0 && θ[i] == 0 # case 2) was frozen
             t[i] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i], θf[i] = θf[i], 0.0 # unfreeze, restore speed
+            if reversible
+                θ[i] *= rand((-1,1)) 
+            end   
             t_old[i] = t[i]
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
@@ -153,7 +156,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false,
         factor=1.5, adapt=false)
     n = length(x0)
     t′ = t0
@@ -173,10 +176,10 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbo
         tfreez = freezing_time(x[i], θ[i], F)
         if trefl > tfreez
             f[i] = true
-            enqueue!(Q, i => tfreez)
+            enqueue!(Q, i => t0 + tfreez)
         else
             f[i] = false
-            enqueue!(Q, i => trefl)
+            enqueue!(Q, i => t0 + trefl)
         end
     end
     if hasrefresh(F)
@@ -187,7 +190,7 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbo
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, f, θf, (acc, num), F, κ, args...;
+                    c, b, t_old, f, θf, (acc, num), F, κ, args...; reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
     end
