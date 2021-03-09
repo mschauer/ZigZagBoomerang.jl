@@ -3,11 +3,11 @@ using StaticArrays
 using LinearAlgebra
 using SparseArrays
 using Random
-
-
+cd(@__DIR__)
 Random.seed!(1)
 const d = 2
 const Point = SArray{Tuple{d},Float32,1,d}
+using Makie
 T = (0:0.1f0:200)[2:end]
 n = 50
 σ = 0.1f0
@@ -125,7 +125,7 @@ end
 B2a = img(post, n)
 p1 = heatmap([B2a' Matrix(B - Diagonal(B))], colormap=:berlin, colorrange = (-1, 1))
 using FileIO
-save("figures/sparseinteraction.png", p1)
+#save("figures/sparseinteraction.png", p1)
 
 
 [B2a' Matrix(B - Diagonal(B))]
@@ -159,11 +159,12 @@ Z = ZigZag(Γ0, μ)
 # Run sparse ZigZag for T time units and collect trajectory
 T0 = 20.
 @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T0, c, Z, Γ0, z; adapt = true)
+@time traj0 = collect(discretize(trace, 0.1))
 
-κ = 0.05
-@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, κ, Z, Γ0, z; adapt = true)
-@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, κ, Z, Γ0, z;strong_upperbounds = false, adapt = true)
-error("")
+κ = 0.05*ones(length(x0))
+#@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z; adapt = true)
+@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z;strong_upperbounds = false, adapt = true)
+
 
 @time traj = collect(discretize(trace, 0.1))
 
@@ -183,8 +184,27 @@ end
 using Statistics
 
 xhat = [median(getindex.(last.(traj), i)) for i in eachindex(μ)]
+xhat0 = [median(getindex.(last.(traj0), i)) for i in eachindex(μ)]
 
 p3 = heatmap([img(xhat, n)'  Matrix(B - Diagonal(B))], colormap=:berlin, colorrange = (-1, 1))
 
 norm(img(xhat, n)' - Matrix(B - Diagonal(B)))
 norm(img(μ, n)' - Matrix(B - Diagonal(B)))
+
+#=
+# animation settings
+n_frames = 30
+framerate = 30
+
+p2 = heatmap(A, colormap=:berlin, colorrange = (-1, 1))
+record(figure, "boids_animation.mp4", traj; framerate = framerate) do (t, x)
+    A[] = img(x, n)
+end
+=#
+
+
+scatter(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+fi = scatter(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+save("figures/sparseinteraction.png", fi0)
+save("figures/sparseinteractionsticky.png", fi0)
