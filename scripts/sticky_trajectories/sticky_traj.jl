@@ -72,7 +72,7 @@ linkxaxes!(ax1, ax2)
 lines!(ax1, ts, last.(xs))
 lines!(ax2, ts, last.(xs))
 p1a = scene
-trace, (tT, xT, θT), (acc, num) = sticky_pdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
+trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
 
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
@@ -90,6 +90,25 @@ linkxaxes!(ax1, ax2)
 lines!(ax1, ts, last.(xs))
 lines!(ax2, ts, last.(xs))
 p2a = scene
+
+trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
+
+#ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
+ts, xs = ZigZagBoomerang.sep(collect(trace))
+
+p3 = lines(first.(xs), last.(xs), color=ts)
+
+
+scene, layout = layoutscene(resolution = (1200, 900))
+layout[1, 1] = ax1 = Axis(scene)
+layout[2, 1] = ax2 = Axis(scene)
+
+linkyaxes!(ax1, ax2)
+linkxaxes!(ax1, ax2)
+
+lines!(ax1, ts, last.(xs))
+lines!(ax2, ts, last.(xs))
+p3a = scene
 
 save("zigzagphase.png", p1)
 save("zigzagtrace.png", p1a)
