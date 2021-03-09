@@ -63,7 +63,7 @@ trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ, t0, x0, θ0, T, c*ones(d), Zig
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
 
-p1 = lines(first.(xs), last.(xs))
+p1 = lines(first.(xs), last.(xs), color=ts)
 
 scene, layout = layoutscene(resolution = (1200, 900))
 layout[1, 1] = ax1 = Axis(scene)
@@ -80,7 +80,7 @@ trace, (tT, xT, θT), (acc, num) = sticky_pdmp(gradϕ!, t0, x0, θ0, T, c, Bounc
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
 
-p2 = lines(first.(xs), last.(xs))
+p2 = lines(first.(xs), last.(xs), color=ts)
 
 
 scene, layout = layoutscene(resolution = (1200, 900))
