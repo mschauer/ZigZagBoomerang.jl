@@ -31,10 +31,12 @@ function gridlaplacian(T, m, n)
     S
 end
 
+Random.seed!(1)
+
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 #n = 100
-n = 60
+n = 100
 const σ2 = 0.5
 Γ0 = 2gridlaplacian(Float64, n, n)
 Γ = 0.1I + Γ0
@@ -77,9 +79,9 @@ Z = ZigZag(Γpost, μpost)
 # or try the FactBoomerang
 #Z = FactBoomerang(Γ, x0*0, 0.1)
 
-κ = 0.2*ones(length(x0))
+κ = 0.4*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
-T = 400.0
+T = 800.0
 @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; adapt = false)
 
 @time traj0 = collect(discretize(trace, 0.2))
@@ -120,8 +122,35 @@ if false
 end
 
 # Save hearts
+save("hearttrue.png", image(mat(μ0)))
 save("heart.png", image(mat(y)))
 save("hearthat.png", image(mat(yhat)))
-save("heartpostmean.png", image(mat(mean(last.(traj[end÷2:end])))))
+save("heartpostmeana.png", image(mat(mean(last.(traj0[end÷2:end])))))
+save("heartpostmeanb.png", image(mat(mean(last.(traj[end÷2:end])))))
 save("hearterrora.png", scene2a)
 save("hearterrorb.png", scene2b)
+
+mean((mat(μ0 - mean(last.(traj0[end÷2:end])))).^2)
+mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
+
+@show mean(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
+@show mean(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
+@show extrema(μ0)
+
+
+@show  extrema(y)
+
+
+@show extrema(yhat)
+
+
+@show extrema((mat(mean(last.(traj0[end÷2:end])))))
+@show extrema((mat(mean(last.(traj[end÷2:end])))))
+
+
+@show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
+
+@show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
+
+
+
