@@ -97,7 +97,7 @@ Random.seed!(2)
 BB = Boomerang(sparse(I(d)), 0*x0, 1.0)
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BB, κ; adapt=false)
 
-tsxs = discretise(trace.events, BB, 0.05)
+tsxs = sdiscretise(trace.events, BB, 0.05)
 
 ts, xs= tsxs.t, tsxs.x
 
