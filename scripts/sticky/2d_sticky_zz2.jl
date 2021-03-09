@@ -32,12 +32,12 @@ x0 = [-1.0, -0.35]
 
 T = 10.0
 c = 0.1*ones(n)
-@time trace0, _ = ZigZagBoomerang.sspdmp(ϕ, 0.0, x0, θ0, T, c, κ, ZigZag(sparse(1.0I,n,n), zeros(n)), μ)
+@time trace0, _ = ZigZagBoomerang.sspdmp(ϕ, 0.0, x0, θ0, T, c, ZigZag(sparse(1.0I,n,n), zeros(n)), [κ,κ], μ)
 ts0, xs0 = splitpairs(trace0)
 # AbstractPlotting.available_marker_symbols()
 
 fig  = Figure(resolution = (1000, 500))
-p1 = fig[1, 1] = Axis(fig, title = "ZigZag")
+p1 = fig[1, 1] = ax1 = Axis(fig, title = "ZigZag")
 
 co = [(:black, 0.5) for i in 1:length(xs0)-1]
 #co[8] = co[4] = co[3] = (:red, 0.5)
@@ -64,9 +64,10 @@ scatter!([xs0[1][1]], [xs0[1][2]], color = (:black, 1.0), strokecolor = (:black,
 p1.xlabel = "x"
 p1.ylabel = "y"
 hidespines!(p1)
-p1.aspect = DataAspect()
+#p1.aspect = DataAspect()
 
-p2 = fig[1,2] = Axis(fig, title = "Coordinates")
+p2 = fig[1,2] = ax2 = Axis(fig, title = "Coordinates")
+linkyaxes!(ax1, ax2)
 
 co1 = [(:black, 0.5) for i in 1:length(xs0)-1]
 co2 = [(:black, 0.5) for i in 1:length(xs0)-1]
@@ -75,12 +76,12 @@ fr1 = findall(x->x[1]==0, diff(xs0))
 fr2 = findall(x->x[2]==0, diff(xs0))
 co1[fr1] .= [(:red, 0.5)]
 co2[fr2] .= [(:blue, 0.5)]
-p2.aspect = DataAspect()
+#p2.aspect = DataAspect()
 
 
 times = dupl(ts0)
 linesegments!(times, getindex.(segs,1), color = co1, label = "x1", leg = true)
-linesegments!(times, getindex.(segs,2), color = co2, label = "x2")
+linesegments!(times, getindex.(segs,2), color = co2, linestyle = :dash, label = "x2")
 
 scatter!(t1, getindex.(y1,1),
     color = (:red, 0.4), strokecolor = (:red, 0.6), markersize = 15, marker = :star4)

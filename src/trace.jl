@@ -36,6 +36,7 @@ inplace, so copies have to be made if the `x` is to be saved.
 """
 Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 Trace(t0::T, x0::U, θ0::U2, F::Union{BouncyParticle,Boomerang}) where {T, U, U2} = PDMPTrace(F, t0, x0, θ0, Tuple{T,U,U2}[])
+Trace(t0::T, x0::U, θ0::U2, f::U3, F::Union{BouncyParticle,Boomerang}) where {T, U, U2, U3} = PDMPTrace(F, t0, x0, θ0, Tuple{T,U,U2,U3}[])
 
 Base.length(FT::Trace) = 1 + length(FT.events)
 

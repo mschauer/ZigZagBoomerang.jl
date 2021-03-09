@@ -50,7 +50,7 @@ end
     queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
 
 Computes the (proposed) reflection time and the freezing time of the
-ith coordinate and enqueue the first one. `f[i] = true` if the first
+ith coordinate and enqueue the first one. `f[i] = true` if the next
 time is a freezing time.
 """
 function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
@@ -79,6 +79,7 @@ with i in G[i].
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
+    # f[i] is true if the next event will be a freeze
     while true
         ii, t′ = peek(Q)
         refresh = ii > n
@@ -115,7 +116,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
             for j in neighbours(G, i)
-                if θ[j] != 0 # only non-frozen, including i
+                if θ[j] != 0 # only non-frozen, including i # check!
                     b[j] = ab(G, j, x, θ, c, F, args...)
                     t_old[j] = t[j]
                     Q = queue_time!(Q, t, x, θ, j, b, f, F)
