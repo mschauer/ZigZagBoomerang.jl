@@ -25,9 +25,9 @@ ZigZagBoomerang.freezing_time(a, b) = ZigZagBoomerang.freezing_time(a, b, RefZig
 
 phi(x, y, rho) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
 logdensity(x, y) = log(phi(x - dist, y - dist, 0.0) + phi(x + dist, y + dist, 0.0))
-r = -2.5:0.01:2.5
+r = -4.5:0.01:4.5
 
-surface(r, r, [exp(logdensity(x1, x2)) for x1 in r, x2 in r])
+surf = surface(r, r, [10*exp(logdensity(x1, x2)) for x1 in r, x2 in r])
 #=
 function partiali()
     ith = zeros(d)
