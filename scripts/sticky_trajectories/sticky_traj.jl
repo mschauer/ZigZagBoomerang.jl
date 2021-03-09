@@ -14,14 +14,10 @@ using Makie, AbstractPlotting
 using ForwardDiff
 using StructArrays
 const ρ0 = 0.0
-Σ = [1 ρ; ρ 1]
+Σ = [1 ρ0; ρ0 1]
 const d = 2
 const dist = 1.5
 
-# patches
-
-const RefZigZag = ZigZag(sparse(I(d)), 0*x0)
-ZigZagBoomerang.freezing_time(a, b) = ZigZagBoomerang.freezing_time(a, b, RefZigZag) 
 
 phi(x, y, rho) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
 logdensity(x, y) = log(phi(x - dist, y - dist, 0.0) + phi(x + dist, y + dist, 0.0))
@@ -51,7 +47,8 @@ function gradϕ!(y, x)
     y
 end
 
-κ = 0.1*[1.0, 1.0]
+
+κ = [0.1, 0.1]
 t0 = 0.0
 x0 = randn(d)
 θ0 = [1.0, 1.0]
@@ -75,8 +72,8 @@ linkxaxes!(ax1, ax2)
 lines!(ax1, ts, last.(xs))
 lines!(ax2, ts, last.(xs))
 p1a = scene
+trace, (tT, xT, θT), (acc, num) = sticky_pdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
 
-trace, (tT, xT, θT), (acc, num) = sticky_pdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ[1]; adapt=false)
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
 
