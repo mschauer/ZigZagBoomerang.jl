@@ -64,6 +64,26 @@ function reflect_sticky!(∇ϕx, x, θ, Flow::Union{BouncyParticle, Boomerang})
     θ
 end
 
+function smove_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag})
+    t += τ
+    for i in eachindex(x)
+        if θ[i] != 0.0
+            x[i] += θ[i]*τ
+        end
+    end
+    t, x, θ
+end
+
+function smove_forward!(τ, t, x, θ, B::Union{Boomerang, FactBoomerang})
+    s, c = sincos(τ)
+    for i in eachindex(x)
+        if θ[i] != 0.0
+            x[i], θ[i] = (x[i] - B.μ[i])*c + θ[i]*s + B.μ[i],
+                        -(x[i] - B.μ[i])*s + θ[i]*c
+        end
+    end
+    t + τ, x, θ
+end
 
 function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
         Flow::Union{BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
@@ -71,7 +91,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
         tᶠ, i = findmin(tfrez) # could be implemented with a queue
         tt, j = findmin([tref, tᶠ, t′])
         τ = tt - t
-        t, x, θ = move_forward!(τ, t, x, θ, Flow)
+        t, x, θ = smove_forward!(τ, t, x, θ, Flow)
         # move forward
         if j == 1 # refreshments of velocities
             θ, θf = refresh_sticky_vel!(θ, θf, Flow)
@@ -130,6 +150,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
         push!(Ξ, event(t, x, θ, Flow))
         return t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b
     end
+
 end
 
 

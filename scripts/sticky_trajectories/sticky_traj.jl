@@ -91,10 +91,13 @@ lines!(ax1, ts, last.(xs))
 lines!(ax2, ts, last.(xs))
 p2a = scene
 
-trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
+T = 1000.0
+BB = Boomerang(sparse(I(d)), 0*x0, 0.1)
+trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BB, κ; adapt=false)
 
-ts, xs = ZigZagBoomerang.sep(collect(discretise(trace, 0.05)))
-# ts, xs = ZigZagBoomerang.sep(collect(trace))
+tsxs = discretise(trace.events, BB, 0.05)
+
+ts, xs= tsxs.t, tsxs.x
 
 p3 = lines(first.(xs), last.(xs), color=ts)
 
