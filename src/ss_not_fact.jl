@@ -3,7 +3,7 @@ using LinearAlgebra
 function freezing_time!(tfrez, t, x, θ, Z::BouncyParticle)
     for i in eachindex(x)
         if θ[i] != 0
-            tfrez[i] = t + freezing_time(x[i], θ[i])
+            tfrez[i] = t + freezing_time(x[i], θ[i], Z)
         end
     end
     tfrez
@@ -68,7 +68,8 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 θf[i], θ[i] = θ[i], 0.0 # stop and save speed
                 f[i] = false # change tag
                 # tfrez[i] = t - log(rand())/(κ*abs(θf[i])) #option 1
-                tfrez[i] = t - log(rand())/κ # option 2
+                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) #option 1
+                # tfrez[i] = t - log(rand())/κ[i] # option 2
                 if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
                     b = ab(x, θ, c, Flow) # regenerate reflection time
                     told = t
