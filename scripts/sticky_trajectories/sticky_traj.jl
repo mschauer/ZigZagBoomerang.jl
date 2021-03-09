@@ -60,7 +60,9 @@ trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ, t0, x0, θ0, T, c*ones(d), Zig
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
 
-p1 = lines(first.(xs), last.(xs), color=ts)
+p1 = scatter(first.(xs), last.(xs), color=ts, markersize = 3, strokewidth = 0.1, alpha = 0.5)
+p1 = lines!(first.(xs), last.(xs), color=ts)
+
 
 scene, layout = layoutscene(resolution = (1200, 900))
 layout[1, 1] = ax1 = Axis(scene)
@@ -69,7 +71,7 @@ layout[2, 1] = ax2 = Axis(scene)
 linkyaxes!(ax1, ax2)
 linkxaxes!(ax1, ax2)
 
-lines!(ax1, ts, last.(xs))
+lines!(ax1, ts, first.(xs))
 lines!(ax2, ts, last.(xs))
 p1a = scene
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
@@ -87,34 +89,37 @@ layout[2, 1] = ax2 = Axis(scene)
 linkyaxes!(ax1, ax2)
 linkxaxes!(ax1, ax2)
 
-lines!(ax1, ts, last.(xs))
+lines!(ax1, ts, first.(xs))
 lines!(ax2, ts, last.(xs))
 p2a = scene
 
-T = 1000.0
-BB = Boomerang(sparse(I(d)), 0*x0, 0.1)
+Random.seed!(2)
+BB = Boomerang(sparse(I(d)), 0*x0, 1.0)
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BB, κ; adapt=false)
 
 tsxs = discretise(trace.events, BB, 0.05)
 
 ts, xs= tsxs.t, tsxs.x
 
-p3 = lines(first.(xs), last.(xs), color=ts)
+p3 = scatter(first.(xs), last.(xs), color=ts, markersize = 3, strokewidth = 0.1, alpha = 0.5)
 
 
 scene, layout = layoutscene(resolution = (1200, 900))
-layout[1, 1] = ax1 = Axis(scene)
-layout[2, 1] = ax2 = Axis(scene)
+    layout[1, 1] = ax1 = Axis(scene)
+    layout[2, 1] = ax2 = Axis(scene)
 
-linkyaxes!(ax1, ax2)
-linkxaxes!(ax1, ax2)
+    linkyaxes!(ax1, ax2)
+    linkxaxes!(ax1, ax2)
 
-lines!(ax1, ts, last.(xs))
-lines!(ax2, ts, last.(xs))
-p3a = scene
+    lines!(ax1, ts, first.(xs))
+    lines!(ax2, ts, last.(xs))
+    p3a = scene
 
 save("zigzagphase.png", p1)
 save("zigzagtrace.png", p1a)
 
 save("bouncyphase.png", p2)
 save("bouncytrace.png", p2a)
+
+save("boomyphase.png", p3)
+save("boomytrace.png", p3a)

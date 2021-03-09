@@ -57,7 +57,7 @@ function discretise(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
     dt = dt0
     while k < length(x)-1
         while clock + dt <= τ
-            clock, ξ, θ = move_forward!(dt, clock, ξ, θ, Flow)
+            clock, ξ, θ = smove_forward!(dt, clock, ξ, θ, Flow)
             push!(Ω, clock => deepcopy(ξ))
             dt = dt0
         end
