@@ -55,7 +55,7 @@ end
 
 
 function reflect_sticky!(∇ϕx, x, θ, Flow::Union{BouncyParticle, Boomerang})
-    c = (2*sdot(∇ϕx, θ)/subnormsq(∇ϕx, θ))
+    c = (2*sdot(∇ϕx, θ, θ)/subnormsq(∇ϕx, θ))
     for i in eachindex(θ)
         if θ[i] != 0.0
             θ[i] -= c*∇ϕx[i]
@@ -88,7 +88,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 x[i] = -0*θ[i]
                 θf[i], θ[i] = θ[i], 0.0 # stop and save speed
                 f[i] = false # change tag
-                tfrez[i] = t - log(rand())/(κ*abs(θf[i])) #option 1
+                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) #option 1
                 # tfrez[i] = t - log(rand()) # option 2
                 if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
                     b = ab(x, θ, c, Flow) # regenerate reflection time
