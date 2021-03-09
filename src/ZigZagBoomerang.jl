@@ -32,7 +32,7 @@ export sticky_pdmp
 
 include("trace.jl")
 include("discretise.jl")
-export discretise
+export discretise, sdiscretise
 
 
 

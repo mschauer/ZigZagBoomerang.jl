@@ -11,7 +11,7 @@ end
 
 function freezing_time!(tfrez, t, x, θ, f, Z::Union{BouncyParticle, Boomerang})
     for i in eachindex(x)
-        if f
+        if f[i]
             tfrez[i] = t + freezing_time(x[i], θ[i], Z)
         end
     end
@@ -20,7 +20,7 @@ end
 
 function refresh_sticky_vel!(θ, θf, f, F::Union{BouncyParticle, Boomerang})
     for i in eachindex(θ)
-        if f
+        if f[i]
             θ[i] = randn()
         else
             θf[i] = abs(randn())*sign(θf[i])
@@ -109,13 +109,14 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
             t′ = t + poisson_time(b, rand())
             tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
             for i in eachindex(f) # make function later...
-                if !f
+                if !f[i]
                     tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i]))
                 end
             end
         elseif j == 2 # get frozen or unfrozen in i
             if f[i] # if free
                 if abs(x[i]) > 1e-8
+                    tfrez[i] = freezing_time(x[i], θ[i], Flow) # wrong zero of curve 
                     error("x[i] = $(x[i]) !≈ 0")
                 end
                 x[i] = -0*θ[i]
@@ -132,7 +133,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 @assert x[i] == 0 && θ[i] == 0
                 θ[i], θf[i] = θf[i], 0.0 # restore speed
                 f[i] = true # change tag
-                tfrez[i] = freezing_time(x[i], θ[i], Flow)
+                tfrez[i] = Inf # FIXME Flow isa Boomerang ? π : Inf #freezing_time(x[i], θ[i], Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
                 t′ = t + poisson_time(b, rand())
@@ -177,7 +178,7 @@ function sspdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang
     push!(Ξ, sevent(t, x0, θ0, f, Flow))
     tref = waiting_time_ref(Flow) #refreshment times
     tfrez = zero(x)
-    tfrez = freezing_time!(tfrez, t, x, θ, f, Flow) #freexing times
+    tfrez = freezing_time!(tfrez, t0, x0, θ0, f, Flow) #freexing times
     num = acc = 0
     b = ab(x, θ, c, Flow)
     t′ = t + poisson_time(b, rand()) # reflection time
