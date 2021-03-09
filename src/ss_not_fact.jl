@@ -1,6 +1,15 @@
 using LinearAlgebra
 
-function freezing_time!(tfrez, t, x, θ, Z::BouncyParticle)
+# For now just centered at 0
+function freezing_time(x, θ, F::Union{Boomerang, Boomerang1d})
+    if θ*x >= 0.0
+        return π - atan(x/θ)
+    else
+        return atan(-x/θ)
+    end
+end
+
+function freezing_time!(tfrez, t, x, θ, Z::Union{BouncyParticle, Boomerang})
     for i in eachindex(x)
         if θ[i] != 0
             tfrez[i] = t + freezing_time(x[i], θ[i], Z)
@@ -9,7 +18,7 @@ function freezing_time!(tfrez, t, x, θ, Z::BouncyParticle)
     tfrez
 end
 
-function refresh_sticky_vel!(θ,  θf, F::BouncyParticle)
+function refresh_sticky_vel!(θ,  θf, F::Union{BouncyParticle, Boomerang})
     for i in eachindex(θ)
         if θ[i] == 0.0
             θf[i] = abs(randn())*sign(θf[i])
@@ -19,7 +28,6 @@ function refresh_sticky_vel!(θ,  θf, F::BouncyParticle)
     end
     θ, θf
 end
-
 
 function subnormsq(∇ϕx, θ)
     res = 0.0
@@ -33,9 +41,21 @@ function subnormsq(∇ϕx, θ)
     res
 end
 
+function sdot(x,y,θ)
+    res = 0.0
+    @inbounds for i in eachindex(θ)
+        if θ[i] == 0.0
+            continue
+        else
+            res += x[i]*y[i]
+        end
+    end
+    res
+end
 
-function reflect_sticky!(∇ϕx, x, θ, Flow)
-    c = (2*dot(∇ϕx, θ)/subnormsq(∇ϕx, θ))
+
+function reflect_sticky!(∇ϕx, x, θ, Flow::Union{BouncyParticle, Boomerang})
+    c = (2*sdot(∇ϕx, θ)/subnormsq(∇ϕx, θ))
     for i in eachindex(θ)
         if θ[i] != 0.0
             θ[i] -= c*∇ϕx[i]
@@ -44,8 +64,9 @@ function reflect_sticky!(∇ϕx, x, θ, Flow)
     θ
 end
 
+
 function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
-        Flow::BouncyParticle, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+        Flow::Union{BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     while true
         tᶠ, i = findmin(tfrez) # could be implemented with a queue
         tt, j = findmin([tref, tᶠ, t′])
@@ -67,9 +88,8 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 x[i] = -0*θ[i]
                 θf[i], θ[i] = θ[i], 0.0 # stop and save speed
                 f[i] = false # change tag
-                # tfrez[i] = t - log(rand())/(κ*abs(θf[i])) #option 1
-                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) #option 1
-                # tfrez[i] = t - log(rand())/κ[i] # option 2
+                tfrez[i] = t - log(rand())/(κ*abs(θf[i])) #option 1
+                # tfrez[i] = t - log(rand()) # option 2
                 if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
                     b = ab(x, θ, c, Flow) # regenerate reflection time
                     told = t
@@ -113,7 +133,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
 end
 
 
-function sticky_pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang},
+function sspdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang},
         κ, args...;  strong_upperbounds = false, adapt=false, factor=2.0)
     t, x, θ, ∇ϕx = t0, deepcopy(x0), deepcopy(θ0), deepcopy(θ0)
     told = t0
