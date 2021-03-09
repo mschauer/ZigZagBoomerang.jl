@@ -47,6 +47,7 @@ function gradϕ!(y, x)
     y
 end
 
+
 κ = [0.1, 0.1]
 t0 = 0.0
 x0 = randn(d)
