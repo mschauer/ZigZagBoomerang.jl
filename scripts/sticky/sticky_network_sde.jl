@@ -207,4 +207,17 @@ scatter(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))
 fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
 fi = scatter(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
 save("figures/sparseinteraction.png", fi0)
-save("figures/sparseinteractionsticky.png", fi0)
+save("figures/sparseinteractionsticky.png", fi)
+
+
+function confusion(xhat)
+    Dict(
+    "false negative" => sum((vec(img(xhat,n)') .== 0) .& (vec(Matrix(B)-Diagonal(B)) .!= 0)),
+    "true positive" => sum((vec(img(xhat,n)') .!= 0) .& (vec(Matrix(B)-Diagonal(B)) .!= 0)),
+    "true negative" => sum((vec(img(xhat,n)') .== 0) .& (vec(Matrix(B)-Diagonal(B)) .== 0)),
+    "false positive" => sum((vec(img(xhat,n)') .!= 0) .& (vec(Matrix(B)-Diagonal(B)) .== 0)),
+    )
+end
+
+confusion(xhat)
+confusion(abs.(xhat0) .> 0.1265)
