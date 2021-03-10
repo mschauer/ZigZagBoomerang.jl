@@ -7,7 +7,7 @@ using Trajectories
 Transform the output of the algorithm (a skeleton of points) to
 a trajectory. Simple 1-d version.
 """
-function discretise(x::Vector, Flow::Union{ZigZag1d, Boomerang1d}, dt0)
+function discretize(x::Vector, Flow::Union{ZigZag1d, Boomerang1d}, dt0)
     k = 1
     _, ξ, θ = x[k]
     τ = x[k+1][1]
@@ -48,7 +48,7 @@ a trajectory. multi-dimensional version.
 
 Old version that would not work with the sticky Boomerang sampler not centered in 0
 """
-function sdiscretise(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
+function sdiscretize(x::Vector, Flow::Union{BouncyParticle, Boomerang}, dt0)
     k = 1
     _, ξ, θ, f = x[k]
     τ = x[k+1][1]
