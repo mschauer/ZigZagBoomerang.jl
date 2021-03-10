@@ -46,7 +46,7 @@ sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
 function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
-     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
+     F::Union{ZigZag,FactBoomerang}, args...; structured=true, factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -76,6 +76,12 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 Q[j] = t[j] + poisson_time(b[j], rand())
             end
         else
+            if structured || (length(args) > 1  && args[1] <: SelfMoving)
+                # neighbours have moved (and all others are not our responsibility)
+            else
+                t, x, θ = smove_forward!(t, x, θ, t′, F)
+            end
+
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
             l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
             num += 1
@@ -121,7 +127,7 @@ out to be too small.) The final time, location and momentum at `T` can be obtain
 with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.8, adapt=false, adaptscale=false)
+        factor=1.8, structured=false, adapt=false, adaptscale=false)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -143,7 +149,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt, adaptscale=adaptscale)
+                    c, b, t_old, (acc, num), F, args...; structured=structured, factor=factor, adapt=adapt, adaptscale=adaptscale)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
