@@ -32,7 +32,8 @@ export sticky_pdmp
 
 include("trace.jl")
 include("discretise.jl")
-export discretise, sdiscretise
+const discretise = discretize 
+export discretise, discretize, sdiscretize 
 
 
 

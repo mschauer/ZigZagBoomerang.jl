@@ -135,7 +135,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 @assert x[i] == 0 && θ[i] == 0
                 θ[i], θf[i] = θf[i], 0.0 # restore speed
                 f[i] = true # change tag
-                tfrez[i] = t + freezing_time(x[i], θ[i], Flow) #Inf # FIXME Flow isa Boomerang ? π : Inf #freezing_time(x[i], θ[i], Flow)
+                tfrez[i] = t + freezing_time(x[i], θ[i], Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
                 t′ = t + poisson_time(b, rand())
