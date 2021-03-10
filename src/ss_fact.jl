@@ -110,8 +110,8 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             t[i] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i], θf[i] = θf[i], 0.0 # unfreeze, restore speed
             if reversible
-                θ[i] *= rand((-1,1)) 
-            end   
+                θ[i] *= rand((-1,1))
+            end
             t_old[i] = t[i]
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
@@ -124,6 +124,8 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             end
         else # was either a reflection time or an event time from the upper bound
             if structured
+                t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            elseif length(args) > 1  && args[1] isa SelfMoving
                 t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             else
                 t, x, θ = ssmove_forward!(t, x, θ, t′, F) # all
@@ -140,7 +142,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                     adapt!(c, i, factor)
                 end
                 # already done above t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
-                t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
+                if structured # have not moved yet if structured
+                    t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
+                end
                 θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G, i)
                     if θ[j] != 0
