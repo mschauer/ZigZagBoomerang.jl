@@ -77,7 +77,7 @@ If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of 
 with i in G[i].
 """
 function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ, args...; structured=true, reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
@@ -123,7 +123,11 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                 end
             end
         else # was either a reflection time or an event time from the upper bound
-            t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            if structured
+                t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
+            else
+                t, x, θ = ssmove_forward!(t, x, θ, t′, F) # all
+            end
             # do it here so ∇ϕ is right event without self moving
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
             l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
@@ -157,7 +161,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; structured=false, reversible=false,strong_upperbounds = false,
         factor=1.5, adapt=false)
     n = length(x0)
     t′ = t0
@@ -191,7 +195,7 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; reversible=fal
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, f, θf, (acc, num), F, κ, args...; reversible=reversible,
+                    c, b, t_old, f, θf, (acc, num), F, κ, args...; structured=structured, reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
     end

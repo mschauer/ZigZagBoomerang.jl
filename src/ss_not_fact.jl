@@ -116,8 +116,8 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
         elseif j == 2 # get frozen or unfrozen in i
             if f[i] # if free
                 if abs(x[i]) > 1e-8
-                    tfrez[i] = freezing_time(x[i], θ[i], Flow) # wrong zero of curve 
-                    error("x[i] = $(x[i]) !≈ 0")
+                    tfrez[i] = t + freezing_time(x[i], θ[i], Flow) # wrong zero of curve 
+                    error("x[i] = $(x[i]) !≈ 0 at $(tfrez[i])")
                 end
                 x[i] = -0*θ[i]
                 θf[i], θ[i] = θ[i], 0.0 # stop and save speed
@@ -172,7 +172,7 @@ function sspdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang
         κ, args...;  strong_upperbounds = false, adapt=false, factor=2.0)
     t, x, θ, ∇ϕx = t0, deepcopy(x0), deepcopy(θ0), deepcopy(θ0)
     told = t0
-    θf = deepcopy(θ) # tags
+    θf = 0*θ # tags
     f = [true for _ in eachindex(x)]
     Ξ = Trace(t0, x0, θ0, f, Flow)
     push!(Ξ, sevent(t, x0, θ0, f, Flow))
