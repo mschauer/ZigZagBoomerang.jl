@@ -211,8 +211,9 @@ fi0
 
 # fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
 fi = linesegments(repeat(1:n*n, inner = 2), vec([(vec(Matrix(B)-Diagonal(B))) vec(img(xhat,n)')]'), linewidth = 0.3, resolution = (1200,900))
-scatter!(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
-fi0
+scatter!(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=7,
+            strokewidth = 0.5,marker = map(x -> x != 0 ? GeometryBasics.HyperSphere{2} : :x, vec(Matrix(B)-Diagonal(B))))
+fi
 save("figures/sparseinteraction.png", fi0)
 save("figures/sparseinteractionsticky.png", fi)
 
