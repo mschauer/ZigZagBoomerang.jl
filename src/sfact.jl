@@ -27,6 +27,16 @@ function smove_forward!(G, i, t, x, θ, t′, B::Union{Boomerang, FactBoomerang}
     t, x, θ
 end
 
+function smove_forward!(t, x, θ, t′, B::Union{Boomerang, FactBoomerang})
+    for i in eachindex(x)
+        τ = t′ - t[i]
+        s, c = sincos(τ)
+        t[i], x[i], θ[i] = t′, (x[i] - B.μ[i])*c + θ[i]*s + B.μ[i],
+                    -(x[i] - B.μ[i])*s + θ[i]*c
+    end
+    t, x, θ
+end
+
 function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
     t[i], i, x[i], θ[i]
 end
