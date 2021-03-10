@@ -158,12 +158,13 @@ Z = ZigZag(Γ0, μ)
 
 # Run sparse ZigZag for T time units and collect trajectory
 T0 = 20.
-@time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T0, c, Z, Γ0, z; adapt = true)
+@time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T0, c, Z, Γ0, z; structured = true, adapt = true)
 @time traj0 = collect(discretize(trace, 0.1))
 
 κ = 0.05*ones(length(x0))
+c = [1e-4 for i in 1:m]
 #@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z; adapt = true)
-@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z;strong_upperbounds = false, adapt = true)
+@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z; structured = true, strong_upperbounds = false, adapt = true)
 
 
 @time traj = collect(discretize(trace, 0.1))
@@ -202,10 +203,16 @@ record(figure, "boids_animation.mp4", traj; framerate = framerate) do (t, x)
 end
 =#
 
+using AbstractPlotting, CairoMakie, GeometryBasics
+fi0 = linesegments(repeat(1:n*n, inner = 2), vec([(vec(Matrix(B)-Diagonal(B))) vec(img(post,n)')]'), linewidth = 0.3, resolution = (1200,900))
+scatter!(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=7,
+            strokewidth = 0.5,marker = map(x -> x != 0 ? GeometryBasics.HyperSphere{2} : :x, vec(Matrix(B)-Diagonal(B))))
+fi0
 
-scatter(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
-fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
-fi = scatter(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+# fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+fi = linesegments(repeat(1:n*n, inner = 2), vec([(vec(Matrix(B)-Diagonal(B))) vec(img(xhat,n)')]'), linewidth = 0.3, resolution = (1200,900))
+scatter!(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+fi0
 save("figures/sparseinteraction.png", fi0)
 save("figures/sparseinteractionsticky.png", fi)
 
@@ -218,6 +225,5 @@ function confusion(xhat)
     "false positive" => sum((vec(img(xhat,n)') .!= 0) .& (vec(Matrix(B)-Diagonal(B)) .== 0)),
     )
 end
-
 confusion(xhat)
 confusion(abs.(xhat0) .> 0.1265)
