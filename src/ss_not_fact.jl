@@ -116,8 +116,6 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
         elseif j == 2 # get frozen or unfrozen in i
             if f[i] # if free
                 if abs(x[i]) > 1e-8
-                    dump(Ξ)
-                    dump(sevent(t, x, θ, f, Flow))
                     tfrez[i] = t + freezing_time(x[i], θ[i], Flow) # wrong zero of curve 
                     error("x[i] = $(x[i]) !≈ 0 at $(tfrez[i])")
                 end
