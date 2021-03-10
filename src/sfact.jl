@@ -76,7 +76,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 Q[j] = t[j] + poisson_time(b[j], rand())
             end
         else
-            if structured || (length(args) > 1  && args[1] <: SelfMoving)
+            if structured || (length(args) > 1  && args[1] isa SelfMoving)
                 # neighbours have moved (and all others are not our responsibility)
             else
                 t, x, θ = smove_forward!(t, x, θ, t′, F)
