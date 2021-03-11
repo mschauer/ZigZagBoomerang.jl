@@ -82,13 +82,13 @@ Z = ZigZag(Γpost, μpost)
 κ = 0.4*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
 T = 800.0
-@time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; adapt = false)
+@time trace0, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; structured = true, adapt = false)
 
-@time traj0 = collect(discretize(trace, 0.2))
+@time traj0 = collect(discretize(trace0, 0.2))
 
 su = false
 adapt = false
-trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ, μ;
+trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ, μ; structured = true,
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
 
@@ -151,6 +151,5 @@ mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
 @show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
 
 @show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
-
 
 
