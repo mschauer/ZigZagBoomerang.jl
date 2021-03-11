@@ -1,18 +1,33 @@
 using LinearAlgebra
 
 # For now just centered at 0
-function freezing_time(x, θ, F::Union{Boomerang, Boomerang1d})
-    if θ*x >= 0.0
-        return π - atan(x/θ) 
+freezing_time(x, θ, μ, F) = freezing_time(x, θ, F)
+function freezing_time(x, θ, μ, F::Union{Boomerang, Boomerang1d})
+    if μ == 0
+        if θ*x >= 0.0
+            return π - atan(x/θ) 
+        else
+            return atan(-x/θ)
+        end
     else
-        return atan(-x/θ)
+        u = x^2 - 2μ*x + θ^2
+        u < 0 && return Inf
+        t1 = mod(2atan((sqrt(u) - θ)/(2μ - x)), 2pi)
+        t2 = mod(-2atan((sqrt(u) + θ)/(2μ - x)), 2pi)
+        if abs(t1) < 1e-6
+            t1 += 2π
+        end
+        if abs(t2) < 1e-6
+            t2 += 2π
+        end
+        return min(t1, t2)
     end
 end
 
 function freezing_time!(tfrez, t, x, θ, f, Z::Union{BouncyParticle, Boomerang})
     for i in eachindex(x)
         if f[i]
-            tfrez[i] = t + freezing_time(x[i], θ[i], Z)
+            tfrez[i] = t + freezing_time(x[i], θ[i], Z.μ[i], Z)
         end
     end
     tfrez
@@ -117,7 +132,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
         elseif j == 2 # get frozen or unfrozen in i
             if f[i] # if free
                 if abs(x[i]) > 1e-8
-                    tfrez[i] = t + freezing_time(x[i], θ[i], Flow) # wrong zero of curve 
+                    tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow) # wrong zero of curve 
                     error("x[i] = $(x[i]) !≈ 0 at $(tfrez[i])")
                 end
                 x[i] = -0*θ[i]
@@ -134,7 +149,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 @assert x[i] == 0 && θ[i] == 0
                 θ[i], θf[i] = θf[i], 0.0 # restore speed
                 f[i] = true # change tag
-                tfrez[i] = t + freezing_time(x[i], θ[i], Flow)
+                tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
                 t′ = t + poisson_time(b, rand())
