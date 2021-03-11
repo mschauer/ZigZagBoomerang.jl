@@ -14,12 +14,7 @@ function freezing_time(x, θ, μ, F::Union{Boomerang, Boomerang1d})
         u < 0 && return Inf
         t1 = mod(2atan((sqrt(u) - θ)/(2μ - x)), 2pi)
         t2 = mod(-2atan((sqrt(u) + θ)/(2μ - x)), 2pi)
-        if abs(t1) < 1e-6
-            t1 += 2π
-        end
-        if abs(t2) < 1e-6
-            t2 += 2π
-        end
+        x == 0 && return max(t1, t2)
         return min(t1, t2)
     end
 end
