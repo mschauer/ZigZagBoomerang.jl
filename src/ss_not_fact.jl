@@ -3,7 +3,7 @@ using LinearAlgebra
 # For now just centered at 0
 function freezing_time(x, θ, F::Union{Boomerang, Boomerang1d})
     if θ*x >= 0.0
-        return π - atan(x/θ)
+        return π - atan(x/θ) 
     else
         return atan(-x/θ)
     end
@@ -19,11 +19,12 @@ function freezing_time!(tfrez, t, x, θ, f, Z::Union{BouncyParticle, Boomerang})
 end
 
 function refresh_sticky_vel!(θ, θf, f, F::Union{BouncyParticle, Boomerang})
+    ρ̄ = sqrt(1-F.ρ^2)
     for i in eachindex(θ)
         if f[i]
-            θ[i] = randn()
+            θ[i] = F.ρ*θ[i] +  ρ̄*randn()
         else
-            θf[i] = abs(randn())*sign(θf[i])
+            θf[i] = abs( F.ρ*θf[i] +  ρ̄*randn())*sign(θf[i])
         end
     end
     θ, θf
