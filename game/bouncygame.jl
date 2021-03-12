@@ -157,7 +157,7 @@ function gradϕ!(y, x)
     y
 end
 
-
+point(x) = Point3f0(x[1], x[2], 0.2+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
 
 κ = [Inf, Inf]
@@ -192,7 +192,7 @@ function remove(x)
 end
         
  
-point(x) = Point3f0(x[1], x[2], 0.2+potential(x))
+
 canvas = Figure(resolution=(1500,1500))
 lscene = LScene(canvas[1, 1], scenekw = (camera = cam3d!, raw = false))
 
