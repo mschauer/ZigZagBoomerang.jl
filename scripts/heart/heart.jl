@@ -84,7 +84,7 @@ Z = ZigZag(Γpost, μpost)
 T = 800.0
 @time trace0, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; structured = true, adapt = false)
 
-@time traj0 = collect(discretize(trace, 0.2))
+@time traj0 = collect(discretize(trace0, 0.2))
 
 su = false
 adapt = false
@@ -151,6 +151,5 @@ mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
 @show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
 
 @show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
-
 
 
