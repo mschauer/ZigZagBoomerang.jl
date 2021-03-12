@@ -12,7 +12,7 @@ using TransformVariables
 
 using MeasureTheory
 
-kappa(m::SpikeMixture{WeightedMeasure{Float64,Lebesgue{ℝ}},Float64}) = m.w̄
+kappa(m::SpikeMixture{WeightedMeasure{Float64,Lebesgue{ℝ}},Float64}) = m.w̄/exp(u.m.logweight)
 kappa(m::WeightedMeasure{Float64,Lebesgue{ℝ}}) = Inf
 Soss.xform(m::SpikeMixture) = Soss.xform(m.m)
 
