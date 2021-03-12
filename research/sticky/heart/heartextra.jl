@@ -67,10 +67,7 @@ y = μ = μ0 + randn(n*n)
 μpost = yhat = (I/σ2 + Γ)\y
 Γpost = (Γ + I/σ2)
 
-#lines([x[44543] for (t,x) in traj], color=:red)
-#lines!([x[44544] for (t,x) in traj], color=:blue)
-#lines!([x[44524] for (t,x) in traj], color=:black)
-#lines!([x[44644] for (t,x) in traj], color=:orange)
+
 
 x0 = μpost
 θ0 = rand([-1.0,1.0], n*n)
@@ -169,3 +166,45 @@ mean((mat(μ0 - est)).^2)
 
 @show extrema(abs.(mat(μ0 - est)))
 
+
+using ZigZagBoomerang: FactTrace, Trace, sep
+
+function move_forward1(t, x, θ, t2, ::ZigZag)
+    t2, x + θ*(t2-t), θ
+end
+
+struct Marginal{T}
+    FT::T
+    i::Int
+end
+Base.IteratorSize(::Marginal) = Iterators.SizeUnknown()
+
+function Base.iterate(D::Marginal{<:FactTrace})
+    FT = D.FT
+    t, x, θ = FT.t0, FT.x0[D.i],  FT.θ0[D.i]
+    t => x, (t, x, θ, 1)
+end
+
+function Base.iterate(D::Marginal{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Union{FactBoomerang,ZigZag}}
+    FT = D.FT
+    k > length(FT.events) && return nothing
+    local t2, i, xi, θi
+    while true
+        k == length(FT.events) && return t => x, (t, x, θ, k + 1)
+        t2, i, xi, θi = FT.events[k]
+        k += 1
+        i == D.i && break
+    end
+    t, x, θ = move_forward1(t, x, θ, t2, FT.F)
+    t = t2
+    x = xi
+    θ = θi
+    return t => x, (t, x, θ, k + 1)
+end
+
+scene3 = lines(sep(Marginal(trace, 44543))..., color=:red)
+lines!(sep(Marginal(trace, 44544))..., color=:blue)
+lines!(sep(Marginal(trace, 44524))..., color=:black)
+lines!(sep(Marginal(trace, 44644))..., color=:orange)
+
+save("hearttracec.png", scene3)
