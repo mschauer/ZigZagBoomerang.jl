@@ -153,3 +153,26 @@ end
 function Base.collect(D::Discretize{<:PDMPTrace})
     collect(t=>copy(x) for (t, x) in D)
 end
+
+
+
+
+function Statistics.mean(trace::ZigZagBoomerang.Trace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    T = trace.events[1]
+    t2 = trace.t0
+    t = fill(t2, length(x0))
+    k = 1
+    scale = 1/(2T)
+    while k <= length(trace.events)
+        t2, i, xi, θi = trace.events[k]
+        k += 1
+        y[i] += (x[i]+xi)*(t2-t[i])*scale
+        t[i] = t2
+        x[i] = xi
+        θ[i] = θi
+    end
+    y
+end
