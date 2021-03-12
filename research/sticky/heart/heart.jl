@@ -42,23 +42,21 @@ const σ2 = 0.5
 Γ = 0.1I + Γ0
 mat(x) = reshape(x, (n, n)) # vector to matrix
 function mat0(y)
- #   mat(y + 0.1*sign.(y) .- 0.0)
     mat(y  .- 0.1)
 end
 # Γ is very sparse
 @show nnz(Γ)/length(Γ) # 0.000496
 
 # Corresponding Gaussian potential
-# ϕ(x', Γ) = 0.5*x'*Γ*x  # not needed
+# ϕ(x, Γ, y) = 0.5*x'*Γ*x  + dot(x - y, x - y)/(2*σ2) # not used by the program
 
 # Define ∇ϕ(x, i, Γ) giving the partial derivative of ϕ(x) with respect to x[i]
-#∇ϕ(x, i, Γ, y) = ZigZagBoomerang.idot(Γ, i, x) - ZigZagBoomerang.idot(Γ, i, y)    # more efficient that dot(Γ[:, i], x)
 ∇ϕ(x, i, Γ, y) = ZigZagBoomerang.idot(Γ, i, x)  + (x[i]-y[i])/σ2 # more efficient that dot(Γ[:, i], x)
 
 
 # Random initial values
 t0 = 0.0
-h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2 
+h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2
 heart = [ max.(1 - h(x, y), 0) for x in range(-1.5,1.5, length=n), y   in range(-1.1,1.9, length=n)]
 image(heart)
 μ0 = 5.0*vec(heart)
@@ -115,7 +113,7 @@ if false
         M[] = mat0(traj[i].second)
         FileIO.save(joinpath(@__DIR__, "output", "surfs$i.png"), scene)
     end
-    
+
     # Make video
     dir = joinpath(@__DIR__, "output")
     run(`ffmpeg -y -r 40 -f image2 -i $dir/surfs%d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p $(typeof(Z).name)field.mp4`)
@@ -151,5 +149,3 @@ mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
 @show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
 
 @show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
-
-

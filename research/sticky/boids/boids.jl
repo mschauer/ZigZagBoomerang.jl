@@ -1,13 +1,15 @@
 using Pkg
+cd(@__DIR__)
+Pkg.activate(@__DIR__)
 using StaticArrays
 using LinearAlgebra
 using SparseArrays
 using Random
-cd(@__DIR__)
 Random.seed!(1)
 const d = 2
 const Point = SArray{Tuple{d},Float32,1,d}
-using Makie
+using CairoMakie, AbstractPlotting
+# using Makie
 T = (0:0.1f0:200)[2:end]
 n = 50
 σ = 0.1f0
@@ -41,22 +43,14 @@ x = copy(x0)
 xs = [x]
 ts = [0.0]
 t = 0.0
-# xp = Node(x)
 r = 1.
-# R = Rect2D(-r,-r,2r,2r)
-# p1 = scatter(xp, markersize=3, limits=R)
-# display(p1)
 nlz(x) = x/norm(x)
 for i in eachindex(T)
     global t, x, xs
     local dt = T[i] - t
     @assert dt > 0
-#    x .= x + 0.1*nlz.((B*x))*dt + σ*sqrt(dt)*randn(Point, n)
     x = x + (B*x)*dt + σ*sqrt(dt)*randn(Point, n)
-    # xp[] = x
     t = T[i]
-    # yield()
-    # sleep(0.0001)
     push!(ts, t)
     push!(xs, copy(x))
 end
@@ -65,7 +59,6 @@ end
 
 
 flatten = Base.Iterators.flatten
-#flat(x) = collect(Base.Iterators.flatten(x))
 function posterior(ts, xs, n, μ, σ)
     v = [c for c in CartesianIndices((n,n)) if c[1] != c[2]]
     a1 = 2
@@ -124,9 +117,6 @@ function img(x, n)
 end
 B2a = img(post, n)
 p1 = heatmap([B2a' Matrix(B - Diagonal(B))], colormap=:berlin, colorrange = (-1, 1))
-using FileIO
-#save("figures/sparseinteraction.png", p1)
-
 
 [B2a' Matrix(B - Diagonal(B))]
 
@@ -153,19 +143,14 @@ c = [1e-4 for i in 1:m]
 
 # Define ZigZag
 Z = ZigZag(Γ0, μ)
-# or try the FactBoomerang
-#Z = FactBoomerang(Γ, x0*0, 0.1)
 
 # Run sparse ZigZag for T time units and collect trajectory
 T0 = 20.
-@time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T0, c, Z, Γ0, z; adapt = true)
+@time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T0, c, Z, Γ0, z; structured = true, adapt = true)
 @time traj0 = collect(discretize(trace, 0.1))
 
 κ = 0.05*ones(length(x0))
-#@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z; adapt = true)
-@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z;strong_upperbounds = false, adapt = true)
-
-
+@time trace, (tT, xT, θT), (acc, num) = ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T0, c, Z, κ, Γ0, z; structured = true, strong_upperbounds = false, adapt = true)
 @time traj = collect(discretize(trace, 0.1))
 
 
@@ -191,23 +176,24 @@ p3 = heatmap([img(xhat, n)'  Matrix(B - Diagonal(B))], colormap=:berlin, colorra
 norm(img(xhat, n)' - Matrix(B - Diagonal(B)))
 norm(img(μ, n)' - Matrix(B - Diagonal(B)))
 
-#=
-# animation settings
-n_frames = 30
-framerate = 30
+using GeometryBasics
 
-p2 = heatmap(A, colormap=:berlin, colorrange = (-1, 1))
-record(figure, "boids_animation.mp4", traj; framerate = framerate) do (t, x)
-    A[] = img(x, n)
-end
-=#
+fi0 = linesegments(repeat(1:n*n, inner = 2), vec([(vec(Matrix(B)-Diagonal(B))) vec(img(post,n)')]'), linewidth = 0.3, resolution = (1200,900))
+scatter!(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=7,
+            strokewidth = 0.5,marker = map(x -> x != 0 ? GeometryBasics.HyperSphere{2} : :x, vec(Matrix(B)-Diagonal(B))))
+fi0
 
-
-scatter(1:n*n, vec(img(post,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
-fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
-fi = scatter(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+# fi0 = scatter(1:n*n, vec(img(xhat0,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=5, alpha=0.3)
+fi = linesegments(repeat(1:n*n, inner = 2), vec([(vec(Matrix(B)-Diagonal(B))) vec(img(xhat,n)')]'), linewidth = 0.3, resolution = (1200,900))
+scatter!(1:n*n, vec(img(xhat,n)'), color=(sqrt∘abs).(vec(Matrix(B)-Diagonal(B))), colormap=:berlin, markersize=7,
+            strokewidth = 0.5,marker = map(x -> x != 0 ? GeometryBasics.HyperSphere{2} : :x, vec(Matrix(B)-Diagonal(B))))
+fi
 save("figures/sparseinteraction.png", fi0)
 save("figures/sparseinteractionsticky.png", fi)
+
+# show sum of errors
+sum(abs.(vec(img(xhat,n)') .- vec(Matrix(B)-Diagonal(B))))
+sum(abs.(vec(img(xhat0,n)') .- vec(Matrix(B)-Diagonal(B))))
 
 
 function confusion(xhat)

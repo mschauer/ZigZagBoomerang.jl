@@ -15,7 +15,7 @@ println("Sparse logistic regression")
 # Design matrix
 Random.seed!(2)
 sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
-include("../../sparsedesign.jl")
+include("sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
 A = sparse_design([20,20], 2, 4*20)

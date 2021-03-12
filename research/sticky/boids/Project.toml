@@ -1,0 +1,5 @@
+[deps]
+AbstractPlotting = "537997a7-5e4e-5d89-9595-2241ea00577e"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+ZigZagBoomerang = "36347407-b186-4a6a-8c98-4f4567861712"

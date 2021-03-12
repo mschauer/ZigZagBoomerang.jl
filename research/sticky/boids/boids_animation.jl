@@ -1,4 +1,3 @@
-
 Random.seed!(1)
 const d = 2
 const Point = SArray{Tuple{d},Float32,1,d}
