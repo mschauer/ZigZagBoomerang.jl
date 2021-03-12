@@ -15,7 +15,7 @@ println("Sparse logistic regression")
 # Design matrix
 Random.seed!(2)
 sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
-include("sparsedesign.jl")
+include("./scripts/sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
 A = sparse_design([20,20], 2, 4*20)
@@ -38,8 +38,9 @@ y = sum(y_, dims=2)[:]
 ny = m .- y
 # prior and potential
 # prior precision
-ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (m .- y) .* lsigmoid.(-A*x))
 
+#never used
+#ϕ(x, A, y::Vector) = γ0*dot(x,x)/2 - sum(y .* lsigmoid.(A*x) + (m .- y) .* lsigmoid.(-A*x))
 
 # Sparse gradient
 # helper functions for sparse gradient
@@ -101,10 +102,13 @@ end
 
 # Element i of the gradient exploiting sparsity
 ∇ϕ(x, i, A, At, y, ny = m .- y) = γ0*x[i] - fdot(A, At, sigmoidn, i, x, y) - fdot(A, At, nsigmoid, i, x, ny)
+
 # Element i of the gradient exploiting sparsity and random subsampling
 ∇ϕr(x, i, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdotr(A, At, i, x, μ, y, ny, k)
+
 # The same, but exploiting that only dependencies in subsamples need to be evaluated
 ∇ϕmoving(t, x, θ, i, t′, F, A, At, μ, y, ny = m .- y, k = 5) = γ0*x[i] - fdot_moving(A, At, i, t, x, θ, t′, F, μ, y, ny, k)
+
 # Tests, to be sure
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - ∇ϕ(xtrue, A, At, y)) < 1e-7
 #@test norm(ReverseDiff.gradient(x->ϕ(x, A, y), xtrue) - [∇ϕ(xtrue, i, A, At, y) for i in 1:p]) < 1e-7
@@ -118,7 +122,7 @@ end
 # Some Newton steps towards the mode as starting point
 println("Newton steps")
 x0 = 0.1rand(p)
-@time for i in 1:30
+    @time for i in 1:30
     global x0
     H = hcat((sparse(ReverseDiff.gradient(x -> ∇ϕ(x, i, A, At, y, ny), x0)) for i in 1:p)...)
     x0 = x0 - (Symmetric(0.00I + H))\[∇ϕ(x0, i, A, At, y, ny) for i in 1:p]
@@ -149,20 +153,38 @@ c = 0.01*ones(p) # Rejection bounds
 c0 = copy(c)
 σ = sqrt.(diag(inv(Matrix(Γ))))
 #σ = (Vector(diag(Γ))).^(-0.5) # cheaper
-
-Z = ZigZag(Γ, μ, σ, ρ=0.5, λref=0.00)
-Zdiag = ZigZag(sparse(Diagonal(Γ)), μ, σ, ρ=0.5, λref=0.00)
-Zdrop = ZigZag(Γdrop, μ, σ, ρ=0.5, λref=0.00)
+κ = 1.0 #sparsity
+Z = StickyZigZag(Γ, μ, σ, ρ=0.5, λref=0.00, κ = 1.0)
+Zdiag = StickyZigZag(sparse(Diagonal(Γ)), μ, σ, ρ=0.5, λref=0.00, κ = 1.0)
+Zdrop = StickyZigZag(Γdrop, μ, σ, ρ=0.5, λref=0.00, κ = 1.0)
 T = 2000.0
-
 θ0 = rand([-1.0,1.0], p) .* σ
+
+#################################
+#           My bounds           #
+#################################
+struct MyBound
+    c::Float64
+    ∂ψ_r::Float64
+end
+
+function ZZB.ab(G, i, x, θ, c::Vector{MyBound}, F::StickyZigZag)
+    a = max(θ[i]*c[i].∂ψ_r, 0) + c[i].c*abs(θ)*norm(x - F.μ)
+    b = c[i].c*abs(θ)*norm(θ)
+    return a, b
+end
+
+c = [MyBound(.... ,∇ψ(x0)) for i in 1:n]
+c0 = copy(c)
+
+
 
 
 # Run sparse ZigZag for T time units and collect trajectory
 println("Distance starting point")
 @show norm(x0 - xtrue)
 
-println("Run spdmp")
+println("Run Sticky ZigZag")
 #traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
 traj, u, (acc,num), c = @time spdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, SelfMoving(), A, At, μ, y, m .- y, 10; adapt=true, factor=5)
 #traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)

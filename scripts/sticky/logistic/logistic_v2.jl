@@ -15,7 +15,7 @@ println("Sparse logistic regression")
 # Design matrix
 Random.seed!(2)
 sparsity(A, d = 3) = round(nnz(A)/length(A), digits=d)
-include("sparsedesign.jl")
+include("../../sparsedesign.jl")
 # create mock design matrix with 2 categorical explanatory variables
 # and their interaction effects and 2 continuous explanatory variable
 A = sparse_design([20,20], 2, 4*20)
@@ -30,7 +30,7 @@ println("Av. number of regressors per column ", mean(sum(A .!= 0, dims=1)), ", r
 At = SparseMatrixCSC(A')
 γ0 = 0.01
 # Data from the model
-xtrue = 5*randn(p)
+xtrue = 5*randn(p).*(rand(p) .< 0.1)
 sigmoid(x) = inv(one(x) + exp(-x))
 lsigmoid(x) = -log(one(x) + exp(-x))
 y_ = Matrix(rand(n, m) .< sigmoid.(A*xtrue))
@@ -162,18 +162,63 @@ T = 2000.0
 println("Distance starting point")
 @show norm(x0 - xtrue)
 
+
 println("Run spdmp")
-#traj, u, (acc,num), c = @time spdmp(∇ϕr, t0, x0, θ0, T, c, Z, A, At, μ, y, m .- y, 12; adapt=true, factor=5)
-traj, u, (acc,num), c = @time spdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, SelfMoving(), A, At, μ, y, m .- y, 10; adapt=true, factor=5)
-#traj, u, (acc,num), c = @time spdmp(∇ϕ, t0, x0, θ0, T, c, Z, A, At, y, m .- y; adapt=true)
+trace0, u0, (acc0,num0), c0 = @time spdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, SelfMoving(), A, At, μ, y, m .- y, 10; structured = true, adapt=true, factor=5)
+
+c = 0.01*ones(p)
+κ = (γ0/sqrt(2π))/(1/0.9 -1)*ones(p)
+trace, u, (acc,num), c = @time sspdmp(∇ϕmoving, t0, x0, θ0, T, c, Zdrop, κ, SelfMoving(), A, At, μ, y, m .- y, 10; structured = true, adapt=true, factor=5)
+
+
+
+using Pkg
+Pkg.activate(@__DIR__)
+cd(@__DIR__)
+using Makie, AbstractPlotting
+using ColorSchemes, GeometryBasics
+
+@time traj0 = collect(discretize(trace0, 0.1))
+@time traj = collect(discretize(trace, 0.1))
+
+xhat0 = [median(getindex.(last.(traj0), i)) for i in eachindex(μ)]
+xhat = [median(getindex.(last.(traj), i)) for i in eachindex(μ)]
+xcol = xtrue.*(xtrue .!= 0.0) .- (xtrue .== 0.0)*16.0
+fi0 = linesegments(repeat(1:p, inner = 2), vec([xhat0 xtrue]'), linewidth = 0.5, resolution = (1200,900))
+scatter!(1:p, xhat0, color = xcol, colormap=:berlin, markersize=7, strokewidth = 0.5,
+            marker = map(x -> x != 0 ? :circle : :x, xtrue))
+fi0
+fi = linesegments(repeat(1:p, inner = 2), vec([xhat xtrue]'), linewidth = 0.5, resolution = (1200,900))
+scatter!(1:p, xhat, color = xcol, colormap=:berlin, markersize=7,
+            strokewidth = 0.5,marker = map(x -> x != 0 ? :circle : :x, xtrue))
+fi
+
+
+save("logistic.png", fi0)
+save("logisticsticky.png", fi)
+
 @show acc/num
 @show extrema(c ./ c0)
 
+function confusion(xhat)
+    Dict(
+    "false negative" => sum((xhat .== 0) .& (xtrue .!= 0)),
+    "true positive" => sum((xhat .!= 0) .& (xtrue .!= 0)),
+    "true negative" => sum((xhat .== 0) .& (xtrue .== 0)),
+    "false positive" => sum((xhat .!= 0) .& (xtrue .== 0)),
+    )
+end
+
+confusion(xhat)
+
+confusion(abs.(xhat0) .> 1.9)
+
+
 dt = T/4000
-x̂ = mean(x for (t,x) in discretize(traj, dt))
+x̂ = mean(x for (t,x) in discretize(trace, dt))
 X = Float64[]
 ts = Float64[]
-for (t,x) in discretize(traj, dt)
+for (t,x) in discretize(trace, dt)
     append!(ts, t)
     append!(X, x)
 end
@@ -184,26 +229,35 @@ X = reshape(X, p, length(X)÷p)
 @show norm(xtrue - μ)
 @show norm(xtrue - x̂)
 
+
+
 println("Plot")
 using Makie
 using Colors
 using GoldenSequences
 
-ps = [4, 22, 50, p-3, p-2, p-1]
+ps = [4, 22, 50, 378, p-2, p-1]
 p0 = length(ps)
 cs = map(x->RGB(x...), (Iterators.take(GoldenSequence(3), p0)))
 pis = []
+fig = Figure(resolution = (1200, 1200))
 for i in 1:p0
-    p_i = lines(ts, X[ps[i], :], color=cs[i])
+    global p_1
+    p_i = fig[i, 1] = Axis(fig)
+    if i == 1
+        p_1 = p_i
+    end
+    lines!(p_i, ts, X[ps[i], :], color=cs[i])
     lines!(p_i, [0, T], [xtrue[ps[i]], xtrue[ps[i]]], color=cs[i], linewidth=2.0)
-    ylabel!(p_i, "var$(ps[i])")
-    xlabel!(p_i, "t")
-    push!(pis, p_i)
+    p_i.ylabel = "var$(ps[i])"
+    p_i.xlabel = "t"
+    i > 0 && linkaxes!(p_1, p_i)
 end
-p1 = title(hbox(pis...), "Sparse design logistic regression n=$(m*n), p=$p", textsize=20)
-save(joinpath("figures","logistic$(typeof(Z).name).png"), p1)
+#fig[0, :] = Label(fig, "Sparse design logistic regression n=$(m*n), p=$p", textsize = 30)
+fig
+save("logistic$(typeof(Z).name).png", fig)
 
-p2 = title(vbox(hbox([text("$p", show_axis=false, textsize=10) for p in ps]...),
-    [hbox([i==j ? lines(ts, X[i,:]) : lines(X[i, :], X[j, :]) for i in ps]...) for j in ps]...), "$ps")
+#p2 = title(vbox(hbox([text("$p", show_axis=false, textsize=10) for p in ps]...),
+#    [hbox([i==j ? lines(ts, X[i,:]) : lines(X[i, :], X[j, :]) for i in ps]...) for j in ps]...), "$ps")
 
 p1

@@ -51,6 +51,8 @@ function reflect!(i, ∇ϕx, x, θ, F::Union{ZigZag, FactBoomerang})
 end
 
 
+
+
 """
     move_forward(τ, t, x, θ, ::ZigZag1d)
 

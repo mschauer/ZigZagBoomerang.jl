@@ -17,11 +17,12 @@ end
 
 See [`Trace`](@ref).
 """
-struct PDMPTrace{FT,T,S,S2,R} <: Trace
+struct PDMPTrace{FT,T,S,S2,S3,R} <: Trace
     F::FT
     t0::T
     x0::S
     θ0::S2
+    f::S3
     events::R
 end
 
@@ -35,7 +36,8 @@ inplace, so copies have to be made if the `x` is to be saved.
 [`discretize`](@ref) returns a discretized version.
 """
 Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
-Trace(t0::T, x0::U, θ0::U2, F::Union{BouncyParticle,Boomerang}) where {T, U, U2} = PDMPTrace(F, t0, x0, θ0, Tuple{T,U,U2}[])
+Trace(t0::T, x0::U, θ0::U2, F::Union{BouncyParticle,Boomerang}) where {T, U, U2} = PDMPTrace(F, t0, x0, θ0, ones(Bool, length(x0)), Tuple{T,U,U2,Nothing}[])
+Trace(t0::T, x0::U, θ0::U2, f::U3, F::Union{BouncyParticle,Boomerang}) where {T, U, U2, U3} = PDMPTrace(F, t0, x0, θ0, f, Tuple{T,U,U2,U3}[])
 
 Base.length(FT::Trace) = 1 + length(FT.events)
 
@@ -63,7 +65,7 @@ end
 function Base.iterate(FT::PDMPTrace, (t, x, θ, k))
     k > length(FT.events) && return nothing
     k == length(FT.events) && return t => x, (t, x, θ, k + 1)
-    t, x, θ = FT.events[k]
+    t, x, θ, _ = FT.events[k]
     return t => x, (t, x, θ, k + 1)
 end
 
@@ -97,8 +99,8 @@ end
 
 function Base.iterate(D::Discretize{<:PDMPTrace})
     FT = D.FT
-    t, x, θ = FT.t0, copy(FT.x0), copy(FT.θ0)
-    t => x, (t, x, θ, 1)
+    t, x, θ, f = FT.t0, copy(FT.x0), copy(FT.θ0), copy(FT.f)
+    t => x, (t, x, θ, f, 1)
 end
 
 function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Union{FactBoomerang,ZigZag}}
@@ -123,19 +125,22 @@ function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Un
 end
 
 
-function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, k)) where {T<:Union{Boomerang,BouncyParticle}}
+function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<:Union{Boomerang,BouncyParticle}}
     dt = D.dt
     FT = D.FT
     while true
         k > length(FT.events) && return nothing
         tn = first(FT.events[k])
         if t + dt < tn
-            t, x, θ = move_forward!(dt, t, x, θ, FT.F)
-            return t => x, (t, x, θ, k)
+            t, x, θ = smove_forward!(dt, t, x, θ, f, FT.F)
+            return t => x, (t, x, θ, f, k)
         else # move not more than to ti to change direction
             Δt = tn - t
             dt = dt - Δt
-            t, x, θ = FT.events[k]
+            t, x, θ, f_ = FT.events[k]
+            if !isnothing(f_)
+                f = f_
+            end
             k = k + 1
         end
     end

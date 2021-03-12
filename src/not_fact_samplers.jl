@@ -19,7 +19,7 @@ function ab(x, θ, c, B::Boomerang)
 end
 
 function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
-    t, copy(x), copy(θ)
+    t, copy(x), copy(θ), nothing
 end
 
 function pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, a, b, t′, τref, (acc, num),

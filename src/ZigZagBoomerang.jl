@@ -20,14 +20,21 @@ include("priorityqueue.jl")
 include("sfact.jl")
 
 
-
 include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
 
+include("ss_fact.jl")
+export sspdmp
+
+
+include("ss_not_fact.jl")
+export sticky_pdmp
 
 include("trace.jl")
-include("discretize.jl")
-export discretize
+include("discretise.jl")
+const discretise = discretize 
+export discretise, discretize, sdiscretize 
+
 
 
 end
