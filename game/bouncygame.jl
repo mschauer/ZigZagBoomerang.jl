@@ -158,7 +158,7 @@ function gradϕ!(y, x)
 end
 
 
-
+inbounds(x) = -R < x[1] < R && -R < x[2] < R
 
 κ = [Inf, Inf]
 t0 = 0.0
@@ -171,17 +171,20 @@ X = Node([point(x0)])
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
 
+SCORE = Node("Get ready...")
+score = 0
 
-
-global ys = xs
+global ys = [x for x in xs if inbounds(x)]
 YS = Node(point.(ys))
 function remove(x)
+    global score
     for i in eachindex(ys)
-        if norm(x - ys[i]) < 0.3
+        if norm(x - ys[i]) < 0.15
             deleteat!(ys, i)
             length(ys) == 0 && error("You won")
-
+            score += 1
             YS[] = point.(ys)
+            SCORE[] = "$(score)"
             return true
         end
     end
@@ -194,18 +197,21 @@ canvas = Figure(resolution=(1500,1500))
 lscene = LScene(canvas[1, 1], scenekw = (camera = cam3d!, raw = false))
 
 
-
-surface!(lscene, r, r, [potential((x1, x2)) for x1 in r, x2 in r], show_axis=false)
+using Colors
+surface!(lscene, r, r, [potential((x1, x2)) for x1 in r, x2 in r], colormap=:atlantic, show_axis=false)
 scatter!(lscene, X, color=:red, markersize=200)
-scatter!(lscene, YS, color=:blue, markersize=120)
-
+scatter!(lscene, YS, color=:orange, markersize=120)
+text!(lscene.scene, SCORE, position=(1.5R, 0R, 1), strokecolor=:black, strokewidth=3.0, color=RGB(0.6, 0.2, 0.0), textsize=1.0, rotation= .75pi)
 
 display(canvas)
 
+println("Find your Makie window and reflect with the SPACE key")
 sleep(4.0)
 trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.0, 0.), κ; adapt=false)
+#trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 0.0, 0.), κ; adapt=false)
 
 
 
 scatter!(lscene, X, color=:red, marker=:xcross, markersize=500)
-display(canvas)
+
+SCORE[] = "$score posterior\nsamples.\n- game over -"
