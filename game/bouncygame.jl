@@ -26,15 +26,31 @@ const d = 2
 const dist = 1.5
 const R = 4.0
  r = -R:0.05:R
-
-released = true
+#=
+mutable struct Level
+    gradϕ!
+    logdensity
+    potential
+    ys
+    minpoints
+    T
+    Target
+    User
+    θ0
+    x0
+end
 
 mutable struct Game
     kill_on_boundary
     pressed
     released
-end
-GAME = Game(false, Dict(Keyboard.space => false, Keyboard.s => false), Dict(Keyboard.s => false))
+    score
+    SCORE
+    ys
+    YS
+    canvas
+end=#
+GAME = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.a => false), Dict(Keyboard.s => false))
 
 function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
     Flow::Union{BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
@@ -42,6 +58,7 @@ function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, �
 # f[i] is true if i is free
 # frez[i] is the time to freeze, if free, the time to unfreeze, if frozen
 while true
+    global score
     ispressed(canvas.scene, Keyboard.q) && error("end")
     for (key, pressed) in GAME.pressed
         if pressed && !ispressed(canvas.scene, key) 
@@ -55,10 +72,12 @@ while true
     end
 
     remove(x)
-        
-
+    if ispressed(canvas.scene, Keyboard.a) && !GAME.pressed[Keyboard.a]
+        auto[] = !auto[]
+        GAME.pressed[Keyboard.a] = true
+    end
     X[] = [point(x)]
-    sleep(0.005)
+    sleep(0.002)
     yield()
     tᶠ, i = findmin(tfrez) # could be implemented with a queue
     tt, j = findmin([tref, tᶠ, t′])
@@ -68,6 +87,12 @@ while true
     if j == 1 # refreshments of velocities
         if ispressed(canvas.scene, Keyboard.c) || ispressed(canvas.scene, Keyboard.a)
             θ, θf = refresh_sticky_vel!(θ, θf, f, Flow)
+        elseif ispressed(canvas.scene, Keyboard.equal) 
+            θ *= 1.1
+            θf *= 1.1
+        elseif ispressed(canvas.scene, Keyboard.minus) 
+            θ *= 0.9
+            θf *= 0.9
         end
         tref = t + waiting_time_ref(Flow) # regenerate refreshment time
         b = ab(x, θ, c, Flow) # regenerate reflection time
@@ -79,6 +104,7 @@ while true
                 tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i]))
             end
         end
+        speed[] = norm(θ)
     elseif j == 2 # get frozen or unfrozen in i
         if f[i] # if free
             if abs(x[i]) > 1e-8
@@ -113,7 +139,7 @@ while true
         ∇ϕx = grad_correct!(∇ϕx, x, Flow)
         l, lb = λ(∇ϕx, θ, Flow), sλ̄(b, t - told) # CHECK if depends on f
         num += 1
-        if ((ispressed(canvas.scene, Keyboard.a) || !inbounds(x)) && rand()*lb <= l ) ||  ispressed(canvas.scene, Keyboard.space) && !GAME.pressed[Keyboard.space] # reflect!
+        if ((auto[] || !inbounds(x)) && rand()*lb <= l ) ||  ispressed(canvas.scene, Keyboard.space) && !GAME.pressed[Keyboard.space] # reflect!
             acc += 1
             if l > lb
                 !adapt && error("Tuning parameter `c` too small.")
@@ -125,6 +151,9 @@ while true
             t′ = t + poisson_time(b, rand())
             tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
             GAME.pressed[Keyboard.space] = true
+            if !inbounds(x)
+                score[] = max(0, score[]-1)
+            end
         else # nothing happened
             b = ab(x, θ, c, Flow)
             told = t
@@ -158,6 +187,7 @@ function bouncy(canvas, X, ∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle
     while t < T  && (!GAME.kill_on_boundary || inbounds(0.9x))
         t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b = bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
                 Flow, κ, args...; strong_upperbounds = strong_upperbounds, factor = factor, adapt = adapt)
+        timeleft[] = T - t
     end
     return Ξ, (t, x, θ), (acc, num), c
 end
@@ -184,9 +214,8 @@ function remove(x)
         if norm(x - ys[i]) < 0.15
             deleteat!(ys, i)
             length(ys) == 0 && error("You won")
-            score += 1
+            score[] = score[] + 1
             YS[] = point.(ys)
-            SCORE[] = "$(score)"
             return true
         end
     end
@@ -194,7 +223,7 @@ function remove(x)
 end
         
 
-point(x) = Point3f0(x[1], x[2], 0.2+potential(x))
+point(x) = Point3f0(x[1], x[2], 0.1+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
 while true
 
@@ -209,34 +238,51 @@ X = Node([point(x0)])
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
 
-global SCORE = Node("Get ready...")
-global score = 0
-
+global score = Node(0)
+global SCORE = lift(x->"Score "*string(x), score)
+global speed = Node(norm(θ0))
+global timeleft = Node(T)
+global SPEED = lift(x->"Speed "*string(round(x, digits=2)), speed)
+global TIMELEFT = lift(y->"Time left "*string(round(y, digits=0)),  timeleft)
+global auto = Node(false)
+global AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
+global MESSAGE = Node("Get ready\nSPACE to reflect")
 global ys = [x for x in xs if inbounds(x)]
 global YS = Node(point.(ys))
-
+global ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
 
 canvas = Figure(resolution=(1500,1500))
-canvas[1,1] =  ax = Axis(canvas, title = "Bouncy Particle Sampler Game", aspect=DataAspect())
-text!(ax, "Reflect with the SPACE key, quit with Q", textsize=2, show_axis=false)
-
-lscene = LScene(canvas[2:10, 1], scenekw = (camera = cam3d!, raw = false))
+canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
+text!(ax0, MESSAGE, textsize=2)
+hidedecorations!(ax0)
+canvas[3:10,1] =  ax1 = Axis(canvas, aspect=DataAspect())
+hidedecorations!(ax1)
+canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S - stick, C - Crank-Nicolson, A - auto pilot, +- - speed", aspect=DataAspect())
+text!(ax, "Bouncy Particle Sampler Game", textsize=2)
+hidedecorations!(ax)
+lscene = LScene(canvas[2:10, 2:5], scenekw = (camera = cam3d!, raw = false))
 
 
 using Colors
-surface!(lscene, r, r, [potential((x1, x2)) for x1 in r, x2 in r], colormap=:atlantic, show_axis=false)
+#surface!(lscene, r, r, [potential((x1, x2)) for x1 in r, x2 in r], colormap=:atlantic, show_axis=false)
+contour3d!(lscene, r, r, (x,y)->potential((x,y)), levels=30, linewidth=3.0)
+
 scatter!(lscene, X, color=:red, markersize=200)
-scatter!(lscene, YS, color=:orange, markersize=120)
-text!(lscene.scene, SCORE, position=(1.5R, 0R, 1), strokecolor=:black, strokewidth=3.0, color=RGB(0.6, 0.2, 0.0), textsize=1.0, rotation= .75pi)
+meshscatter!(lscene, YS, color=:orange, markersize=0.05)
+#text!(lscene.scene, SCORE, position=(1.5R, 0R, 1), strokecolor=:black, strokewidth=3.0, color=RGB(0.6, 0.2, 0.0), textsize=1.0, rotation= .75pi)
+for i in eachindex(ELEMENTS)
+    text!(ax1, ELEMENTS[i], strokecolor=:black, strokewidth=.0, color=RGB(0.6, 0.2, 0.0), position=(0, -2*i), textsize=2.0)
+end
 
 display(canvas)
 
 println("Find your Makie window and reflect with the SPACE key, quit with Q")
 sleep(1.0)
-println("\nStick to the axes keeping S pressed. Explore different energy levels with the Crank-Nicolson key C")
+println("\nStick to the axes keeping S pressed. Explore different energy levels with + and -")
 println("Turn on autopilot with A")
 
 sleep(1.0)
+MESSAGE[] = ""
 trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 1.0, 0.97), κ; adapt=false)
 #trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 0.0, 0.), κ; adapt=false)
 
@@ -244,6 +290,6 @@ trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c,
 
 scatter!(lscene, X, color=:red, marker=:xcross, markersize=500)
 
-SCORE[] = "$score posterior\nsamples.\n- game over -"
+MESSAGE[] = "$(score[]) posterior\nsamples.\n- game over -"
 sleep(2.0)
 end
