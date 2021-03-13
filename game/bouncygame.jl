@@ -26,7 +26,7 @@ const d = 2
 const dist = 1.5
 const R = 4.0
  r = -R:0.05:R
-#=
+
 mutable struct Level
     gradϕ!
     logdensity
@@ -44,127 +44,125 @@ mutable struct Game
     kill_on_boundary
     pressed
     released
-    score
-    SCORE
     ys
-    YS
     canvas
-end=#
-GAME = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.a => false), Dict(Keyboard.s => false))
+    score
+    speed
+    timeleft
+    auto
+end
 
 function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
     Flow::Union{BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
 
-# f[i] is true if i is free
-# frez[i] is the time to freeze, if free, the time to unfreeze, if frozen
-while true
-    global score
-    ispressed(canvas.scene, Keyboard.q) && error("end")
-    for (key, pressed) in GAME.pressed
-        if pressed && !ispressed(canvas.scene, key) 
-            GAME.pressed[key] = false
+    while true
+        global score
+        ispressed(canvas.scene, Keyboard.q) && error("end")
+        for (key, pressed) in GAME.pressed
+            if pressed && !ispressed(canvas.scene, key) 
+                GAME.pressed[key] = false
+            end
         end
-    end
-    for (key, released) in GAME.released
-        if released && ispressed(canvas.scene, key) 
-            GAME.released[key] = false
+        for (key, released) in GAME.released
+            if released && ispressed(canvas.scene, key) 
+                GAME.released[key] = false
+            end
         end
-    end
 
-    remove(x)
-    if ispressed(canvas.scene, Keyboard.a) && !GAME.pressed[Keyboard.a]
-        auto[] = !auto[]
-        GAME.pressed[Keyboard.a] = true
-    end
-    X[] = [point(x)]
-    sleep(0.002)
-    yield()
-    tᶠ, i = findmin(tfrez) # could be implemented with a queue
-    tt, j = findmin([tref, tᶠ, t′])
-    τ = tt - t
-    t, x, θ = smove_forward!(τ, t, x, θ, f, Flow)
-    # move forward
-    if j == 1 # refreshments of velocities
-        if ispressed(canvas.scene, Keyboard.c) || ispressed(canvas.scene, Keyboard.a)
-            θ, θf = refresh_sticky_vel!(θ, θf, f, Flow)
-        elseif ispressed(canvas.scene, Keyboard.equal) 
-            θ *= 1.1
-            θf *= 1.1
-        elseif ispressed(canvas.scene, Keyboard.minus) 
-            θ *= 0.9
-            θf *= 0.9
+        remove(x)
+        if ispressed(canvas.scene, Keyboard.a) && !GAME.pressed[Keyboard.a]
+            auto[] = !auto[]
+            GAME.pressed[Keyboard.a] = true
         end
-        tref = t + waiting_time_ref(Flow) # regenerate refreshment time
-        b = ab(x, θ, c, Flow) # regenerate reflection time
-        told = t
-        t′ = t + poisson_time(b, rand())
-        tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
-        for i in eachindex(f) # make function later...
-            if !f[i]
-                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i]))
+        X[] = [point(x)]
+        sleep(0.002)
+        yield()
+        tᶠ, i = findmin(tfrez) # could be implemented with a queue
+        tt, j = findmin([tref, tᶠ, t′])
+        τ = tt - t
+        t, x, θ = smove_forward!(τ, t, x, θ, f, Flow)
+        # move forward
+        if j == 1 # refreshments of velocities
+            if ispressed(canvas.scene, Keyboard.c) || ispressed(canvas.scene, Keyboard.a)
+                θ, θf = refresh_sticky_vel!(θ, θf, f, Flow)
+            elseif ispressed(canvas.scene, Keyboard.equal) 
+                θ *= 1.1
+                θf *= 1.1
+            elseif ispressed(canvas.scene, Keyboard.minus) 
+                θ *= 0.9
+                θf *= 0.9
             end
-        end
-        speed[] = norm(θ)
-    elseif j == 2 # get frozen or unfrozen in i
-        if f[i] # if free
-            if abs(x[i]) > 1e-8
-                tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow) # wrong zero of curve 
-                error("x[i] = $(x[i]) !≈ 0 at $(tfrez[i])")
-            end
-            x[i] = -0*θ[i]
-            θf[i], θ[i] = θ[i], 0.0 # stop and save speed
-            f[i] = false # change tag
-            tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) # sticky time
-            # tfrez[i] = t - log(rand()) # option 2
-            if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
-                b = ab(x, θ, c, Flow) # regenerate reflection time
-                told = t
-                t′ = t + poisson_time(b, rand())
-            end
-            GAME.released[Keyboard.s] = false
-        elseif !ispressed(canvas.scene, Keyboard.s)  && !GAME.released[Keyboard.s] # is frozen ->  unfreeze
-            @assert x[i] == 0 && θ[i] == 0
-            θ[i], θf[i] = θf[i], 0.0 # restore speed
-            f[i] = true # change tag
-            tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow)
-            b = ab(x, θ, c, Flow) # regenerate reflection time
-            told = t
-            t′ = t + poisson_time(b, rand())
-            GAME.released[Keyboard.s] = true
-        else 
-            tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) # sticky time
-        end
-    else #   t′ usual bouncy particle / boomerang step
-        ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
-        ∇ϕx = grad_correct!(∇ϕx, x, Flow)
-        l, lb = λ(∇ϕx, θ, Flow), sλ̄(b, t - told) # CHECK if depends on f
-        num += 1
-        if ((auto[] || !inbounds(x)) && rand()*lb <= l ) ||  ispressed(canvas.scene, Keyboard.space) && !GAME.pressed[Keyboard.space] # reflect!
-            acc += 1
-            if l > lb
-                !adapt && error("Tuning parameter `c` too small.")
-                c *= factor
-            end
-            θ = reflect_sticky!(∇ϕx, x, θ, f, Flow)
+            tref = t + waiting_time_ref(Flow) # regenerate refreshment time
             b = ab(x, θ, c, Flow) # regenerate reflection time
             told = t
             t′ = t + poisson_time(b, rand())
             tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
-            GAME.pressed[Keyboard.space] = true
-            if !inbounds(x)
-                score[] = max(0, score[]-1)
+            for i in eachindex(f) # make function later...
+                if !f[i]
+                    tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i]))
+                end
             end
-        else # nothing happened
-            b = ab(x, θ, c, Flow)
-            told = t
-            t′ = t + poisson_time(b, rand())
-            -R < x[1] < R && -R < x[2] < R && continue
+            speed[] = norm(θ)
+        elseif j == 2 # get frozen or unfrozen in i
+            if f[i] # if free
+                if abs(x[i]) > 1e-8
+                    tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow) # wrong zero of curve 
+                    error("x[i] = $(x[i]) !≈ 0 at $(tfrez[i])")
+                end
+                x[i] = -0*θ[i]
+                θf[i], θ[i] = θ[i], 0.0 # stop and save speed
+                f[i] = false # change tag
+                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) # sticky time
+                # tfrez[i] = t - log(rand()) # option 2
+                if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
+                    b = ab(x, θ, c, Flow) # regenerate reflection time
+                    told = t
+                    t′ = t + poisson_time(b, rand())
+                end
+                GAME.released[Keyboard.s] = false
+            elseif !ispressed(canvas.scene, Keyboard.s)  && !GAME.released[Keyboard.s] # is frozen ->  unfreeze
+                @assert x[i] == 0 && θ[i] == 0
+                θ[i], θf[i] = θf[i], 0.0 # restore speed
+                f[i] = true # change tag
+                tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow)
+                b = ab(x, θ, c, Flow) # regenerate reflection time
+                told = t
+                t′ = t + poisson_time(b, rand())
+                GAME.released[Keyboard.s] = true
+            else 
+                tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) # sticky time
+            end
+        else #   t′ usual bouncy particle / boomerang step
+            ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
+            ∇ϕx = grad_correct!(∇ϕx, x, Flow)
+            l, lb = λ(∇ϕx, θ, Flow), sλ̄(b, t - told) # CHECK if depends on f
+            num += 1
+            if ((auto[] || !inbounds(x)) && rand()*lb <= l ) ||  ispressed(canvas.scene, Keyboard.space) && !GAME.pressed[Keyboard.space] # reflect!
+                acc += 1
+                if l > lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c *= factor
+                end
+                θ = reflect_sticky!(∇ϕx, x, θ, f, Flow)
+                b = ab(x, θ, c, Flow) # regenerate reflection time
+                told = t
+                t′ = t + poisson_time(b, rand())
+                tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
+                GAME.pressed[Keyboard.space] = true
+                if !inbounds(x)
+                    score[] = max(0, score[]-1)
+                end
+            else # nothing happened
+                b = ab(x, θ, c, Flow)
+                told = t
+                t′ = t + poisson_time(b, rand())
+                -R < x[1] < R && -R < x[2] < R && continue
+            end
         end
+        
+        push!(Ξ, sevent(t, x, θ, f, Flow))
+        return t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b
     end
-    
-    push!(Ξ, sevent(t, x, θ, f, Flow))
-    return t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b
-end
 
 end
 
@@ -250,8 +248,11 @@ global MESSAGE = Node("Get ready\nSPACE to reflect")
 global ys = [x for x in xs if inbounds(x)]
 global YS = Node(point.(ys))
 global ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
-
 canvas = Figure(resolution=(1500,1500))
+
+
+global GAME = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto)
+
 canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
 text!(ax0, MESSAGE, textsize=2)
 hidedecorations!(ax0)
