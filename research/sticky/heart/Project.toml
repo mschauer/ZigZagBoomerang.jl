@@ -1,3 +1,4 @@
 [deps]
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 ZigZagBoomerang = "36347407-b186-4a6a-8c98-4f4567861712"

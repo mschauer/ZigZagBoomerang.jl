@@ -166,7 +166,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
 end
 
 function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; structured=false, reversible=false,strong_upperbounds = false,
-        factor=1.5, adapt=false)
+        factor=1.5, adapt=false, progress=nothing)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -197,11 +197,16 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; structured=fal
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
+    tstop = T/20
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, f, θf, (acc, num), F, κ, args...; structured=structured, reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
+        if t′ > tstop
+            tstop += T/20
+            progress !== nothing && progress()  
+        end  
     end
     #t, x, θ = ssmove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
