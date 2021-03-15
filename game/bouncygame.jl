@@ -75,11 +75,12 @@ function bouncy_inner!(game, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf
         end
 
         finished = remove(game, x)
+        finished |= ispressed(canvas.scene, Keyboard.enter)
         if ispressed(canvas.scene, Keyboard.a) && !game.pressed[Keyboard.a]
             game.auto[] = !game.auto[]
             game.pressed[Keyboard.a] = true
         end
-        X[] = [point(x)]
+        X[] = [point(POTENTIAL[], x)]
         sleep(0.002)
         yield()
         tᶠ, i = findmin(tfrez) # could be implemented with a queue
@@ -166,14 +167,14 @@ function bouncy_inner!(game, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf
                 told = t
                 t′ = t .+ poisson_times(b) 
                 tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)    
-                if !inbounds(game, x)
-                    game.score[] = max(0, game.score[]-1)
-                end
+   #             if !inbounds(game, x)
+    #                game.score[] = max(0, game.score[]-1)
+     #           end
             else
                 b = ab(x, θ, c, Flow)
                 told = t
                 t′ = t .+ poisson_times(b) 
-                -R < x[1] < R && -R < x[2] < R && continue
+                finished || continue
             end
         else #   t′ usual bouncy particle / boomerang step
             ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
@@ -195,14 +196,14 @@ function bouncy_inner!(game, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf
                 t′ = t + poisson_times(b)
                 tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
 
-                if !inbounds(game, x)
-                    game.score[] = max(0, game.score[]-1)
-                end
+#                if !inbounds(game, x)
+ #                   game.score[] = max(0, game.score[]-1)
+  #              end
             else # nothing happened
                 b = ab(x, θ, c, Flow)
                 told = t
                 t′ = t + poisson_times(b)
-                -R < x[1] < R && -R < x[2] < R && continue
+                finished || continue
             end
         end
         
@@ -253,18 +254,25 @@ end
 
 phi(x, y, rho = 0.0) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
 sphi(x, y, σ1, σ2 = σ1, ρ=0.0) = phi(x/σ1, y/σ2, ρ)/(σ1*σ2)
-logdensity(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
+logdensity1(x, y) = log(sphi(x, y, 0.9))
+logdensity2(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
 #potential(xy) = -0.1exp(logdensity(xy[1], xy[2])-log(phi(xy[1], xy[2])))
-potential(xy) = -exp(logdensity(xy[1], xy[2]))
+getpotential(logdensity, boom=false) = function (xy) 
+     -exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
+end
+getpotentialxy(logdensity, boom=false) = function (x,y) 
+    -exp(logdensity(x,y) - boom*log(phi(x, y)))
+end
 
-
-function gradϕ(x,i) 
+potentials = [getpotentialxy(logdensity1), getpotentialxy(logdensity2)]
+potential(x, y) = potentials(POTENTIAL[], x, y)
+gradϕ(logdensity) = function (x,i) 
     -ForwardDiff.partials(logdensity(ForwardDiff.Dual{}(x[1], 1.0*(i==1)), ForwardDiff.Dual{}(x[2], 1.0*(i==2))))[]
 end
 
-function gradϕ!(y, x) 
-    y[1] = gradϕ(x,1)
-    y[2] = gradϕ(x,2)
+gradϕ!(logdensity, g = gradϕ(logdensity)) = function (y, x) 
+    y[1] = g(x,1)
+    y[2] = g(x,2)
     y
 end
 function remove(game, x)
@@ -286,10 +294,9 @@ end
 point(x) = Point3f0(x[1], x[2], 0.1+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
 
-point(game, x) = Point3f0(x[1], x[2], 0.1+game.potential(x))
+point(potential, x) = Point3f0(x[1], x[2], 0.1+potential(x[1],x[2]))
+point(i::Int, x) = Point3f0(x[1], x[2], 0.1+potentials[i](x[1],x[2]))
 inbounds(game, x) = -R < x[1] < R && -R < x[2] < R
-
-while true
 
 κ = [100.0, 100.0]
 t0 = 0.0
@@ -298,7 +305,7 @@ x0 = [1.0, 0.]
 c = 100.0
 T = 1000.0
 
-trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
+trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!(logdensity2), t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
 
 X = Node([point(x0)])
@@ -310,29 +317,33 @@ SPEED = lift(x->"Speed "*string(round(x, digits=2)), speed)
 TIMELEFT = lift(y->"Time left "*string(round(y, digits=0)),  timeleft)
 auto = Node(false)
 AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
-MESSAGE = Node("Get ready\nSPACE to reflect")
+MESSAGE = Node(" "^10*"Get ready - SPACE to reflect"*" "^10*"\n Q to quit")
 ys = Node([x for x in xs if inbounds(1.1*x)])
-YS = lift(ys->point.(ys), ys)
+POTENTIAL = Node{Any}(getpotentialxy(logdensity1))
+M = lift(p -> [p(x, y) for x in r, y in r], POTENTIAL)
+YS = lift((i, ys)->point.(i, ys), POTENTIAL, ys)
 ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
-
-
+MARKER = Node(:circle)
+TITLE = Node(" "^20*"Bouncy Particle Sampler Game"*" "^20)
+   
 canvas = Figure(resolution=(1500,1500))
 canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
-text!(ax0, MESSAGE, textsize=2)
 hidedecorations!(ax0)
 canvas[3:10,1] =  ax1 = Axis(canvas, aspect=DataAspect())
 hidedecorations!(ax1)
-canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S* - stick, C* - Crank-Nicolson, A - auto pilot, +-* - speed (*hold)", aspect=DataAspect())
-text!(ax, "Bouncy Particle Sampler Game", textsize=2)
+canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S* - stick, C* - Crank-Nicolson, A - auto pilot, +-* - speed (*hold), RETURN - continue to next lvl.", aspect=DataAspect())
+text!(ax, TITLE, align=(:center, :bottom), textsize=.85)
+text!(ax, MESSAGE, align=(:center, :bottom), textsize=0.65, position=(-0, -2.2))
 hidedecorations!(ax)
 lscene = LScene(canvas[2:10, 2:5], scenekw = (camera = cam3d!, raw = false))
 
 
+
 using Colors
 #surface!(lscene, r, r, [potential((x1, x2)) for x1 in r, x2 in r], colormap=:atlantic, show_axis=false)
-contour3d!(lscene, r, r, (x,y)->potential((x,y)), levels=30, linewidth=3.0)
+contour3d!(lscene, r, r, M, levels=30, linewidth=3.0)
 
-scatter!(lscene, X, color=:red, markersize=200)
+scatter!(lscene, X, marker=MARKER, color=:red, markersize=200)
 meshscatter!(lscene, YS, color=:orange, markersize=0.05)
 #text!(lscene.scene, SCORE, position=(1.5R, 0R, 1), strokecolor=:black, strokewidth=3.0, color=RGB(0.6, 0.2, 0.0), textsize=1.0, rotation= .75pi)
 for i in eachindex(ELEMENTS)
@@ -341,19 +352,43 @@ end
 
 display(canvas)
 
-game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, potential)
 
 println("Find your Makie window and reflect with the SPACE key, quit with Q")
-#sleep(1.5)
-MESSAGE[] = ""
-#trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), κ; adapt=false)
-#trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), κ; adapt=false)
-trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, [1.0,1.0], T, c, ZigZag(sparse(I(d)), 0*x0), κ; adapt=false)
+# Continuous trajectories with \nsuch countour reflections for the velocity are characteristic for the BPS.
+level = [
+    (title="Bouncy particle sampler (BPS)", message="Stear the Bouncy Particle and collect the point. Change direction with a\n 'contour reflection' with SPACE. ", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=[[2.0,2.0]])
+    (title="Bouncy particle sampler 2", message="Collect some more posterior points. Continue with RETURN.", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=0.9*[randn(2) for _ in 1:50])
+    (title="Bouncy particle sampler 3", message="A double well potential! Collect the points.\nContinue with RETURN or try the autopilot with A.", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
+  
+    (title="Zig-Zag", message="Try to collect the point with the Zig-Zag. Change direction with the arrow keys. \n Continue with RETURN.", logdensity=logdensity1, F=ZigZag(sparse(I(d)), 0*x0), x0=[0.0,1.0], θ0=[1.0,1.0], T=100.0, ys=[[2.0,2.0]])
+    (title="Zig-Zag 2", message="A double well potential! Collect the points.\n Try also A to see how the actual Zig-Zag sampler explores this posterior landscape.", logdensity=logdensity2, F=ZigZag(sparse(I(d)), 0*x0),x0=[0.0,1.0], θ0=[1.0,1.0], T=1000.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
+
+    (title="Boomerang", message="The Boomerang moves on circles and does 'contour reflections' with SPACE. Change your energy with - to reach the center.", logdensity=logdensity1, F=Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.5], T=100.0, ys=[[2.0,2.0], [0.1,-.1]])
+    (title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
+  
+    ]
+
+for i in 7:length(level)
+    lvl = level[i]
+    ∇ϕ! = gradϕ!(lvl.logdensity)
+    x0 = lvl.x0
+    θ0 = lvl.θ0
+    ys[] = lvl.ys
+
+    game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, getpotential(lvl.logdensity))
+    POTENTIAL[] = getpotentialxy(lvl.logdensity)
+    MARKER[] = :circle
+    #sleep(1.5)
+    MESSAGE[] = lvl.message
+    TITLE[] = lvl.title
+    
+
+    trace, (tT, xT, θT), (acc, num) = bouncy(game, X, ∇ϕ!, t0, x0, θ0, lvl.T, c, lvl.F, κ; adapt=false)
 
 
 
-scatter!(lscene, X, color=:red, marker=:xcross, markersize=500)
+    MARKER[] = :xcross
 
-MESSAGE[] = "$(score[]) posterior\nsamples.\n- game over -"
-sleep(2.0)
+    MESSAGE[] = "$(score[]) posterior\nsamples."
+    sleep(2.0)
 end
