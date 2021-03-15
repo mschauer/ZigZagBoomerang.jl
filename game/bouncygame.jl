@@ -258,10 +258,10 @@ logdensity1(x, y) = log(sphi(x, y+0.2x, 0.9))
 logdensity2(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
 #potential(xy) = -0.1exp(logdensity(xy[1], xy[2])-log(phi(xy[1], xy[2])))
 getpotential(logdensity, boom=false) = function (xy) 
-     -2exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
+     -(2-1.75boom)*exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
 end
 getpotentialxy(logdensity, boom=false) = function (x,y) 
-    -2exp(logdensity(x,y) - boom*log(phi(x, y)))
+    -(2-1.75boom)*exp(logdensity(x,y) - boom*log(phi(x, y)))
 end
 
 potentials = [getpotentialxy(logdensity1), getpotentialxy(logdensity2)]
@@ -365,23 +365,25 @@ level = [
     (courage="Too easy!", title="Zig-Zag", message="Try to collect the point with the Zig-Zag.\n It always moves on the diagonals. Change direction with the arrow keys. \n Continue with RETURN.", logdensity=logdensity1, F=ZigZag(sparse(I(d)), 0*x0), x0=[0.1,1.0], θ0=[1.0,1.0], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0]])
     (courage="Almost ergodic!", title="Zig-Zag 2", message="A double well potential! Collect the points. Try also A(utopilot) to see\n how the actual Zig-Zag sampler explores this posterior landscape.", logdensity=logdensity2, F=ZigZag(sparse(I(d)), 0*x0),x0=[0.1,1.0], θ0=[1.0,1.0], κ = [100.0, 100.0], T=1000.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
 
-    (courage="So Hamiltonian!", title="Boomerang", message="The Boomerang moves on circles and does 'contour reflections' with SPACE.\n Change your energy level with +/- to reach the center and the outskirts.", logdensity=logdensity1, F=Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0], [0.1,-.1]])
-    (courage="Mastership!", title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0],   T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
+    (courage="So Hamiltonian!", title="Boomerang", message="The Boomerang moves on circles and does 'contour reflections' with SPACE.\n Change your energy level with +/- to reach the center and the outskirts.", logdensity=logdensity2, F=Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0], T=100.0, ys=[[1.4,1.4], [0.1,-.1]])
+    (courage="Done. You achieved mastership!", title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0],   T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
   
     ]
-sleep(2.5)
+sleep(1.0)
 for i in 1:length(level)
     lvl = level[i]
     ∇ϕ! = gradϕ!(lvl.logdensity)
     x0 = lvl.x0
     θ0 = lvl.θ0
     ys[] = lvl.ys
-
+    auto[] = false
+    MESSAGE[] = lvl.message
+    sleep(2.)
     game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, getpotential(lvl.logdensity))
-    POTENTIAL[] = getpotentialxy(lvl.logdensity)
+    POTENTIAL[] = getpotentialxy(lvl.logdensity, lvl.F isa Boomerang)
     MARKER[] = :circle
     #sleep(1.5)
-    MESSAGE[] = lvl.message
+
     TITLE[] = lvl.title
     
 
@@ -391,6 +393,6 @@ for i in 1:length(level)
 
    # MARKER[] = :xcross
 
-    MESSAGE[] = "$(lvl.courage) Current score: $(score[]) posterior\nsamples."
-    sleep(2.5)
+    MESSAGE[] = "$(lvl.courage) \nCurrent score: $(score[]) posterior\nsamples."
+    sleep(1.5)
 end
