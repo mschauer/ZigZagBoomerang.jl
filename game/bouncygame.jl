@@ -258,10 +258,10 @@ logdensity1(x, y) = log(sphi(x, y+0.2x, 0.9))
 logdensity2(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
 #potential(xy) = -0.1exp(logdensity(xy[1], xy[2])-log(phi(xy[1], xy[2])))
 getpotential(logdensity, boom=false) = function (xy) 
-     -(2-1.75boom)*exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
+     -(3-2.75boom)*exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
 end
 getpotentialxy(logdensity, boom=false) = function (x,y) 
-    -(2-1.75boom)*exp(logdensity(x,y) - boom*log(phi(x, y)))
+    -(3-2.75boom)*exp(logdensity(x,y) - boom*log(phi(x, y)))
 end
 
 potentials = [getpotentialxy(logdensity1), getpotentialxy(logdensity2)]
@@ -303,7 +303,7 @@ t0 = 0.0
 x0 = [1.0, 0.]
 θ0 = [1.0, 1.0]
 c = 100.0
-T = 1000.0
+T = 100.0
 
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!(logdensity2), t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
@@ -324,7 +324,7 @@ M = lift(p -> [p(x, y) for x in r, y in r], POTENTIAL)
 YS = lift((i, ys)->point.(i, ys), POTENTIAL, ys)
 ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
 MARKER = Node(:circle)
-TITLE = Node(" "^20*"Bouncy Particle Sampler Game"*" "^20)
+TITLE = Node(" "^25*"Bouncy particle sampler game"*" "^25)
    
 canvas = Figure(resolution=(1500,1000))
 #canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
@@ -353,12 +353,23 @@ for i in eachindex(ELEMENTS)
 end
 
 display(canvas)
-
+function confirm(scene)
+    m = MESSAGE[]
+    MESSAGE[] = m*" [Continue]"
+    s = false
+    while ispressed(scene, Keyboard.space) | ispressed(scene, Keyboard.enter); sleep(0.01) end
+    while !s || (ispressed(scene, Keyboard.space) | ispressed(scene, Keyboard.enter))
+        s |= (ispressed(scene, Keyboard.space) | ispressed(scene, Keyboard.enter))
+        ispressed(scene, Keyboard.q) && error("end")
+        sleep(0.01)
+    end
+    MESSAGE[] = m*"           "
+end
 
 println("Find your Makie window and reflect with the SPACE key, quit with Q")
 
 level = [
-    (courage="Good start!", title="Bouncy particle sampler (BPS)", message="Stear the particle through the posterior landscape and collect the sample. \nChange direction with a 'contour reflection' at the countour lines with SPACE. ", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0]])
+    (courage="Good start!", title="Bouncy particle sampler (BPS)", message="Steer the particle through the posterior landscape and collect the sample. \nChange direction with a 'contour reflection' at the countour lines with SPACE. ", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0]])
     (courage="Improving your ESS!", title="Bouncy particle sampler 2", message="Collect some more posterior points. Randomize your energy to reach\n the center with the Crank-Nicolson scheme (Hold C and reflect with SPACE).", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], T=100.0, ys=0.9*[randn(2) for _ in 1:50])
     (courage="Great mixing!",title="Bouncy particle sampler 3", message="A double well potential! Collect the points.\nContinue with RETURN or try the `autopilot' (the original sampler) with A.", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], κ = [100.0, 100.0], T=100.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
   
@@ -369,7 +380,7 @@ level = [
     (courage="Done. You achieved mastership!", title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0],   T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
   
     ]
-sleep(1.0)
+confirm(canvas.scene)
 for i in 1:length(level)
     lvl = level[i]
     ∇ϕ! = gradϕ!(lvl.logdensity)
@@ -378,21 +389,23 @@ for i in 1:length(level)
     ys[] = lvl.ys
     auto[] = false
     MESSAGE[] = lvl.message
-    sleep(2.)
-    game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, getpotential(lvl.logdensity))
     POTENTIAL[] = getpotentialxy(lvl.logdensity, lvl.F isa Boomerang)
     MARKER[] = :circle
-    #sleep(1.5)
-
     TITLE[] = lvl.title
+    confirm(canvas.scene)
+    game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, getpotential(lvl.logdensity))
+
     
 
     trace, (tT, xT, θT), (acc, num) = bouncy(game, X, ∇ϕ!, t0, x0, θ0, lvl.T, c, lvl.F, κ; adapt=false)
+    ts, xs = sep(collect(discretize(trace, 0.1)))
+    ys[] = xs
+    if i == 1
+        MESSAGE[] = "PDMP samplers are rejection free and have continuous trajectories.\n You can keep ALL the samples."
+    else
+        MESSAGE[] = "$(lvl.courage) \nCurrent score: $(score[]) posterior\nsamples."
+    end
+    confirm(canvas.scene)
 
-
-
-   # MARKER[] = :xcross
-
-    MESSAGE[] = "$(lvl.courage) \nCurrent score: $(score[]) posterior\nsamples."
-    sleep(1.5)
+   
 end
