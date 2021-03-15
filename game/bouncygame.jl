@@ -4,6 +4,7 @@ using Pkg
 
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
+using Revise
 using ZigZagBoomerang
 const ZZB = ZigZagBoomerang
 
@@ -12,6 +13,7 @@ using ZigZagBoomerang: Trace, sevent, waiting_time_ref, freezing_time!, ab,
      refresh_sticky_vel!, sep
 using DataStructures
 using LinearAlgebra
+#using Observables
 using Random
 using SparseArrays
 using Test
@@ -23,11 +25,12 @@ println(now())
 using ForwardDiff
 const ρ0 = 0.0
 const d = 2
-const dist = 1.5
+const dist = 1.
 const R = 4.0
  r = -R:0.05:R
-
+#=
 mutable struct Level
+    story
     gradϕ!
     logdensity
     potential
@@ -39,7 +42,7 @@ mutable struct Level
     θ0
     x0
 end
-
+=#
 mutable struct Game
     kill_on_boundary
     pressed
@@ -50,40 +53,42 @@ mutable struct Game
     speed
     timeleft
     auto
+    potential
 end
+ZigZagBoomerang.λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = ZZB.pos(dot(∇ϕx, θ)) + 0.0
 
-function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
-    Flow::Union{BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
-
+function bouncy_inner!(game, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
+    Flow::Union{ZigZag, BouncyParticle, Boomerang}, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
+    canvas = game.canvas
+    factorized = Flow isa ZigZag
     while true
-        global score
         ispressed(canvas.scene, Keyboard.q) && error("end")
-        for (key, pressed) in GAME.pressed
+        for (key, pressed) in game.pressed
             if pressed && !ispressed(canvas.scene, key) 
-                GAME.pressed[key] = false
+                game.pressed[key] = false
             end
         end
-        for (key, released) in GAME.released
+        for (key, released) in game.released
             if released && ispressed(canvas.scene, key) 
-                GAME.released[key] = false
+                game.released[key] = false
             end
         end
 
-        remove(x)
-        if ispressed(canvas.scene, Keyboard.a) && !GAME.pressed[Keyboard.a]
-            auto[] = !auto[]
-            GAME.pressed[Keyboard.a] = true
+        finished = remove(game, x)
+        if ispressed(canvas.scene, Keyboard.a) && !game.pressed[Keyboard.a]
+            game.auto[] = !game.auto[]
+            game.pressed[Keyboard.a] = true
         end
         X[] = [point(x)]
         sleep(0.002)
         yield()
         tᶠ, i = findmin(tfrez) # could be implemented with a queue
-        tt, j = findmin([tref, tᶠ, t′])
+        tt, j = findmin([tref, tᶠ, t′...])
         τ = tt - t
         t, x, θ = smove_forward!(τ, t, x, θ, f, Flow)
         # move forward
         if j == 1 # refreshments of velocities
-            if ispressed(canvas.scene, Keyboard.c) || ispressed(canvas.scene, Keyboard.a)
+            if (!game.auto[] && ispressed(canvas.scene, Keyboard.c)) || (game.auto[] && !ispressed(canvas.scene, Keyboard.c))
                 θ, θf = refresh_sticky_vel!(θ, θf, f, Flow)
             elseif ispressed(canvas.scene, Keyboard.equal) 
                 θ *= 1.1
@@ -95,14 +100,14 @@ function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, �
             tref = t + waiting_time_ref(Flow) # regenerate refreshment time
             b = ab(x, θ, c, Flow) # regenerate reflection time
             told = t
-            t′ = t + poisson_time(b, rand())
+            t′ = t + poisson_times(b)
             tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
             for i in eachindex(f) # make function later...
                 if !f[i]
                     tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i]))
                 end
             end
-            speed[] = norm(θ)
+            game.speed[] = norm(θ)
         elseif j == 2 # get frozen or unfrozen in i
             if f[i] # if free
                 if abs(x[i]) > 1e-8
@@ -117,27 +122,68 @@ function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, �
                 if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
                     b = ab(x, θ, c, Flow) # regenerate reflection time
                     told = t
-                    t′ = t + poisson_time(b, rand())
+                    t′ = t .+ poisson_times(b)
                 end
-                GAME.released[Keyboard.s] = false
-            elseif !ispressed(canvas.scene, Keyboard.s)  && !GAME.released[Keyboard.s] # is frozen ->  unfreeze
+                game.released[Keyboard.s] = false
+            elseif !ispressed(canvas.scene, Keyboard.s)  && !game.released[Keyboard.s] # is frozen ->  unfreeze
                 @assert x[i] == 0 && θ[i] == 0
                 θ[i], θf[i] = θf[i], 0.0 # restore speed
                 f[i] = true # change tag
                 tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
-                t′ = t + poisson_time(b, rand())
-                GAME.released[Keyboard.s] = true
+                t′ = t .+ poisson_times(b)
+                game.released[Keyboard.s] = true
             else 
                 tfrez[i] = t - log(rand())/(κ[i]*abs(θf[i])) # sticky time
+            end
+        elseif factorized
+            i = j - 2
+
+            ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
+            l, lb = ZZB.sλ(∇ϕx[i], i, x, θ, Flow), ZZB.sλ̄(b[i], t - told)
+            num += 1
+            
+            left = (θ[1]*θ[2] > 0) ⊻ (i == 2)
+            
+
+            if ((game.auto[] || !inbounds(game, x)) && rand()*lb <= l ) ||  ( left && ispressed(canvas.scene, Keyboard.left) && !game.pressed[Keyboard.left]) || 
+                ( !left && ispressed(canvas.scene, Keyboard.right) && !game.pressed[Keyboard.right])
+                if ispressed(canvas.scene, Keyboard.right)
+                    game.pressed[Keyboard.right] = true
+                end
+                if ispressed(canvas.scene, Keyboard.left)
+                    game.pressed[Keyboard.left] = true
+                end
+                acc += 1
+                if l > lb
+                    !adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
+                    acc = num = 0
+                    adapt!(c, i, factor)
+                end
+                θ = ZZB.reflect!(i, ∇ϕx[i], x, θ, Flow)
+                b = ab(x, θ, c, Flow)
+                told = t
+                t′ = t .+ poisson_times(b) 
+                tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)    
+                if !inbounds(game, x)
+                    game.score[] = max(0, game.score[]-1)
+                end
+            else
+                b = ab(x, θ, c, Flow)
+                told = t
+                t′ = t .+ poisson_times(b) 
+                -R < x[1] < R && -R < x[2] < R && continue
             end
         else #   t′ usual bouncy particle / boomerang step
             ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l, lb = λ(∇ϕx, θ, Flow), sλ̄(b, t - told) # CHECK if depends on f
             num += 1
-            if ((auto[] || !inbounds(x)) && rand()*lb <= l ) ||  ispressed(canvas.scene, Keyboard.space) && !GAME.pressed[Keyboard.space] # reflect!
+            if ((game.auto[] || !inbounds(game, x)) && rand()*lb <= l ) ||  (ispressed(canvas.scene, Keyboard.space) && !game.pressed[Keyboard.space]) # reflect!
+                if ispressed(canvas.scene, Keyboard.space)
+                    game.pressed[Keyboard.space] = true
+                end
                 acc += 1
                 if l > lb
                     !adapt && error("Tuning parameter `c` too small.")
@@ -146,29 +192,41 @@ function bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, �
                 θ = reflect_sticky!(∇ϕx, x, θ, f, Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
-                t′ = t + poisson_time(b, rand())
+                t′ = t + poisson_times(b)
                 tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
-                GAME.pressed[Keyboard.space] = true
-                if !inbounds(x)
-                    score[] = max(0, score[]-1)
+
+                if !inbounds(game, x)
+                    game.score[] = max(0, game.score[]-1)
                 end
             else # nothing happened
                 b = ab(x, θ, c, Flow)
                 told = t
-                t′ = t + poisson_time(b, rand())
+                t′ = t + poisson_times(b)
                 -R < x[1] < R && -R < x[2] < R && continue
             end
         end
         
         push!(Ξ, sevent(t, x, θ, f, Flow))
-        return t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b
+        return finished, t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b
     end
 
 end
+ZZB.Trace(t0, x0, θ0, f, Flow::ZigZag) = ZZB.Trace(t0, x0, θ0, f, BouncyParticle(Flow.Γ, Flow.μ, 0.0))
+function ZZB.sevent(t, x, θ, f, Z::ZigZag)
+    t, copy(x), copy(θ), copy(f)
+end
+ZZB.freezing_time!(tfrez, t0, x0, θ0, f, Flow::ZigZag) = ZZB.freezing_time!(tfrez, t0, x0, θ0, f,  BouncyParticle(Flow.Γ, Flow.μ, 0.0))
+function ZZB.ab(x, θ, c, Z::ZigZag)
+    a = [c + (ZZB.idot(Z.Γ, i, x)  - ZZB.idot(Z.Γ, i, Z.μ))'*θ[i] for i in eachindex(x)]
+    b = [c + θ[i]'*ZZB.idot(Z.Γ, i, θ) for i in eachindex(x)]
+    a, b
+end
+poisson_times((a, b)::Tuple{Array{Float64,1},Array{Float64,1}}) = ZZB.poisson_time.(a, b, rand(length(a)))
+poisson_times((a, b)) = ZZB.poisson_time(a, b, rand())
 
-
-function bouncy(canvas, X, ∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang},
+function bouncy(game, X, ∇ϕ!, t0, x0, θ0, T, c, Flow::Union{ZigZag, BouncyParticle, Boomerang},
     κ, args...;  strong_upperbounds = false, adapt=false, factor=2.0)
+    factorized = Flow isa ZigZag
     X[] .= [point(x0)]
     t, x, θ, ∇ϕx = t0, deepcopy(x0), deepcopy(θ0), deepcopy(θ0)
     told = t0
@@ -181,20 +239,23 @@ function bouncy(canvas, X, ∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle
     tfrez = freezing_time!(tfrez, t0, x0, θ0, f, Flow) #freexing times
     num = acc = 0
     b = ab(x, θ, c, Flow)
-    t′ = t + poisson_time(b, rand()) # reflection time
-    while t < T  && (!GAME.kill_on_boundary || inbounds(0.9x))
-        t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b = bouncy_inner!(canvas, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
+    t′ = t .+ poisson_times(b) # reflection time
+    finished = false 
+    while !finished && t < T  && (!game.kill_on_boundary || inbounds(game, 0.9x))
+        finished, t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b = bouncy_inner!(game, X, Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
                 Flow, κ, args...; strong_upperbounds = strong_upperbounds, factor = factor, adapt = adapt)
-        timeleft[] = T - t
+        game.timeleft[] = T - t
     end
     return Ξ, (t, x, θ), (acc, num), c
 end
 
 
 
-phi(x, y, rho) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
-logdensity(x, y) = log(phi(x - dist, y - dist, 0.0) + phi(x + dist, y + dist, 0.0))
-potential(xy) = -5*exp(logdensity(xy[1], xy[2]))
+phi(x, y, rho = 0.0) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
+sphi(x, y, σ1, σ2 = σ1, ρ=0.0) = phi(x/σ1, y/σ2, ρ)/(σ1*σ2)
+logdensity(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
+#potential(xy) = -0.1exp(logdensity(xy[1], xy[2])-log(phi(xy[1], xy[2])))
+potential(xy) = -exp(logdensity(xy[1], xy[2]))
 
 
 function gradϕ(x,i) 
@@ -206,15 +267,16 @@ function gradϕ!(y, x)
     y[2] = gradϕ(x,2)
     y
 end
-function remove(x)
-    global score
+function remove(game, x)
+    ys = game.ys[]
     for i in eachindex(ys)
         if norm(x - ys[i]) < 0.15
             deleteat!(ys, i)
-            length(ys) == 0 && error("You won")
-            score[] = score[] + 1
-            YS[] = point.(ys)
-            return true
+            #Makie.notify(game.ys)
+            game.ys[] = game.ys[] 
+            length(ys) == 0 && return true
+            game.score[] = game.score[] + 1
+            return false
         end
     end
     return false
@@ -223,6 +285,10 @@ end
 
 point(x) = Point3f0(x[1], x[2], 0.1+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
+
+point(game, x) = Point3f0(x[1], x[2], 0.1+game.potential(x))
+inbounds(game, x) = -R < x[1] < R && -R < x[2] < R
+
 while true
 
 κ = [100.0, 100.0]
@@ -230,35 +296,33 @@ t0 = 0.0
 x0 = [1.0, 0.]
 θ0 = [1.0, 1.0]
 c = 100.0
-T = 10000.0
-X = Node([point(x0)])
+T = 1000.0
 
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
 
-global score = Node(0)
-global SCORE = lift(x->"Score "*string(x), score)
-global speed = Node(norm(θ0))
-global timeleft = Node(T)
-global SPEED = lift(x->"Speed "*string(round(x, digits=2)), speed)
-global TIMELEFT = lift(y->"Time left "*string(round(y, digits=0)),  timeleft)
-global auto = Node(false)
-global AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
-global MESSAGE = Node("Get ready\nSPACE to reflect")
-global ys = [x for x in xs if inbounds(x)]
-global YS = Node(point.(ys))
-global ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
+X = Node([point(x0)])
+score = Node(0)
+SCORE = lift(x->"Score "*string(x), score)
+speed = Node(norm(θ0))
+timeleft = Node(T)
+SPEED = lift(x->"Speed "*string(round(x, digits=2)), speed)
+TIMELEFT = lift(y->"Time left "*string(round(y, digits=0)),  timeleft)
+auto = Node(false)
+AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
+MESSAGE = Node("Get ready\nSPACE to reflect")
+ys = Node([x for x in xs if inbounds(1.1*x)])
+YS = lift(ys->point.(ys), ys)
+ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
+
+
 canvas = Figure(resolution=(1500,1500))
-
-
-global GAME = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto)
-
 canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
 text!(ax0, MESSAGE, textsize=2)
 hidedecorations!(ax0)
 canvas[3:10,1] =  ax1 = Axis(canvas, aspect=DataAspect())
 hidedecorations!(ax1)
-canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S - stick, C - Crank-Nicolson, A - auto pilot, +- - speed", aspect=DataAspect())
+canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S* - stick, C* - Crank-Nicolson, A - auto pilot, +-* - speed (*hold)", aspect=DataAspect())
 text!(ax, "Bouncy Particle Sampler Game", textsize=2)
 hidedecorations!(ax)
 lscene = LScene(canvas[2:10, 2:5], scenekw = (camera = cam3d!, raw = false))
@@ -277,15 +341,14 @@ end
 
 display(canvas)
 
-println("Find your Makie window and reflect with the SPACE key, quit with Q")
-sleep(1.0)
-println("\nStick to the axes keeping S pressed. Explore different energy levels with + and -")
-println("Turn on autopilot with A")
+game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, potential)
 
-sleep(1.0)
+println("Find your Makie window and reflect with the SPACE key, quit with Q")
+#sleep(1.5)
 MESSAGE[] = ""
-trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 1.0, 0.97), κ; adapt=false)
-#trace, (tT, xT, θT), (acc, num) = bouncy(canvas, X, gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 0.0, 0.), κ; adapt=false)
+#trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), κ; adapt=false)
+#trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, θ0, T, c, Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), κ; adapt=false)
+trace, (tT, xT, θT), (acc, num) = bouncy(game, X, gradϕ!, t0, x0, [1.0,1.0], T, c, ZigZag(sparse(I(d)), 0*x0), κ; adapt=false)
 
 
 
