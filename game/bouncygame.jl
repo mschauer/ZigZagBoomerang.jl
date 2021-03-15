@@ -294,8 +294,8 @@ end
 point(x) = Point3f0(x[1], x[2], 0.03+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
 
-point(potential, x) = Point3f0(x[1], x[2], 0.03+potential(x[1],x[2]))
-point(i::Int, x) = Point3f0(x[1], x[2], 0.03+potentials[i](x[1],x[2]))
+point(potential, x) = Point3f0(x[1], x[2], 0.08+potential(x[1],x[2]))
+point(i::Int, x) = Point3f0(x[1], x[2], 0.08+potentials[i](x[1],x[2]))
 inbounds(game, x) = -R < x[1] < R && -R < x[2] < R
 
 κ = [100.0, 100.0]
@@ -380,7 +380,7 @@ level = [
     (courage="Done. You achieved mastership!", title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0],   T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
   
     ]
-confirm(canvas.scene)
+
 for i in 1:length(level)
     lvl = level[i]
     ∇ϕ! = gradϕ!(lvl.logdensity)
@@ -388,10 +388,13 @@ for i in 1:length(level)
     θ0 = lvl.θ0
     ys[] = lvl.ys
     auto[] = false
-    MESSAGE[] = lvl.message
     POTENTIAL[] = getpotentialxy(lvl.logdensity, lvl.F isa Boomerang)
     MARKER[] = :circle
     TITLE[] = lvl.title
+    X[] = [point(POTENTIAL[], x0)]
+    i == 1 && confirm(canvas.scene)
+    MESSAGE[] = lvl.message
+ 
     confirm(canvas.scene)
     game = Game(false, Dict(Keyboard.space => false, Keyboard.s => false, Keyboard.left => false, Keyboard.right => false, Keyboard.a => false), Dict(Keyboard.s => false), ys, canvas, score, speed, timeleft, auto, getpotential(lvl.logdensity))
 
