@@ -26,7 +26,7 @@ using ForwardDiff
 const ρ0 = 0.0
 const d = 2
 const dist = 1.
-const R = 4.0
+const R = 3.0
  r = -R:0.05:R
 #=
 mutable struct Level
@@ -254,14 +254,14 @@ end
 
 phi(x, y, rho = 0.0) =  1/(2*pi*sqrt(1-rho^2))*exp(-0.5*(x^2 + y^2 - 2x*y*rho)/(1-rho^2))
 sphi(x, y, σ1, σ2 = σ1, ρ=0.0) = phi(x/σ1, y/σ2, ρ)/(σ1*σ2)
-logdensity1(x, y) = log(sphi(x, y, 0.9))
+logdensity1(x, y) = log(sphi(x, y+0.2x, 0.9))
 logdensity2(x, y) = log(0.5sphi(x - dist, y - dist, 0.6) + 0.5sphi(x + dist, y + dist, 0.6))
 #potential(xy) = -0.1exp(logdensity(xy[1], xy[2])-log(phi(xy[1], xy[2])))
 getpotential(logdensity, boom=false) = function (xy) 
-     -exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
+     -2exp(logdensity(xy[1], xy[2]) - boom*log(phi(xy[1], xy[2])))
 end
 getpotentialxy(logdensity, boom=false) = function (x,y) 
-    -exp(logdensity(x,y) - boom*log(phi(x, y)))
+    -2exp(logdensity(x,y) - boom*log(phi(x, y)))
 end
 
 potentials = [getpotentialxy(logdensity1), getpotentialxy(logdensity2)]
@@ -291,11 +291,11 @@ function remove(game, x)
 end
         
 
-point(x) = Point3f0(x[1], x[2], 0.1+potential(x))
+point(x) = Point3f0(x[1], x[2], 0.03+potential(x))
 inbounds(x) = -R < x[1] < R && -R < x[2] < R
 
-point(potential, x) = Point3f0(x[1], x[2], 0.1+potential(x[1],x[2]))
-point(i::Int, x) = Point3f0(x[1], x[2], 0.1+potentials[i](x[1],x[2]))
+point(potential, x) = Point3f0(x[1], x[2], 0.03+potential(x[1],x[2]))
+point(i::Int, x) = Point3f0(x[1], x[2], 0.03+potentials[i](x[1],x[2]))
 inbounds(game, x) = -R < x[1] < R && -R < x[2] < R
 
 κ = [100.0, 100.0]
@@ -318,7 +318,7 @@ TIMELEFT = lift(y->"Time left "*string(round(y, digits=0)),  timeleft)
 auto = Node(false)
 AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
 MESSAGE = Node(" "^10*"Get ready - SPACE to reflect"*" "^10*"\n Q to quit")
-ys = Node([x for x in xs if inbounds(1.1*x)])
+ys = Node([rand(2)])
 POTENTIAL = Node{Any}(getpotentialxy(logdensity1))
 M = lift(p -> [p(x, y) for x in r, y in r], POTENTIAL)
 YS = lift((i, ys)->point.(i, ys), POTENTIAL, ys)
@@ -326,16 +326,18 @@ ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
 MARKER = Node(:circle)
 TITLE = Node(" "^20*"Bouncy Particle Sampler Game"*" "^20)
    
-canvas = Figure(resolution=(1500,1500))
-canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
-hidedecorations!(ax0)
+canvas = Figure(resolution=(1500,1000))
+#canvas[2:2,1] =  ax0 = Axis(canvas, aspect=DataAspect())
+#hidedecorations!(ax0)
 canvas[3:10,1] =  ax1 = Axis(canvas, aspect=DataAspect())
 hidedecorations!(ax1)
-canvas[1,1:5] =  ax = Axis(canvas, title = "SPACE - reflect, Q - quit, S* - stick, C* - Crank-Nicolson, A - auto pilot, +-* - speed (*hold), RETURN - continue to next lvl.", aspect=DataAspect())
+hidespines!(ax1)
+canvas[1:2,1:5] =  ax = Axis(canvas, title = "RETURN - continue to next lvl, SPACE - reflect, Q - quit, S* - stick, C* - Crank-Nicolson, A - auto pilot, +-* - speed (*hold)", aspect=DataAspect())
 text!(ax, TITLE, align=(:center, :bottom), textsize=.85)
-text!(ax, MESSAGE, align=(:center, :bottom), textsize=0.65, position=(-0, -2.2))
+text!(ax, MESSAGE, color=RGB(0.1, 0.3, 0.7), align=(:center, :bottom), textsize=0.65, position=(-0, -2.2))
 hidedecorations!(ax)
-lscene = LScene(canvas[2:10, 2:5], scenekw = (camera = cam3d!, raw = false))
+hidespines!(ax)
+lscene = LScene(canvas[3:10, 2:5], scenekw = (camera = cam3d!, raw = false))
 
 
 
@@ -354,21 +356,21 @@ display(canvas)
 
 
 println("Find your Makie window and reflect with the SPACE key, quit with Q")
-# Continuous trajectories with \nsuch countour reflections for the velocity are characteristic for the BPS.
-level = [
-    (title="Bouncy particle sampler (BPS)", message="Stear the Bouncy Particle and collect the point. Change direction with a\n 'contour reflection' with SPACE. ", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=[[2.0,2.0]])
-    (title="Bouncy particle sampler 2", message="Collect some more posterior points. Continue with RETURN.", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=0.9*[randn(2) for _ in 1:50])
-    (title="Bouncy particle sampler 3", message="A double well potential! Collect the points.\nContinue with RETURN or try the autopilot with A.", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.0], T=100.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
-  
-    (title="Zig-Zag", message="Try to collect the point with the Zig-Zag. Change direction with the arrow keys. \n Continue with RETURN.", logdensity=logdensity1, F=ZigZag(sparse(I(d)), 0*x0), x0=[0.0,1.0], θ0=[1.0,1.0], T=100.0, ys=[[2.0,2.0]])
-    (title="Zig-Zag 2", message="A double well potential! Collect the points.\n Try also A to see how the actual Zig-Zag sampler explores this posterior landscape.", logdensity=logdensity2, F=ZigZag(sparse(I(d)), 0*x0),x0=[0.0,1.0], θ0=[1.0,1.0], T=1000.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
 
-    (title="Boomerang", message="The Boomerang moves on circles and does 'contour reflections' with SPACE. Change your energy with - to reach the center.", logdensity=logdensity1, F=Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.0,1.0], θ0=[1.0,0.5], T=100.0, ys=[[2.0,2.0], [0.1,-.1]])
-    (title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
+level = [
+    (courage="Good start!", title="Bouncy particle sampler (BPS)", message="Stear the particle through the posterior landscape and collect the sample. \nChange direction with a 'contour reflection' at the countour lines with SPACE. ", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0]])
+    (courage="Improving your ESS!", title="Bouncy particle sampler 2", message="Collect some more posterior points. Randomize your energy to reach\n the center with the Crank-Nicolson scheme (Hold C and reflect with SPACE).", logdensity=logdensity1, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], T=100.0, ys=0.9*[randn(2) for _ in 1:50])
+    (courage="Great mixing!",title="Bouncy particle sampler 3", message="A double well potential! Collect the points.\nContinue with RETURN or try the `autopilot' (the original sampler) with A.", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.3], κ = [100.0, 100.0], T=100.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
+  
+    (courage="Too easy!", title="Zig-Zag", message="Try to collect the point with the Zig-Zag.\n It always moves on the diagonals. Change direction with the arrow keys. \n Continue with RETURN.", logdensity=logdensity1, F=ZigZag(sparse(I(d)), 0*x0), x0=[0.1,1.0], θ0=[1.0,1.0], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0]])
+    (courage="Almost ergodic!", title="Zig-Zag 2", message="A double well potential! Collect the points. Try also A(utopilot) to see\n how the actual Zig-Zag sampler explores this posterior landscape.", logdensity=logdensity2, F=ZigZag(sparse(I(d)), 0*x0),x0=[0.1,1.0], θ0=[1.0,1.0], κ = [100.0, 100.0], T=1000.0, ys=[[0.6*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*(randn(2) + [dist,dist]) for _ in 1:50]])
+
+    (courage="So Hamiltonian!", title="Boomerang", message="The Boomerang moves on circles and does 'contour reflections' with SPACE.\n Change your energy level with +/- to reach the center and the outskirts.", logdensity=logdensity1, F=Boomerang(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0], T=100.0, ys=[[2.0,2.0], [0.1,-.1]])
+    (courage="Mastership!", title="Sticky Bouncy particle sampler", message="Some of the points are on the coordinate axes.\nSTICK to the axis with S to collect them all (release to unstick).", logdensity=logdensity2, F=BouncyParticle(sparse(I(d)), 0*x0, 2.0, 0.995), x0=[0.1,1.0], θ0=[1.0,0.5], κ = [100.0, 100.0],   T=100.0, ys=[[0.6*rand(Bool,2).*(randn(2)-[dist,dist]) for _ in 1:50];[ 0.6*rand(Bool,2).*(randn(2) + [dist,dist]) for _ in 1:50]])
   
     ]
-
-for i in 7:length(level)
+sleep(2.5)
+for i in 1:length(level)
     lvl = level[i]
     ∇ϕ! = gradϕ!(lvl.logdensity)
     x0 = lvl.x0
@@ -387,8 +389,8 @@ for i in 7:length(level)
 
 
 
-    MARKER[] = :xcross
+   # MARKER[] = :xcross
 
-    MESSAGE[] = "$(score[]) posterior\nsamples."
-    sleep(2.0)
+    MESSAGE[] = "$(lvl.courage) Current score: $(score[]) posterior\nsamples."
+    sleep(2.5)
 end
