@@ -49,4 +49,6 @@ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 * Joris Bierkens, Paul Fearnhead, Gareth Roberts: The Zig-Zag Process and Super-Efficient Sampling for Bayesian Analysis of Big Data. *The Annals of Statistics*, 2019, 47. Vol., Nr. 3, pp. 1288-1320. [https://arxiv.org/abs/1607.03188].
 * Joris Bierkens, Sebastiano Grazzi, Kengo Kamatani and Gareth Robers: The Boomerang Sampler. *ICML 2020*. [https://arxiv.org/abs/2006.13777].
 * Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: A piecewise deterministic Monte Carlo method for diffusion bridges.  2020. [https://arxiv.org/abs/2001.05889].
+* Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: Sticky PDMP samplers for sparse and local inference problems.  2020. [https://arxiv.org/abs/2103.08478].
+
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
