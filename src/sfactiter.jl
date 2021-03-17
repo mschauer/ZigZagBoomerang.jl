@@ -49,7 +49,6 @@ end
 function iterate(FS::FactSampler, (u, t_old, (acc, num), Q, b, G, G2))
     t, (x, θ) = u
     n = length(x)
-    t, (x, θ) = u
     ev, t, x, θ, t′, (acc, num), _,  b, t_old = spdmp_inner!(G, G2, FS.∇ϕ, t, x, θ, Q,
     FS.c, b, t_old, (acc, num), FS.F, FS.args...; structured=FS.structured, factor=FS.factor, adapt=FS.adapt)
     u = t => (x, θ)
