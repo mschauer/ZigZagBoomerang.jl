@@ -19,7 +19,7 @@ include("not_fact_samplers.jl")
 include("priorityqueue.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
-
+include("sfactiter.jl")
 
 include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition

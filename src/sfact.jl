@@ -55,7 +55,7 @@ export SelfMoving
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
-function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
+function spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; structured=true, factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
@@ -116,8 +116,7 @@ function spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 continue
             end
         end
-        push!(Ξ, event(i, t, x, θ, F))
-        return t, x, θ, t′, (acc, num), c, b, t_old
+        return event(i, t, x, θ, F), t, x, θ, t′, (acc, num), c, b, t_old
     end
 end
 
@@ -158,8 +157,9 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
+        ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, (acc, num), F, args...; structured=structured, factor=factor, adapt=adapt, adaptscale=adaptscale)
+        push!(Ξ, ev)
     end
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c

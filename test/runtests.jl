@@ -10,7 +10,7 @@ Random.seed!(1)
 
 include("test1d.jl")
 include("maintest.jl")
-
+include("testiter.jl")
 include("staticarrays.jl")
 
 include("sticky.jl")
