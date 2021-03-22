@@ -23,7 +23,7 @@ using SparseArrays
 
     tr = trace(sampler, T)
     dt = 0.5
-    @test mean(tr) < 2/sqrt(T)
+    @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 2/sqrt(T)
     
     ts, xs = sep(collect(discretize(tr, dt)))
 
