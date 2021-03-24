@@ -26,13 +26,13 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
         for j in neighbours(G1, i)
             b[j] = ab(G1, j, x, θ, c, F)
             t_old[j] = t[j]
-            Q[partition[j]][j] = t[j] + poisson_time(b[j], rand())
+            Q[partition(j)][j] = t[j] + poisson_time(b[j], rand())
         end
         return true
     else
         b[i] = ab(G1, i, x, θ, c, F)
         t_old[i] = t[i]
-        Q[partition(ti)][i] = t[i] + poisson_time(b[i], rand())
+        Q[partition(i)][i] = t[i] + poisson_time(b[i], rand())
         return false
     end
 end
