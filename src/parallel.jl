@@ -7,17 +7,17 @@ struct Partition
     n::Int
 end
 Base.length(pt::Partition) = pt.nt
-(pt::Partition)(i) = mod1(i, nt), div(pt.nt*(i-1), pt.n) + 1
+(pt::Partition)(i) = div(pt.nt*(i-1), pt.n) + 1, i - div(pt.n,pt.nt)*div(pt.nt*(i-1), pt.n)
 (pt::Partition)(q1, q2) = (q1-1)*pt.nt + q2 
 
 each(pt::Partition) = 1:pt.nt
 
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
-    F::Union{ZigZag,FactBoomerang}, args...; sfactor=1.5, adapt=false)
+    F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
     t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
     ∇ϕi = ∇ϕ(x, i, args...)
     l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
-    num += 1
+    num = 1
     if rand()*lb < l
         if l >= lb
             !adapt && error("Tuning parameter `c` too small.")
@@ -41,9 +41,10 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
     end
 end
 
-function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, num,
+function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
    n = length(x)
+   num = 0
    while true
         num += 1
         ii, t′ = peek(Q[ti])
@@ -52,7 +53,7 @@ function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ,
             return false, event(i, t, x, θ, F), i, t′, num
         end
 
-        success = innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; factor=factor, adapt=adapt)
+        success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; factor=factor, adapt=adapt)
 
         success || continue
         return true, event(i, t, x, θ, F), i, t′, num
@@ -60,7 +61,7 @@ function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ,
 end
 
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8)
+    factor=1.8, adapt=false)
     nthr = length(partition)
  #   @assert nthr == Threads.nthreads()
     n = length(x0)
@@ -91,7 +92,7 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     while t′ < T
         for ti in each(partition)
             task[ti] = @spawn parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                        c, b, t_old, (0, 0), F, args...; factor=factor, adapt=adapt)
+                        c, b, t_old, F, args...; factor=factor, adapt=adapt)
         end    
         res = [fetch(task[ti]) for ti in each(partition)]
         for ti in each(partition)
@@ -99,11 +100,11 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
         end
         sortperm!(perm, evtime)
         for ti in perm
-            done, ev, i, t′, num_ = res
+            done, ev, i, t′_, num_ = res[ti]
             num += num_
- 
+            t′ = max(t′, t′_)
             if !done  
-                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; sfactor=sfactor, adapt=adapt)
+                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; factor=factor, adapt=adapt)
             else
                 success = true
             end
