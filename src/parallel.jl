@@ -5,10 +5,12 @@ using Base.Threads: @spawn, fetch
 struct Partition
     nt::Int
     n::Int
+    k::Int
 end
+Partition(nt,n) = Partition(nt, n, div(n, nt))
 Base.length(pt::Partition) = pt.nt
-(pt::Partition)(i) = div(pt.nt*(i-1), pt.n) + 1, i - div(pt.n,pt.nt)*div(pt.nt*(i-1), pt.n)
-(pt::Partition)(q1, q2) = (q1-1)*pt.nt + q2 
+(pt::Partition)(i) = div((i-1), pt.k) + 1, i - pt.k*div((i-1), pt.k)
+(pt::Partition)(q1, q2) = (q1-1)*pt.k + q2 
 
 each(pt::Partition) = 1:pt.nt
 
