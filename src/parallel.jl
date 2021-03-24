@@ -7,7 +7,9 @@ struct Partition
     n::Int
 end
 Base.length(pt::Partition) = pt.nt
-(pt::Partition)(i) = div(nt*(i-1), n) + 1
+(pt::Partition)(i) = mod1(i, nt), div(pt.nt*(i-1), pt.n) + 1
+(pt::Partition)(q1, q2) = (q1-1)*pt.nt + q2 
+
 each(pt::Partition) = 1:pt.nt
 
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
@@ -26,13 +28,15 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
         for j in neighbours(G1, i)
             b[j] = ab(G1, j, x, θ, c, F)
             t_old[j] = t[j]
-            Q[partition(j)][j] = t[j] + poisson_time(b[j], rand())
+            q1, q2 = partition(j)
+            Q[q1][q2] = t[j] + poisson_time(b[j], rand())
         end
         return true
     else
         b[i] = ab(G1, i, x, θ, c, F)
         t_old[i] = t[i]
-        Q[partition(i)][i] = t[i] + poisson_time(b[i], rand())
+        q1, q2 = partition(i)
+        Q[q1][q2] = t[i] + poisson_time(b[i], rand())
         return false
     end
 end
@@ -42,7 +46,8 @@ function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ,
    n = length(x)
    while true
         num += 1
-        i, t′ = peek(Q[ti])
+        ii, t′ = peek(Q[ti])
+        i = partition(ti, ii)
         if !inner[i] # need neighbours at t′
             return false, event(i, t, x, θ, F), i, t′, num
         end
@@ -57,7 +62,7 @@ end
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
     factor=1.8)
     nthr = length(partition)
-    @assert nthr == Threads.nthreads()
+ #   @assert nthr == Threads.nthreads()
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -65,7 +70,7 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     if G === nothing
         G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     end
-    inner = [all(j -> partition[j] == partion[i], js) for  (i,js) in G]
+    inner = [all(j -> partition(j) == partition(i), js) for  (i,js) in G]
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
 
     @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
@@ -76,7 +81,8 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     Q = [SPriorityQueue{Int,Float64}() for thr in 1:nthr]
     b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
-        enqueue!(Q[partition[i]], i => poisson_time(b[i], rand()))
+        q1, q2 = partition(i)
+        enqueue!(Q[q1], q2 => poisson_time(b[i], rand()))
     end
     Ξ = Trace(t0, x0, θ0, F)
     task = Vector{Task}(undef, 5)

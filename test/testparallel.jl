@@ -11,18 +11,22 @@ using LinearAlgebra
     Γ2[d2+1:d,1:d2] .= 0
     dropzeros!(Γ2)
 
+    partition = ZigZagBoomerang.Partition(2, d)
+
     ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 
     t0 = 0.0
     x0 = rand(d)
     θ0 = rand([-1.0,-0.5,0.5,1.0], d)
 
+    G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in eachindex(θ0)]
 
     c = .7*[norm(Γ[:, i], 2) for i in 1:d]
 
     Z = ZigZag(Γ2, x0*0)
     T = 1000.0
-
+    tr = ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ)
+ 
   
     dt = 0.5
     @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 2/sqrt(T)
