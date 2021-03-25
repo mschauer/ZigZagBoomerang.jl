@@ -102,24 +102,14 @@ function parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, parti
     c, b, t_old, F, (factor, adapt), args...)
     num = acc = 0
     run = runs = 0
-    SPAWN = false
     while t′ < T
-        for ti in each(partition) # can be parallel
-        #for ti in each(partition)
+        @threads for ti in each(partition) # can be parallel
             resize!(events[ti], 0)
-            if SPAWN
-                task[ti] = @spawn parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                        c, b, t_old, F, (factor, adapt), args...)
-            else
-                res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                        c, b, t_old, F, (factor, adapt), args...) 
-            end
+            res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+                    c, b, t_old, F, (factor, adapt), args...) 
         end
         
         for ti in each(partition)
-            if SPAWN
-                res[ti] = fetch(task[ti])
-            end
             run += res[ti][end]
             runs += 1
             #println(res[ti][end])

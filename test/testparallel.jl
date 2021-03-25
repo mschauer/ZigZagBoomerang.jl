@@ -1,10 +1,10 @@
-using Revise
-using ProfileView
-using Profile
-Profile.init()
+#using Revise
+#using ProfileView
+#using Profile
+#Profile.init()
 using Random
 Random.seed!(1)
-Profile.clear()
+#Profile.clear()
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
 using ZigZagBoomerang: Partition
 @testset "Partition" begin
@@ -19,7 +19,7 @@ using ZigZagBoomerang: Partition
 
 end
 @testset "Parallel ZigZag" begin
-    d = 2000
+    d = 80
     d2 = d÷2
    
     Γ = sparse(SymTridiagonal(1.0ones(d), -0.3ones(d-1)))
@@ -40,20 +40,23 @@ end
 
     c = 10*[norm(Γ[:, i], 2) for i in 1:d]
 
-    T = 100.0
-    # Z = ZigZag(Γ, x0*0)
-    # tr, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
-    # dt = 0.5
-    # @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)    
-    # ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
-    # @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) <4/sqrt(T)
-
+    T = 1000.0
+    if d < 100
+        Z = ZigZag(Γ, x0*0)
+        tr, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+        dt = 0.5
+        @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)    
+        ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
+        @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) <4/sqrt(T)
+    end
     Z = ZigZag(Γ2, x0*0)
     tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ)
  
   
     @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)
-    dt = 0.5  
-   # ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
-   # @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 5/sqrt(T)
+    dt = 0.5 
+    if d < 100 
+         ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
+         @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 5/sqrt(T)
+    end
 end
