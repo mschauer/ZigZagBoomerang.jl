@@ -46,19 +46,20 @@ end
 function parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
    n = length(x)
-   num = 0
+   acc = num = 0
    while true
         num += 1
         ii, t′ = peek(Q[ti])
         i = partition(ti, ii)
         if !inner[i] # need neighbours at t′
-           return false, event(i, t, x, θ, F), i, t′, num
+           return false, event(i, t, x, θ, F), i, t′, acc, num
         end
 
         success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
 
         success || continue
-        #return true, event(i, t, x, θ, F), i, t′, num
+        acc += 1
+        #return true, event(i, t, x, θ, F), i, t′, acc, num
         push!(events[ti], event(i, t, x, θ, F))
    end
 end
@@ -66,7 +67,6 @@ end
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
     factor=1.8, adapt=false)
     nthr = length(partition)
- #   @assert nthr == Threads.nthreads()
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -74,7 +74,8 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     if G === nothing
         G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     end
-    inner = [all(j -> partition(j) == partition(i), js) for  (i,js) in G]
+    inner = [all(j -> partition(j)[1] == partition(i)[1], js) for  (i,js) in G]
+ #   @show inner
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
 
     @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
@@ -89,38 +90,53 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
         enqueue!(Q[q1], q2 => poisson_time(b[i], rand()))
     end
     Ξ = Trace(t0, x0, θ0, F)
-    task = Vector{Task}(undef, 5)
+    task = Vector{Task}(undef, length(partition))
     evtime = zeros(nthr)
     perm = collect(1:nthr)
-    events = [[event(1, 0., x, θ, F), 1, 1.0, 1)] for ts in each(partition)]
-    res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1) for ts in each(partition)]
+    events = [[event(1, 0., x, θ, F)] for ts in each(partition)]
+    res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1, 1) for ts in each(partition)]
     parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (factor, adapt), args...)
 end
 function parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (factor, adapt), args...)
     num = acc = 0
+    run = runs = 0
+    SPAWN = false
     while t′ < T
-        for ti in each(partition)
-            #task[ti] = @spawn parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-            #            c, b, t_old, F, (factor, adapt), args...)
+        for ti in each(partition) # can be parallel
+        #for ti in each(partition)
             resize!(events[ti], 0)
-            res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+            if SPAWN
+                task[ti] = @spawn parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+                        c, b, t_old, F, (factor, adapt), args...)
+            else
+                res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
                         c, b, t_old, F, (factor, adapt), args...) 
+            end
         end
         
         for ti in each(partition)
-            #res[ti] = fetch(task[ti])
+            if SPAWN
+                res[ti] = fetch(task[ti])
+            end
+            run += res[ti][end]
+            runs += 1
+            #println(res[ti][end])
+            append!(Ξ.events, events[ti])
             evtime[ti] = res[ti][4]
         end
-        sortperm!(perm, evtime)
+        sortperm!(perm, evtime, alg=InsertionSort)
         for ti in perm
-            done, ev, i, t′_, num_ = res[ti]
+            done, ev, i, t′_, acc_, num_ = res[ti]
             num += num_
+            acc += acc_
+            
             t′ = max(t′, t′_)
             if !done  
                 success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
             else
+                error("why?")
                 success = true
             end
             if success
@@ -130,6 +146,8 @@ function parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, parti
         end
 
     end
+    @show run/runs, runs
+    sort!(Ξ.events, by=ev->ev[1])
     Ξ, (t, x, θ), (acc, num)
 end
 
