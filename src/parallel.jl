@@ -68,8 +68,8 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     factor=1.8, adapt=false)
     nthr = length(partition)
     n = length(x0)
-    t′ = t0
-    t = fill(t′, size(θ0)...)
+    t′ = fill(t0, nthr) 
+    t = fill(t0, size(θ0)...)
     t_old = copy(t)
     if G === nothing
         G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
@@ -93,38 +93,58 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     task = Vector{Task}(undef, length(partition))
     evtime = zeros(nthr)
     perm = collect(1:nthr)
+    waitfor = zeros(Int, nthr)
     events = [[event(1, 0., x, θ, F)] for ts in each(partition)]
     res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1, 1) for ts in each(partition)]
-    parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (factor, adapt), args...)
 end
-function parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+function parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (factor, adapt), args...)
     num = acc = 0
     run = runs = 0
-    while t′ < T
+
+    while minimum(t′) < T
         @threads for ti in each(partition) # can be parallel
-            resize!(events[ti], 0)
-            res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+            if waitfor[ti] == 0 
+                resize!(events[ti], 0)
+                res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, F, (factor, adapt), args...) 
+            end
         end
         
         for ti in each(partition)
-            run += res[ti][end]
-            runs += 1
-            #println(res[ti][end])
-            append!(Ξ.events, events[ti])
-            evtime[ti] = res[ti][4]
+            if waitfor[ti] == 0 
+                run += res[ti][end]
+                runs += 1
+                #println(res[ti][end])
+                append!(Ξ.events, events[ti])
+                evtime[ti] = res[ti][4]
+            end
         end
         sortperm!(perm, evtime, alg=InsertionSort)
         for ti in perm
             done, ev, i, t′_, acc_, num_ = res[ti]
-            num += num_
-            acc += acc_
-            
-            t′ = max(t′, t′_)
+            if waitfor[ti] == 0
+                num += num_
+                acc += acc_
+                t′[ti] = t′_
+            end
+
+    
+            waitfor[ti] = 0
+            for j in G[i][2]
+                i == j && continue
+                q1, q2 = partition(j)
+                if t′[q1] < t′_
+                    waitfor[ti] = i
+                end
+            end
+      
+            waitfor[ti] != 0 && continue
+
             if !done  
-                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
+                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′_, Q, c, b, t_old, F, (factor, adapt), args...)
             else
                 error("why?")
                 success = true
