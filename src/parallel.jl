@@ -43,7 +43,7 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
     end
 end
 
-function parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
+function parallel_spdmp_inner!(events, partition, ti, T, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
    n = length(x)
    acc = num = 0
@@ -51,7 +51,7 @@ function parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t
         num += 1
         ii, t′ = peek(Q[ti])
         i = partition(ti, ii)
-        if !inner[i] # need neighbours at t′
+        if !inner[i] ||  t′ > T # need neighbours at t′, or just wait
            return false, event(i, t, x, θ, F), i, t′, acc, num
         end
 
@@ -65,7 +65,7 @@ function parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t
 end
 
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8, adapt=false)
+    factor=1.8, adapt=false, Δ = 0.1)
     nthr = length(partition)
     n = length(x0)
     t′ = fill(t0, nthr) 
@@ -97,18 +97,22 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     events = [[event(1, 0., x, θ, F)] for ts in each(partition)]
     res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1, 1) for ts in each(partition)]
     parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (factor, adapt), args...)
+    c, b, t_old, F, (Δ, factor, adapt), args...)
 end
 function parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (factor, adapt), args...)
+    c, b, t_old, F, (Δ, factor, adapt), args...)
     num = acc = 0
     run = runs = 0
-
-    while minimum(t′) < T
-        @threads for ti in each(partition) # can be parallel
-            if waitfor[ti] == 0 
+    run2 = runs2 = 0
+    tmin = minimum(t′)
+    while tmin < T
+        these = each(partition)[waitfor .== 0 ]
+        run2 += length(these)
+        runs2 += 1
+        @threads for ti in these # can be parallel
+            if true
                 resize!(events[ti], 0)
-                res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+                res[ti] = parallel_spdmp_inner!(events, partition, ti, tmin + Δ, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, F, (factor, adapt), args...) 
             end
         end
@@ -154,9 +158,11 @@ function parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, even
                 push!(Ξ, ev)
             end
         end
-
+        tmin = minimum(t′)
     end
-    @show run/runs, runs
+    println("events per spawn: ", run/runs, " spawns: ", runs)
+    println("spawns per turn: ", run2/runs2, " turns: ", runs2)
+    
     sort!(Ξ.events, by=ev->ev[1])
     Ξ, (t, x, θ), (acc, num)
 end

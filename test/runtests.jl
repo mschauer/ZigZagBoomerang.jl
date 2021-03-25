@@ -4,6 +4,7 @@ using Random
 using LinearAlgebra
 using ZigZagBoomerang
 using ZigZagBoomerang: poisson_time, sep
+const CI = true
 
 Random.seed!(1)
 
