@@ -15,7 +15,7 @@ Base.length(pt::Partition) = pt.nt
 each(pt::Partition) = 1:pt.nt
 
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
-    F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+    F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
     t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
     ∇ϕi = ∇ϕ(x, i, args...)
     l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
@@ -43,8 +43,8 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
     end
 end
 
-function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
-    F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+function parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
+    F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
    n = length(x)
    num = 0
    while true
@@ -52,13 +52,14 @@ function parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ,
         ii, t′ = peek(Q[ti])
         i = partition(ti, ii)
         if !inner[i] # need neighbours at t′
-            return false, event(i, t, x, θ, F), i, t′, num
+           return false, event(i, t, x, θ, F), i, t′, num
         end
 
-        success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; factor=factor, adapt=adapt)
+        success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
 
         success || continue
-        return true, event(i, t, x, θ, F), i, t′, num
+        #return true, event(i, t, x, θ, F), i, t′, num
+        push!(events[ti], event(i, t, x, θ, F))
    end
 end
 
@@ -80,7 +81,7 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
 
     G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     x, θ = copy(x0), copy(θ0)
-    num = acc = 0
+
     Q = [SPriorityQueue{Int,Float64}() for thr in 1:nthr]
     b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
@@ -91,13 +92,25 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     task = Vector{Task}(undef, 5)
     evtime = zeros(nthr)
     perm = collect(1:nthr)
+    events = [[event(1, 0., x, θ, F), 1, 1.0, 1)] for ts in each(partition)]
+    res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1) for ts in each(partition)]
+    parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    c, b, t_old, F, (factor, adapt), args...)
+end
+function parallel_spdmp_loop(t′, T, task, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    c, b, t_old, F, (factor, adapt), args...)
+    num = acc = 0
     while t′ < T
         for ti in each(partition)
-            task[ti] = @spawn parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                        c, b, t_old, F, args...; factor=factor, adapt=adapt)
-        end    
-        res = [fetch(task[ti]) for ti in each(partition)]
+            #task[ti] = @spawn parallel_spdmp_inner!(partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+            #            c, b, t_old, F, (factor, adapt), args...)
+            resize!(events[ti], 0)
+            res[ti] = parallel_spdmp_inner!(events, partition, ti, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+                        c, b, t_old, F, (factor, adapt), args...) 
+        end
+        
         for ti in each(partition)
+            #res[ti] = fetch(task[ti])
             evtime[ti] = res[ti][4]
         end
         sortperm!(perm, evtime)
@@ -106,7 +119,7 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
             num += num_
             t′ = max(t′, t′_)
             if !done  
-                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, args...; factor=factor, adapt=adapt)
+                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
             else
                 success = true
             end

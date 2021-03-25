@@ -1,5 +1,8 @@
-using SparseArrays
-using LinearAlgebra
+using Revise
+using ProfileView
+using Profile
+Profile.init()
+using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
 using ZigZagBoomerang: Partition
 @testset "Partition" begin
     d = 6
@@ -13,7 +16,7 @@ using ZigZagBoomerang: Partition
 
 end
 @testset "Parallel ZigZag" begin
-    d = 24
+    d = 20
     d2 = d÷2
     S = 2.0I + 0.5sprandn(d, d, 0.1)
     Γ = S*S'
@@ -46,7 +49,7 @@ end
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) <4/sqrt(T)
 
     Z = ZigZag(Γ2, x0*0)
-    tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ)
+    tr, (t, x, θ), (acc, num) = @time @profile ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ)
  
   
     dt = 0.5
