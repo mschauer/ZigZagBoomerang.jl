@@ -67,7 +67,7 @@ end
         @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) <4/sqrt(T)
     end
     Z = ZigZag(Γ2, x0*0)
-    println("Multithreaded:")
+    println("Multithreaded: (",Threads.nthreads()," cores)")
     tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ; Δ=Δ)
     @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)
 
