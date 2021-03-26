@@ -72,7 +72,7 @@ end
 
     if d < 100 
          ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
-         @test_broken mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 4/sqrt(T)
+         @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 4/sqrt(T)
     end
 
     println("Single thread:")

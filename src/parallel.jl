@@ -29,6 +29,11 @@ Base.length(pt::Partition) = pt.nt
 (pt::Partition{k})(q1, q2) where{k} = (q1-1)*k + q2 
 each(pt::Partition) = 1:pt.nt
 
+function event(i, t::Vector, x, θ, t′, Z::Union{ZigZag,FactBoomerang})
+    ti, xi, θi = move_forward!(t′ - t[i], t[i], x[i], θ[i], Z)
+    ti, i, xi, -θi
+end
+
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
     t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
@@ -70,7 +75,7 @@ function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, �
         i = partition(ti, ii)
         if !inner[i] ||  t′ > tnext # need neighbours at t′, or just wait
             tnext = t′ + Δ
-            ret[] = event(i, t, x, θ, F), i, t′, acc, num
+            ret[] = i, t′, acc, num
             u = UInt(1) << (ti - 1)
             ac = Threads.atomic_and!(latch.active, ~u)
             done = false
@@ -130,7 +135,7 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     perm = collect(1:nthr)
     waitfor = zeros(Int, nthr)
     events = [resize!([event(1, 0., x, θ, F)], 0) for ts in each(partition)]
-    res = [Ref((event(1, 0., x, θ, F), 1, 1.0, 1, 1)) for ts in each(partition)]
+    res = [Ref((1, 1.0, 1, 1)) for ts in each(partition)]
     latch = (;active = Threads.Atomic{UInt}(1), condition=Threads.Condition())
     wakeup = [Threads.Condition() for _ in each(partition)]
     parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
@@ -180,13 +185,13 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
                 #println(res[ti][end])
                 append!(Ξ.events, events[ti])
                 resize!(events[ti], 0)
-                evtime[ti] = res[ti][][4]
+                evtime[ti] = res[ti][][2]
             end
         end
         sortperm!(perm, evtime, alg=InsertionSort)
         alldone = true
         for ti in perm
-            ev, i, t′_, acc_, num_ = res[ti][]
+            i, t′_, acc_, num_ = res[ti][]
             if waitfor[ti] == 0
                 num += num_
                 acc += acc_
@@ -209,7 +214,7 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
         
             if success
                 acc += 1
-                push!(Ξ, ev)
+                push!(Ξ, event(i, t, x, θ, F))
             end
         end
 
