@@ -1,6 +1,6 @@
 using Base.Threads
 using Base.Threads: @spawn, fetch
-
+const VERBOSE = false
 
 struct Partition
     nt::Int
@@ -43,24 +43,44 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
     end
 end
 
-function parallel_spdmp_inner!(events, partition, ti, T, inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
+function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, Δ), inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
-   n = length(x)
    acc = num = 0
+   VERBOSE && println("$ti starts.")
+   tnext = t0 + Δ
+
    while true
         num += 1
         ii, t′ = peek(Q[ti])
         i = partition(ti, ii)
-        if !inner[i] ||  t′ > T # need neighbours at t′, or just wait
-           return false, event(i, t, x, θ, F), i, t′, acc, num
+        if !inner[i] ||  t′ > tnext # need neighbours at t′, or just wait
+            tnext = t′ + Δ
+            ret[] = event(i, t, x, θ, F), i, t′, acc, num
+            u = UInt(1) << (ti - 1)
+            ac = Threads.atomic_and!(latch.active, ~u)
+            done = false
+            lock(wakeup) do
+                if ac == u # last one turns the light off
+                    VERBOSE && println("Notify $ti")
+                    lock(latch.condition) do
+                        notify(latch.condition, nothing; all = true, error = false)
+                    end
+                end
+            
+                VERBOSE && println("Sleep: $ti at $(t′) ($ac, $u).")
+                done = wait(wakeup)
+            end
+            if done
+                println("Done: $ti.")     
+                return
+            end
+            acc = num = 0
+        else
+            success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
+            success || continue
+            acc += 1
+            push!(events, event(i, t, x, θ, F))
         end
-
-        success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
-
-        success || continue
-        acc += 1
-        #return true, event(i, t, x, θ, F), i, t′, acc, num
-        push!(events[ti], event(i, t, x, θ, F))
    end
 end
 
@@ -94,41 +114,64 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     evtime = zeros(nthr)
     perm = collect(1:nthr)
     waitfor = zeros(Int, nthr)
-    events = [[event(1, 0., x, θ, F)] for ts in each(partition)]
-    res = [(true, event(1, 0., x, θ, F), 1, 1.0, 1, 1) for ts in each(partition)]
-    parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    events = [resize!([event(1, 0., x, θ, F)], 0) for ts in each(partition)]
+    res = [Ref((event(1, 0., x, θ, F), 1, 1.0, 1, 1)) for ts in each(partition)]
+    latch = (;active = Threads.Atomic{UInt}(1), condition=Threads.Condition())
+    wakeup = [Threads.Condition() for _ in each(partition)]
+    parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (Δ, factor, adapt), args...)
 end
-function parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
     c, b, t_old, F, (Δ, factor, adapt), args...)
-    num = acc = 0
+
+    tmin = minimum(t′)
+    for ti in each(partition)
+        Threads.atomic_or!(latch.active, UInt(1) << (ti - 1))
+        task[ti] = Threads.@spawn parallel_spdmp_inner!(latch, wakeup[ti], res[ti], events[ti], partition, ti, (tmin, Δ), inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+            c, b, t_old, F, (factor, adapt), args...) 
+    end
+    task_outer = Threads.@spawn parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    c, b, t_old, F, (Δ, factor, adapt), args...) 
+
+    for ti in each(partition)
+        wait(task[ti]) 
+    end
+ 
+    (acc, num), (run, runs), (run2, runs2) = fetch(task_outer)
+    println("events per spawn: ", run/runs, " spawns: ", runs)
+    println("wakeups per round: ", run2/runs2, " rounds: ", runs2)
+
+    sort!(Ξ.events, by=ev->ev[1])
+    Ξ, (t, x, θ), (acc, num)
+end    
+function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
+    c, b, t_old, F, (Δ, factor, adapt), args...) 
+    acc = num = 0
     run = runs = 0
     run2 = runs2 = 0
-    tmin = minimum(t′)
     while tmin < T
-        these = each(partition)[waitfor .== 0 ]
-        run2 += length(these)
-        runs2 += 1
-        @threads for ti in these # can be parallel
-            if true
-                resize!(events[ti], 0)
-                res[ti] = parallel_spdmp_inner!(events, partition, ti, tmin + Δ, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, F, (factor, adapt), args...) 
+        if latch.active[] !== 0
+            VERBOSE && println("Waiting $tmin")
+            lock(latch.condition) do
+                while latch.active[] != 0
+                    wait(latch.condition)
+                end
             end
-        end
-        
+        end        
         for ti in each(partition)
             if waitfor[ti] == 0 
-                run += res[ti][end]
+                run += res[ti][][end]
                 runs += 1
                 #println(res[ti][end])
                 append!(Ξ.events, events[ti])
-                evtime[ti] = res[ti][4]
+                resize!(events[ti], 0)
+                evtime[ti] = res[ti][][4]
             end
         end
         sortperm!(perm, evtime, alg=InsertionSort)
+        alldone = true
         for ti in perm
-            done, ev, i, t′_, acc_, num_ = res[ti]
+            ev, i, t′_, acc_, num_ = res[ti][]
             if waitfor[ti] == 0
                 num += num_
                 acc += acc_
@@ -147,23 +190,29 @@ function parallel_spdmp_loop(t′, T, task, waitfor, evtime, perm, res, Ξ, even
       
             waitfor[ti] != 0 && continue
 
-            if !done  
-                success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′_, Q, c, b, t_old, F, (factor, adapt), args...)
-            else
-                error("why?")
-                success = true
-            end
+            success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′_, Q, c, b, t_old, F, (factor, adapt), args...)
+        
             if success
                 acc += 1
                 push!(Ξ, ev)
             end
         end
+
         tmin = minimum(t′)
+        runs2 += 1
+        for ti in each(partition)
+            if waitfor[ti] .== 0 ||  tmin >= T
+                run2 += 1
+                Threads.atomic_or!(latch.active, UInt(1) << (ti - 1))
+                lock(wakeup[ti]) do
+                    notify(wakeup[ti], tmin >= T)
+                end
+            end
+        end 
+
+        tmin >= T && return (acc, num), (run, runs),  (run2, runs2)
+ 
     end
-    println("events per spawn: ", run/runs, " spawns: ", runs)
-    println("spawns per turn: ", run2/runs2, " turns: ", runs2)
-    
-    sort!(Ξ.events, by=ev->ev[1])
-    Ξ, (t, x, θ), (acc, num)
+
 end
 

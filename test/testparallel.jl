@@ -26,9 +26,9 @@ end
         Δ = 0.05
     else
         d = 50000
-        K = 16
-        T = 100.0
-        Δ = 0.2
+        K = 4
+        T = 50.0
+        Δ = 0.015
     end
 
     d2 = d÷K
@@ -58,6 +58,17 @@ end
 
     dt = 0.5
  
+ 
+    Z = ZigZag(Γ2, x0*0)
+    println("Multithreaded: (", Threads.nthreads(), " cores)")
+    tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ; Δ=Δ)
+    @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)
+
+    if d < 100 
+         ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
+         @test_broken mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 4/sqrt(T)
+    end
+
     println("Single thread:")
     Z = ZigZag(Γ, x0*0)
     tr, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; structured=true)
@@ -66,13 +77,5 @@ end
         ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
         @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) <4/sqrt(T)
     end
-    Z = ZigZag(Γ2, x0*0)
-    println("Multithreaded: (",Threads.nthreads()," cores)")
-    tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ; Δ=Δ)
-    @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)
-
-    if d < 100 
-         ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
-         @test_broken mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 4/sqrt(T)
-    end
+    
 end
