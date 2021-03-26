@@ -2,16 +2,31 @@ using Base.Threads
 using Base.Threads: @spawn, fetch
 const VERBOSE = false
 
-struct Partition
+struct Partition{k}
     nt::Int
     n::Int
-    k::Int
 end
-Partition(nt,n) = Partition(nt, n, div(n, nt))
-Base.length(pt::Partition) = pt.nt
-(pt::Partition)(i) = div((i-1), pt.k) + 1, i - pt.k*div((i-1), pt.k)
-(pt::Partition)(q1, q2) = (q1-1)*pt.k + q2 
+chunksize(pt::Partition{k}) where {k} = k
+chunksize(pt::Type{Partition{k}}) where {k} = k
+function index_slow(pt, i)
+    j, i′ = divrem(i-1, chunksize(pt))
+    j + 1, i′ + 1
+end
+@generated function index_fast(pt, i)
+  pow = round(Int, log2(chunksize(pt)))
+  :((i-1) >> $pow + 1, (i-1) & $(2^pow-1) + 1)
+end
 
+@generated function (pt::Partition{k})(i) where {k}
+  ispow2(k) ?
+    :(index_fast(pt, i)) :
+    :(index_slow(pt, i))
+end
+
+Partition(nt,n) = Partition{div(n, nt)}(nt, n)
+Base.length(pt::Partition) = pt.nt
+#(pt::Partition)(i) = div((i-1), pt.k) + 1, i - pt.k*div((i-1), pt.k)
+(pt::Partition{k})(q1, q2) where{k} = (q1-1)*k + q2 
 each(pt::Partition) = 1:pt.nt
 
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,

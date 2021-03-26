@@ -17,6 +17,12 @@ using ZigZagBoomerang: Partition
         @test b == mod1(i, 3)
     end
 
+    d = 6
+    partition = ZigZagBoomerang.Partition(3, d)
+    for i in 1:d
+        a,b = partition(i)
+        @test i == partition(a,b)
+    end
 end
 @testset "Parallel ZigZag" begin
     if (@isdefined CI) && CI
@@ -25,7 +31,7 @@ end
         T = 1000.0
         Δ = 0.05
     else
-        d = 50000
+        d = 65536
         K = 4
         T = 50.0
         Δ = 0.015
