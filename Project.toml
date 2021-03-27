@@ -6,6 +6,7 @@ version = "0.6.1"
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -15,6 +16,7 @@ Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 DataStructures = "0.17, 0.18"
 Trajectories = "0.2"
 julia = "1"
+ProgressMeter = "1"
 
 [extras]
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

@@ -1,6 +1,7 @@
 module ZigZagBoomerang
 using Random
 using Statistics
+using ProgressMeter
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")

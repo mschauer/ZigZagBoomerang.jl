@@ -102,7 +102,7 @@ function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, �
 end
 
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8, adapt=false, Δ = 0.1, progress=()->return)
+    factor=1.8, adapt=false, Δ = 0.1, progress=true, progress_stops = 20)
     nthr = length(partition)
     n = length(x0)
     t′ = fill(t0, nthr) 
@@ -140,11 +140,16 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     res = [Ref((1, 1.0, 1, 1)) for ts in each(partition)]
     latch = (;active = Threads.Atomic{UInt}(1), condition=Threads.Condition())
     wakeup = [Threads.Condition() for _ in each(partition)]
+    if progress
+        prg = Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
     parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), progress, args...)
+    c, b, t_old, F, (Δ, factor, adapt), prg, args...)
 end
 function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), progress, args...)
+    c, b, t_old, F, (Δ, factor, adapt), prg, args...)
 
     tmin = minimum(t′)
     for ti in each(partition)
@@ -153,7 +158,7 @@ function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm
             c, b, t_old, F, (factor, adapt), args...) 
     end
     task_outer = Threads.@spawn parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), progress, args...) 
+    c, b, t_old, F, (Δ, factor, adapt), prg, args...) 
 
     for ti in each(partition)
         wait(task[ti]) 
@@ -164,14 +169,15 @@ function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm
     println("wakeups per round: ", run2/runs2, " rounds: ", runs2)
 
     sort!(Ξ.events, by=ev->ev[1])
+    ismissing(prg) || ProgressMeter.finish!(prg)
     Ξ, (t, x, θ), (acc, num)
 end    
 function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), progress, args...) 
+    c, b, t_old, F, (Δ, factor, adapt), prg, args...) 
     acc = num = 0
     run = runs = 0
     run2 = runs2 = 0
-    stops = 20
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = T/stops
     while tmin < T
         if latch.active[] !== 0
@@ -226,7 +232,7 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
         runs2 += 1
         if tmin > tstop
             tstop += T/stops
-            progress()  
+            next!(prg) 
         end  
         for ti in each(partition)
             if waitfor[ti] .== 0 ||  tmin >= T
@@ -242,6 +248,5 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
         tmin >= T && return (acc, num), (run, runs),  (run2, runs2)
  
     end
-
 end
 
