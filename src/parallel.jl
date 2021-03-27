@@ -29,10 +29,7 @@ Base.length(pt::Partition) = pt.nt
 (pt::Partition{k})(q1, q2) where{k} = (q1-1)*k + q2 
 each(pt::Partition) = 1:pt.nt
 
-function event(i, t::Vector, x, θ, t′, Z::Union{ZigZag,FactBoomerang})
-    ti, xi, θi = move_forward!(t′ - t[i], t[i], x[i], θ[i], Z)
-    ti, i, xi, -θi
-end
+
 
 function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
@@ -105,7 +102,7 @@ function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, �
 end
 
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8, adapt=false, Δ = 0.1)
+    factor=1.8, adapt=false, Δ = 0.1, progress=()->return)
     nthr = length(partition)
     n = length(x0)
     t′ = fill(t0, nthr) 
@@ -115,12 +112,17 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
         G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     end
     inner = [all(j -> partition(j)[1] == partition(i)[1], js) for  (i,js) in G]
- #   @show inner
+
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
 
     @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
 
     G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
+
+    if !all(all( first(partition(g[1])) .== first.(partition.(g[2]))) for g in G2)
+        error("Upper bounds may not depend across chunks.")
+
+    end    
     x, θ = copy(x0), copy(θ0)
 
     Q = [SPriorityQueue{Int,Float64}() for thr in 1:nthr]
@@ -139,10 +141,10 @@ function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,
     latch = (;active = Threads.Atomic{UInt}(1), condition=Threads.Condition())
     wakeup = [Threads.Condition() for _ in each(partition)]
     parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), args...)
+    c, b, t_old, F, (Δ, factor, adapt), progress, args...)
 end
 function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), args...)
+    c, b, t_old, F, (Δ, factor, adapt), progress, args...)
 
     tmin = minimum(t′)
     for ti in each(partition)
@@ -151,7 +153,7 @@ function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm
             c, b, t_old, F, (factor, adapt), args...) 
     end
     task_outer = Threads.@spawn parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), args...) 
+    c, b, t_old, F, (Δ, factor, adapt), progress, args...) 
 
     for ti in each(partition)
         wait(task[ti]) 
@@ -165,10 +167,12 @@ function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm
     Ξ, (t, x, θ), (acc, num)
 end    
 function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,
-    c, b, t_old, F, (Δ, factor, adapt), args...) 
+    c, b, t_old, F, (Δ, factor, adapt), progress, args...) 
     acc = num = 0
     run = runs = 0
     run2 = runs2 = 0
+    stops = 20
+    tstop = T/stops
     while tmin < T
         if latch.active[] !== 0
             VERBOSE && println("Waiting $tmin")
@@ -220,6 +224,10 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
 
         tmin = minimum(t′)
         runs2 += 1
+        if tmin > tstop
+            tstop += T/stops
+            progress()  
+        end  
         for ti in each(partition)
             if waitfor[ti] .== 0 ||  tmin >= T
                 run2 += 1
@@ -229,6 +237,7 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
                 end
             end
         end 
+     
 
         tmin >= T && return (acc, num), (run, runs),  (run2, runs2)
  
