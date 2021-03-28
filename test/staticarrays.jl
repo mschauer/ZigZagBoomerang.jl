@@ -5,7 +5,7 @@ using SparseArrays
 using Random
 
 
-@testset "SVector" begin
+@testset "Vector of SVector" begin
     Random.seed!(1)
 
     d = 2
@@ -30,5 +30,42 @@ using Random
     T = 200.0
 
     @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
+    xs = last.(collect(discretize(trace, 0.01)))
+end
+
+function ZigZagBoomerang.move_forward!(τ, t, x::SVector, θ, Z::Union{BouncyParticle, ZigZag})
+    t += τ
+    x += θ .* τ
+    t, x, θ
+end
+ZigZagBoomerang.smove_forward!(τ, t, x::SVector, θ, f, Z::Union{BouncyParticle, ZigZag}) = ZigZagBoomerang.move_forward!(τ, t, x, θ, Z)
+function ZigZagBoomerang.reflect!(∇ϕx, x::SVector, θ, ::Union{BouncyParticle, Boomerang})
+    θ -= (2*dot(∇ϕx, θ)/ZigZagBoomerang.normsq(∇ϕx))*∇ϕx
+    θ
+end
+function ZigZagBoomerang.refresh!(θ::SVector{d}, F) where {d}
+    ρ̄ = sqrt(1-F.ρ^2)
+    F.ρ*θ + ρ̄*@SVector(randn(d))
+end
+
+
+@testset "SVector" begin
+    Random.seed!(1)
+
+    d = 5
+    Γ = sparse(SymTridiagonal(1.0ones(d), -0.4ones(d-1)))
+    ∇ϕ!(y, x::T,  Γ) where {T} = T(Γ*x)::SVector
+    
+    t0 = 0.0
+    x0 = @SVector randn(5)
+    θ0 = @SVector ones(Float64, 5)
+
+    μ = 0*x0
+    c = 50.0
+    σ = [SMatrix{d,d}(1.0I) for i in 1:n]
+    BP = BouncyParticle(Γ, x0*0, 0.5)
+    T = 200.0
+
+    @time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, BP, Γ)
     xs = last.(collect(discretize(trace, 0.01)))
 end
