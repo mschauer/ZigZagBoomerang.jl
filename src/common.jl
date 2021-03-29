@@ -18,7 +18,7 @@ function idot(A::SparseMatrixCSC, j, x)
     vals = nonzeros(A)
     s = zero(eltype(x))
     @inbounds for i in nzrange(A, j)
-        s += vals[i]*x[rows[i]]
+        s += vals[i]'*x[rows[i]]
     end
     s
 end
