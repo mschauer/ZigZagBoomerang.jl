@@ -1,10 +1,4 @@
-#using Revise
-#using ProfileView
-#using Profile
-#Profile.init()
 using Random
-Random.seed!(1)
-#Profile.clear()
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
 using ZigZagBoomerang: Partition
 @testset "Partition" begin
@@ -25,17 +19,11 @@ using ZigZagBoomerang: Partition
     end
 end
 @testset "Parallel ZigZag" begin
-    if (@isdefined CI) && CI
-        d = 20
-        K = 2
-        T = 1000.0
-        Δ = 0.05
-    else
-        d = 65536
-        K = 4
-        T = 50.0
-        Δ = 0.015
-    end
+    Random.seed!(1)
+    d = 20
+    K = 2
+    T = 1000.0
+    Δ = 0.05
 
     d2 = d÷K
    
@@ -69,6 +57,7 @@ end
     println("Multithreaded: (", Threads.nthreads(), " cores)")
     tr, (t, x, θ), (acc, num) = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ; Δ=Δ)
     @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)
+    @show mean(abs.(mean(tr)))
 
     if d < 100 
          ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))

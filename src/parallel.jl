@@ -165,11 +165,12 @@ function parallel_spdmp_loop(t′, T, task, waitfor, latch, wakeup, evtime, perm
     end
  
     (acc, num), (run, runs), (run2, runs2) = fetch(task_outer)
+    sort!(Ξ.events, by=ev->ev[1])
+    ismissing(prg) || ProgressMeter.finish!(prg)
     println("events per spawn: ", run/runs, " spawns: ", runs)
     println("wakeups per round: ", run2/runs2, " rounds: ", runs2)
 
-    sort!(Ξ.events, by=ev->ev[1])
-    ismissing(prg) || ProgressMeter.finish!(prg)
+ 
     Ξ, (t, x, θ), (acc, num)
 end    
 function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evtime, perm, res, Ξ, events, partition, inner, G, G1, G2, ∇ϕ, t, x, θ, Q,

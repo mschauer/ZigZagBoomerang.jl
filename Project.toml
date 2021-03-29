@@ -15,10 +15,10 @@ Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 
 [compat]
 DataStructures = "0.17, 0.18"
-Trajectories = "0.2"
-Requires = "1.1"
-julia = "1"
 ProgressMeter = "1"
+Requires = "1.1"
+Trajectories = "0.2"
+julia = "1"
 
 [extras]
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

@@ -21,7 +21,7 @@ function tofull(x::Vector)
     [x[i[2]][i[1]] for i in vec(CartesianIndices((d,n)))]
 end
 @testset "Vector of SVector" begin
-    Random.seed!(1)
+    Random.seed!(2)
 
     d = 2
     𝕏 = SArray{Tuple{d},Float64,1,d}
@@ -50,7 +50,7 @@ end
     xs = last.(collect(discretize(trace, 2.0)))
     L = lchol(Matrix(Γ))
     Σ = cholinverse!(L, Matrix(I_nd))
-    @test mean(norm.(cov(xs) - Σ)) < 25/sqrt(T)
+    @test mean(norm.(cov(xs) - Σ)) < 30/sqrt(T)
 end
 
 @testset "SVector" begin
