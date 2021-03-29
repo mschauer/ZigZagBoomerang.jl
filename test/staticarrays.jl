@@ -3,8 +3,23 @@ using StaticArrays
 using LinearAlgebra
 using SparseArrays
 using Random
+using Test
+using Statistics
 
+include("blockchol.jl")
 
+function tofull(Γ::AbstractMatrix)
+    n = size(Γ, 1)
+    d = size(Γ[1,1],1) 
+    Γfull = Matrix(Γ)
+    [Γfull[i[2],j[2]][i[1],j[1]] for i in vec(CartesianIndices((d,n))), j in vec(CartesianIndices((d,n)))]
+    #[Γfull[i[1],j[1]][i[2],j[2]] for i in vec(CartesianIndices((n,d))), j in vec(CartesianIndices((n,d)))]
+end
+function tofull(x::Vector)
+    n = size(x, 1)
+    d = size(x[1],1) 
+    [x[i[2]][i[1]] for i in vec(CartesianIndices((d,n)))]
+end
 @testset "Vector of SVector" begin
     Random.seed!(1)
 
@@ -13,12 +28,13 @@ using Random
 
     n = 5
 
-    Γ = sprand(n, n, 0.1).*[0.25*SMatrix{d,d}(randn(4)) for i in 1:n, j in 1:n]
-    Γ = Γ + Γ' + Diagonal(fill(SMatrix{d,d}(1.0I), n))
+    I_nd = Diagonal(fill(SMatrix{d,d}(1.0I), n))
 
+    Γ0 = sparse(Tridiagonal([SMatrix{d,d}([0.0 -0.4;-0.0 -0.0]) for i in 1:n-1], fill(SMatrix{d,d}([1.0 -0.4;-0.4 1.0]), n), [SMatrix{d,d}([0.0 -0.0;-0.4 -0.0]) for i in 1:n-1]))
+    Γ = Γ0*Γ0
+
+#    ∇ϕ(x, i, Γ) = sum(Γ[i,j]*x[j] for j in 1:n)
     ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x)
-
-    B
     t0 = 0.0
     x0 = randn(𝕏, n)
     θ0 = [randn(𝕏) for i in 1:n]
@@ -26,13 +42,16 @@ using Random
     μ = 0*x0
     c = [50.0 for i in 1:n]
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
-    Z = ZigZag(Γ, μ, σ; λref=0.05, ρ=0.8)
-    T = 200.0
+    Z = ZigZag(Γ, μ, σ; λref=0.01, ρ=0.0) # need refreshments!
+    T = 800.0
 
-    @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
-    xs = last.(collect(discretize(trace, 0.01)))
+    @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, structured=true)
+
+    xs = last.(collect(discretize(trace, 2.0)))
+    L = lchol(Matrix(Γ))
+    Σ = cholinverse!(L, Matrix(I_nd))
+    @test mean(norm.(cov(xs) - Σ)) < 25/sqrt(T)
 end
-
 
 @testset "SVector" begin
     Random.seed!(1)
@@ -53,4 +72,5 @@ end
 
     @time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, BP, Γ)
     xs = last.(collect(discretize(trace, 0.01)))
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
