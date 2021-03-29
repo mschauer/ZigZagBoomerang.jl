@@ -2,6 +2,7 @@ module ZigZagBoomerang
 using Random
 using Requires
 using Statistics
+using ProgressMeter
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")
@@ -20,7 +21,8 @@ include("not_fact_samplers.jl")
 include("priorityqueue.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
-
+include("parallel.jl")
+include("sfactiter.jl")
 
 include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
