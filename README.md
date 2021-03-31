@@ -8,6 +8,16 @@
 [![DOI](https://zenodo.org/badge/276593775.svg)](https://zenodo.org/badge/latestdoi/276593775)
 
 ## Overview
+Markov chain Monte Carlo methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model.
+The sampler in ZigZagBoomerang.jl have the same goal except that the distribution is explored through the continuous movement of a particle. 
+*Piecewise deterministic Monte Carlo* (PDMC) methods have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time. The particle changes direction a random times in order to simulate the exact distribution and moves otherwise on deterministic trajectories (for example along a line.) 
+![bouncy](https://user-images.githubusercontent.com/1923437/113114754-f5bc8380-920b-11eb-90ea-d509fc453a9d.gif)
+
+The decision of whether to change direction only requires the evaluation of derivatives which depend on few coordinates -- the neighbourhood of the coordinate in the Markov blanket. That allows exploiting multiple processor cores using Julia's multithreaded parallelism (or other forms of parallel computing). See Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diamweb.ewi.tudelft.nl/~joris/pdmps.html) is a starting point for the theory.
+
+A recently added feature is the addition of sticky sampler for variable selection (order 10000s of variables for well structured problems.)
+
+## Contents
 
 The package provides efficient and modular implementations
 of samplers of several piecewise deterministic Markov processes (PDMP), the Bouncy Particle, the Boomerang, the ZigZag, and the factorised Boomerang.
