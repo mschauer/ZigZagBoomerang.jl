@@ -8,32 +8,32 @@
 [![DOI](https://zenodo.org/badge/276593775.svg)](https://zenodo.org/badge/latestdoi/276593775)
 
 ## Overview
-Markov chain Monte Carlo (MCMC) methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model.
-The sampler in `ZigZagBoomerang.jl` have the same goal except that the distribution is explored through the continuous movement of a particle. 
+Markov chain Monte Carlo (MCMC) methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model. *Piecewise deterministic Monte Carlo* (PDMC) methods which are implemented in `ZigZagBoomerang.jl` have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time.
 
-*Piecewise deterministic Monte Carlo* (PDMC) methods have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time.
+Here, the particle changes direction at random times and moves otherwise on deterministic trajectories (for example along a line with constant velocity, see the picture) 
 
-The particle changes direction a random times and moves otherwise on deterministic trajectories (for example along a line, see picture.) 
 ![bouncy](https://user-images.githubusercontent.com/1923437/113114754-f5bc8380-920b-11eb-90ea-d509fc453a9d.gif)
 
-The random direction changes are calibrated such that the trajectory of the particle samples the distribution is. Quantities of interest, for example the posterior mean and standard deviation, can be computed from it. 
+The random direction changes are calibrated such that the trajectory of the particle samples the right distribution; from the trajectory, the quantities of interest, such as the posterior mean and standard deviation, can be estimated. 
 
 The decision of whether to change direction only requires the evaluation of a partial derivatives which depend on few coordinates -- the neighbourhood of the coordinate in the Markov blanket. That allows exploiting multiple processor cores using Julia's multithreaded parallelism (or other forms of parallel computing). 
 
-See Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diamweb.ewi.tudelft.nl/~joris/pdmps.html) is a starting point for the theory and our announcement on Discourse [[ANN] `ZigZagBoomerang.jl`](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287).
+Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diamweb.ewi.tudelft.nl/~joris/pdmps.html) together with our announcement on Discourse [[ANN] `ZigZagBoomerang.jl`](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287) is a good starting point for the theory and applications of the methods covered in  `ZigZagBoomerang.jl`.
 
 ## Features
 
-*Subsampling.* One highlight is that these samplers allow
-exact MCMC with subsets of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target. [1]
+*Subsampling.* One highlight is that these samplers do not introduce error by allowing subsampling of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target distribution. [1]
 
 The factorised samplers make use of a sparse Gaussian approximation of the target density (in form of a sparse precision matrix `Γ`).
 
-*Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the potential of the target density, see `spdmp`. [3]
+*Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the log density, see `spdmp`. [3]
  
 *Sticky samplers.* A recent feature is the addition of *sticky* PDMPs for variable selection (order 10000s of variables for well structured problems.), see `sspdmp`. [4]
 
 *Multithreaded Zig-Zag*. We are currently developing a multi-threaded version of the local Zig-Zag.
+
+*Probabilistic programming with PDMPs*. One challenge with PDMPs is their less familiar theory compared to Markov chains. We strive to provide  a ready-to-use sampler suitable as backend for other packages with the aim of making PDMP methods more accecible for users.
+
 
 ## Contents
 
