@@ -22,12 +22,11 @@ Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diam
 
 ## Features
 
-*Subsampling.* One highlight is that these samplers allow
-exact MCMC with subsets of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target. [1]
+*Subsampling.* One highlight is that these samplers do not introduce error by allowing subsampling of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target distribution. [1]
 
 The factorised samplers make use of a sparse Gaussian approximation of the target density (in form of a sparse precision matrix `Γ`).
 
-*Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the potential of the target density, see `spdmp`. [3]
+*Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the log density, see `spdmp`. [3]
  
 *Sticky samplers.* A recent feature is the addition of *sticky* PDMPs for variable selection (order 10000s of variables for well structured problems.), see `sspdmp`. [4]
 
