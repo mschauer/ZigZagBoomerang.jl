@@ -32,6 +32,9 @@ The factorised samplers make use of a sparse Gaussian approximation of the targe
 
 *Multithreaded Zig-Zag*. We are currently developing a multi-threaded version of the local Zig-Zag.
 
+*Probabilistic program for PDMPs*. The current most notable limitation of PDMPs is the challenges on implementing the algorithm. We are currently working on a ready-to-use algorithm and a probablisitc interface with the aim of making PDMP methods more accecible for users.
+
+
 ## Contents
 
 The package provides efficient and modular implementations
