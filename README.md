@@ -8,31 +8,43 @@
 [![DOI](https://zenodo.org/badge/276593775.svg)](https://zenodo.org/badge/latestdoi/276593775)
 
 ## Overview
-Markov chain Monte Carlo methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model.
-The sampler in ZigZagBoomerang.jl have the same goal except that the distribution is explored through the continuous movement of a particle. 
-*Piecewise deterministic Monte Carlo* (PDMC) methods have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time. The particle changes direction a random times in order to simulate the exact distribution and moves otherwise on deterministic trajectories (for example along a line.) 
+Markov chain Monte Carlo (MCMC) methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model.
+The sampler in `ZigZagBoomerang.jl` have the same goal except that the distribution is explored through the continuous movement of a particle. 
+
+*Piecewise deterministic Monte Carlo* (PDMC) methods have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time.
+
+The particle changes direction a random times and moves otherwise on deterministic trajectories (for example along a line, see picture.) 
 ![bouncy](https://user-images.githubusercontent.com/1923437/113114754-f5bc8380-920b-11eb-90ea-d509fc453a9d.gif)
 
-The decision of whether to change direction only requires the evaluation of derivatives which depend on few coordinates -- the neighbourhood of the coordinate in the Markov blanket. That allows exploiting multiple processor cores using Julia's multithreaded parallelism (or other forms of parallel computing). See Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diamweb.ewi.tudelft.nl/~joris/pdmps.html) is a starting point for the theory.
+The random direction changes are calibrated such that the trajectory of the particle samples the distribution is. Quantities of interest, for example the posterior mean and standard deviation, can be computed from it. 
 
-A recently added feature is the addition of sticky sampler for variable selection (order 10000s of variables for well structured problems.)
+The decision of whether to change direction only requires the evaluation of a partial derivatives which depend on few coordinates -- the neighbourhood of the coordinate in the Markov blanket. That allows exploiting multiple processor cores using Julia's multithreaded parallelism (or other forms of parallel computing). 
+
+See Joris Bierken's [Overview over Piecewise Deterministic Monte Carlo](https://diamweb.ewi.tudelft.nl/~joris/pdmps.html) is a starting point for the theory and our announcement on Discourse [[ANN] `ZigZagBoomerang.jl`](https://discourse.julialang.org/t/ann-zigzagboomerang-jl/57287).
+
+## Features
+
+*Subsampling.* One highlight is that these samplers allow
+exact MCMC with subsets of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target. [1]
+
+The factorised samplers make use of a sparse Gaussian approximation of the target density (in form of a sparse precision matrix `Γ`).
+
+*Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the potential of the target density, see `spdmp`. [3]
+ 
+*Sticky samplers.* A recent feature is the addition of *sticky* PDMPs for variable selection (order 10000s of variables for well structured problems.), see `sspdmp`. [4]
+
+*Multithreaded Zig-Zag*. We are currently developing a multi-threaded version of the local Zig-Zag.
 
 ## Contents
 
 The package provides efficient and modular implementations
-of samplers of several piecewise deterministic Markov processes (PDMP), the Bouncy Particle, the Boomerang, the ZigZag, and the factorised Boomerang.
+of samplers of several piecewise deterministic Markov processes (PDMP), the Bouncy Particle, the Boomerang, the ZigZag, and the factorised Boomerang and their sticky versions.
+
 The sampler requires the gradient of the potential of the target density as input and are called through `pdmp` producing a trajectory. `pdmp_inner!` gives access to the transition function of the sampler.
 
 The non-factorised samplers (Bouncy Particle, the Boomerang)
 take a function `∇ϕ!(y, x)` writing the gradient of the potential `ϕ(x) = -log(p(x))` of the target density `p` into `y`. The factorised samplers (factorised Boomerang and ZigZag) take `∇ϕ(x, i)`, the `i`'s partial derivative of `ϕ` (that is `y[i]`.)
 
-
-*Subsampling:* One highlight is that these samplers allow
-exact MCMC with subsets of data. This is because they just need an unbiased estimate of the gradient of the log densities to sample from a target.
-
-The factorised samplers make use of a sparse Gaussian approximation of the target density (in form of a sparse precision matrix `Γ`).
-
- *Local factorised samplers*. ZigZag and the factorised Boomerang can optionally make use of the sparsity of the gradient of the potential of the target density, see `spdmp`.
 
  See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts/logistic.jl] for a worked out example (logistic regression with n=8840, p=442 and sparse Gramian) sampling from a non-Gaussian target with structured sparse gradient of the potential and unbiased estimate of the gradient subsampling of the n observations.
 
@@ -56,9 +68,9 @@ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 
 ## Literature
 
-* Joris Bierkens, Paul Fearnhead, Gareth Roberts: The Zig-Zag Process and Super-Efficient Sampling for Bayesian Analysis of Big Data. *The Annals of Statistics*, 2019, 47. Vol., Nr. 3, pp. 1288-1320. [https://arxiv.org/abs/1607.03188].
-* Joris Bierkens, Sebastiano Grazzi, Kengo Kamatani and Gareth Robers: The Boomerang Sampler. *ICML 2020*. [https://arxiv.org/abs/2006.13777].
-* Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: A piecewise deterministic Monte Carlo method for diffusion bridges.  *Statistics and Computing*, 2021 (to appear). [https://arxiv.org/abs/2001.05889].
-* Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: Sticky PDMP samplers for sparse and local inference problems.  2020. [https://arxiv.org/abs/2103.08478].
+1. Joris Bierkens, Paul Fearnhead, Gareth Roberts: The Zig-Zag Process and Super-Efficient Sampling for Bayesian Analysis of Big Data. *The Annals of Statistics*, 2019, 47. Vol., Nr. 3, pp. 1288-1320. [https://arxiv.org/abs/1607.03188].
+2. Joris Bierkens, Sebastiano Grazzi, Kengo Kamatani and Gareth Robers: The Boomerang Sampler. *ICML 2020*. [https://arxiv.org/abs/2006.13777].
+3. Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: A piecewise deterministic Monte Carlo method for diffusion bridges.  *Statistics and Computing*, 2021 (to appear). [https://arxiv.org/abs/2001.05889].
+4. Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: Sticky PDMP samplers for sparse and local inference problems.  2020. [https://arxiv.org/abs/2103.08478].
 
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
