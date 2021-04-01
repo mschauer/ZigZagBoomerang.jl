@@ -72,5 +72,8 @@ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 2. Joris Bierkens, Sebastiano Grazzi, Kengo Kamatani and Gareth Robers: The Boomerang Sampler. *ICML 2020*. [https://arxiv.org/abs/2006.13777].
 3. Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: A piecewise deterministic Monte Carlo method for diffusion bridges.  *Statistics and Computing*, 2021 (to appear). [https://arxiv.org/abs/2001.05889].
 4. Joris Bierkens, Sebastiano Grazzi, Frank van der Meulen, Moritz Schauer: Sticky PDMP samplers for sparse and local inference problems.  2020. [https://arxiv.org/abs/2103.08478].
+5. Joris Bierkens, Alexandre Bouchard-Côté, Arnaud Doucet, Andrew B. Duncan, Paul Fearnhead, Thibaut Lienart, Gareth Roberts, Sebastian J. Vollmer:
+Piecewise deterministic Markov processes for scalable Monte Carlo on restricted domains, *Statistics & Probability Letters*, 136. 2018.
+[https://doi.org/10.1016/j.spl.2018.02.021].
 
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
