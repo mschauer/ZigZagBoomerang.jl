@@ -11,7 +11,7 @@ end
 
 # Here use sparsity as the factorised samplers
 function ab(x, θ, c, B::BouncyParticle)
-    (c + θ'*(B.Γ*x), θ'*(B.Γ*θ))
+    (c + θ'*(B.Γ*(x-B.μ)), θ'*(B.Γ*θ))
 end
 
 function ab(x, θ, c, B::Boomerang)
