@@ -1,8 +1,7 @@
 
 using Pkg
-#Pkg.activate(joinpath(@__DIR__, ".."))
-
 Pkg.activate(@__DIR__)
+Pkg.instantiate()
 cd(@__DIR__)
 using Revise
 using ZigZagBoomerang
@@ -14,6 +13,7 @@ using ZigZagBoomerang: Trace, sevent, waiting_time_ref, freezing_time!, ab,
 using DataStructures
 using LinearAlgebra
 #using Observables
+using Colors
 using Random
 using SparseArrays
 using Test
@@ -265,7 +265,9 @@ getpotentialxy(logdensity, boom=false) = function (x,y)
 end
 
 potentials = [getpotentialxy(logdensity1), getpotentialxy(logdensity2)]
-potential(x, y) = potentials(POTENTIAL[], x, y)
+potential(xy) = POTENTIAL[](xy[1], xy[2])
+#potential(x,y) = POTENTIAL[](x, x)
+
 gradϕ(logdensity) = function (x,i) 
     -ForwardDiff.partials(logdensity(ForwardDiff.Dual{}(x[1], 1.0*(i==1)), ForwardDiff.Dual{}(x[2], 1.0*(i==2))))[]
 end
@@ -308,7 +310,6 @@ T = 1000.0
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!(logdensity2), t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), 0.01*κ; adapt=false)
 ts, xs = sep(collect(discretize(trace, T/500)))
 
-X = Node([point(x0)])
 score = Node(0)
 SCORE = lift(x->"Score "*string(x), score)
 speed = Node(norm(θ0))
@@ -320,6 +321,7 @@ AUTO = lift(x -> x ? "Autopilot on" : "Manual", auto)
 MESSAGE = Node(" "^10*"Get ready - SPACE to reflect"*" "^10*"\n Q to quit")
 ys = Node([rand(2)])
 POTENTIAL = Node{Any}(getpotentialxy(logdensity1))
+X = Node([point(x0)])
 M = lift(p -> [p(x, y) for x in r, y in r], POTENTIAL)
 YS = lift((i, ys)->point.(i, ys), POTENTIAL, ys)
 ELEMENTS = [TIMELEFT, SPEED, SCORE, AUTO]
