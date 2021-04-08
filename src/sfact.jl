@@ -136,7 +136,7 @@ out to be too small.) The final time, location and momentum at `T` can be obtain
 with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.8, structured=false, adapt=false, adaptscale=false)
+        factor=1.8, structured=false, adapt=false, adaptscale=false, progress=false, progress_stops = 20)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
@@ -155,12 +155,24 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
             enqueue!(Q, (n + i) => waiting_time_ref(F))
         end
     end
+    if progress
+        prg = Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
+    tstop = T/stops
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
         ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, (acc, num), F, args...; structured=structured, factor=factor, adapt=adapt, adaptscale=adaptscale)
         push!(Ξ, ev)
+        if t′ > tstop
+            tstop += T/stops
+            next!(prg) 
+        end  
     end
+    ismissing(prg) || ProgressMeter.finish!(prg)
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
 end
