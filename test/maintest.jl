@@ -48,7 +48,12 @@ end
     @show acc[1]/acc[2]
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
-
+    @testset "subtrace" begin
+        J = 1:2:d
+        ts2, xs2 = sep(collect(discretize(subtrace(trace, J), dt)))
+        @test ts2 ≈ ts[eachindex(ts2)]
+        @test (xs2) ≈ (getindex.(xs[eachindex(ts2)], Ref(J)))
+    end
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2.5/sqrt(T)
 end
