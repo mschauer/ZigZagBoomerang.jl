@@ -110,8 +110,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             t[i] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i], θf[i] = θf[i], 0.0 # unfreeze, restore speed
             if reversible
-                #θ[i] *= rand((-1,1))
-                θ[i] = abs(θ[i])
+                θ[i] *= rand((-1,1))
             end
             t_old[i] = t[i]
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
