@@ -1,14 +1,14 @@
 using Random
 Random.seed!(5)
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
-parallel = true
+parallel = Threads.nthreads() > 1
 const D = 2
 #n = 1_000_000
 n = (2<<19) - D
 d = D + n
 if parallel
-    κ = 4 # number of threads
-    Δ = 0.01 # how much samples per try
+    κ = Threads.nthreads() # number of threads
+    Δ = 0.01 # how much samples per epoch
     d2 = d÷κ
     partition = ZigZagBoomerang.Partition(κ, d)
 end
