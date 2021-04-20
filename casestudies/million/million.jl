@@ -1,16 +1,24 @@
 using Random
 Random.seed!(5)
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
+parallel = true
+const D = 2
+#n = 1_000_000
+n = (2<<19) - D
+d = D + n
+if parallel
+    κ = 4 # number of threads
+    Δ = 0.01 # how much samples per try
+    d2 = d÷κ
+    partition = ZigZagBoomerang.Partition(κ, d)
+end
 
-
-#n = 65536
-n = 1_000_000
 K = 20
 T = 10.0
-const D = 2
+
 const σ2 = 1.0
 const γ0 = 0.1
-d = D + n
+
 
 β = randn(D)
 X = [randn(n) for i in 1:D]
@@ -35,6 +43,16 @@ end
 
 # rough estimate of posterior precision matrix using order of standard errors
 Γpost = [I(2)*(γ0 + n) zeros(2,n); zeros(2,n)' (Γ + I/σ2)]
+
+if parallel # if we want to do it parallel, we have to break some dependencies in our posterior proxy
+    for k1 in 0:κ-1
+        for k2 in 0:κ-1
+            k2 == k1 && continue
+            abs(k2-k1) > 1 && continue
+            Γpost[(k1*d2 + 1):(k1+1)*d2,(k2*d2 + 1):(k2+1)*d2] *= 0
+        end
+    end
+end
 dropzeros!(Γpost)
 μpost = [βpost; xpost]
 
@@ -87,7 +105,11 @@ c = 1e-9*ones(d)
 dt = T/100
 
 Z = ZigZag(Γpost, μpost)
-trc, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, Γ, X, y, (xpost, βpost, bias), K; structured=true, adapt=true, progress=true)
+if parallel
+    trc, _ = @time ZigZagBoomerang.parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, Z, Γ, X, y, (xpost, βpost, bias), K;  adapt=true, progress=true, Δ=Δ)
+else
+    trc, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, Γ, X, y, (xpost, βpost, bias), K; structured=true, adapt=true, progress=true)
+end
 J = [1,2, n÷2]
 subtrc = subtrace(trc, J)
 
