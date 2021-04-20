@@ -176,3 +176,26 @@ function Statistics.mean(trace::ZigZagBoomerang.Trace)
     end
     y
 end
+
+"""
+    subtrace(tr, J)
+
+Compute the trace of a subvector `x[J]`,
+returns a trace object.
+"""
+function subtrace(tr, J)
+    @assert issorted(J)
+    F = tr.F  
+    t0 = tr.t0
+    x0 = tr.x0[J]
+    θ0 = tr.θ0[J]
+
+    str = Trace(t0, x0, θ0, F)
+    events = str.events
+    for ev in tr.events 
+        r = searchsorted(J, ev[2])
+        isempty(r) && continue
+        push!(events, (ev[1], r[1], ev[3:end]...))
+    end
+    str
+end

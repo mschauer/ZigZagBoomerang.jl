@@ -55,7 +55,7 @@ export SelfMoving
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
-function spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
+function spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; structured=true, factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
@@ -80,8 +80,8 @@ function spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
             #renew refreshment
             Q[(n + i)] = t[i] + waiting_time_ref(F)
             #update reflections
-            for j in neighbours(G, i)
-                b[j] = ab(G, j, x, θ, c, F)
+            for j in neighbours(G1, i)
+                b[j] = ab(G1, j, x, θ, c, F)
                 t_old[j] = t[j]
                 Q[j] = t[j] + poisson_time(b[j], rand())
             end
@@ -104,13 +104,13 @@ function spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 end
                 t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
                 θ = reflect!(i, ∇ϕi, x, θ, F)
-                for j in neighbours(G, i)
-                    b[j] = ab(G, j, x, θ, c, F)
+                for j in neighbours(G1, i)
+                    b[j] = ab(G1, j, x, θ, c, F)
                     t_old[j] = t[j]
                     Q[j] = t[j] + poisson_time(b[j], rand())
                 end
             else
-                b[i] = ab(G, i, x, θ, c, F)
+                b[i] = ab(G1, i, x, θ, c, F)
                 t_old[i] = t[i]
                 Q[i] = t[i] + poisson_time(b[i], rand())
                 continue
@@ -121,7 +121,7 @@ function spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
 end
 
 """
-    spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
+    spdmp(∇ϕ, t0, x0, θ0, T, c, [G,] F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.5, adapt=false)
         = Ξ, (t, x, θ), (acc, num), c
 
@@ -135,18 +135,22 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 out to be too small.) The final time, location and momentum at `T` can be obtained
 with `smove_forward!(t, x, θ, T, F)`.
 """
-function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
+function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
         factor=1.8, structured=false, adapt=false, adaptscale=false, progress=false, progress_stops = 20)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
-    G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
-    G2 = [i => setdiff(union((G[j].second for j in G[i].second)...), G[i].second) for i in eachindex(G)]
+    G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
+    if G === nothing
+        G = G1
+    end
+    @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
+    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     x, θ = copy(x0), copy(θ0)
     num = acc = 0
     Q = SPriorityQueue{Int,Float64}()
-    b = [ab(G, i, x, θ, c, F) for i in eachindex(θ)]
+    b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
         enqueue!(Q, i => poisson_time(b[i], rand()))
     end
@@ -164,7 +168,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     tstop = T/stops
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(G, G2, ∇ϕ, t, x, θ, Q,
+        ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, (acc, num), F, args...; structured=structured, factor=factor, adapt=adapt, adaptscale=adaptscale)
         push!(Ξ, ev)
         if t′ > tstop
@@ -176,3 +180,5 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
 end
+
+spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, nothing, F, args...; kargs...) 

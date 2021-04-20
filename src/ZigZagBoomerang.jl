@@ -37,7 +37,7 @@ export sticky_pdmp
 include("trace.jl")
 include("discretise.jl")
 const discretise = discretize 
-export discretise, discretize, sdiscretize 
+export discretise, discretize, sdiscretize, subtrace
 
 function __init__()
     @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" include("staticarrays.jl")
