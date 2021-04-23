@@ -76,7 +76,7 @@ bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (nei
 If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of x_i
 with i in G[i].
 """
-function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
+function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; structured=true, reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
@@ -98,9 +98,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             if !strong_upperbounds
                 t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F)
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F)
-                for j in neighbours(G, i)
+                for j in neighbours(G1, i)
                     if θ[j] != 0 # only non-frozen, especially not i
-                        b[j] = ab(G, j, x, θ, c, F, args...)
+                        b[j] = ab(G1, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
                         Q = queue_time!(Q, t, x, θ, j, b, f, F)
                     end
@@ -115,9 +115,9 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
             t_old[i] = t[i]
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
-            for j in neighbours(G, i)
+            for j in neighbours(G1, i)
                 if θ[j] != 0 # only non-frozen, including i # check!
-                    b[j] = ab(G, j, x, θ, c, F, args...)
+                    b[j] = ab(G1, j, x, θ, c, F, args...)
                     t_old[j] = t[j]
                     Q = queue_time!(Q, t, x, θ, j, b, f, F)
                 end
@@ -146,7 +146,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                     t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
                 end
                 θ = reflect!(i, ∇ϕi, x, θ, F)
-                for j in neighbours(G, i)
+                for j in neighbours(G1, i)
                     if θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
@@ -154,7 +154,7 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
                     end
                 end
             else # was an event time from upperbound -> nothing happens
-                b[i] = ab(G, i, x, θ, c, F, args...)
+                b[i] = ab(G1, i, x, θ, c, F, args...)
                 t_old[i] = t[i]
                 queue_time!(Q, t, x, θ, i, b, f, F)
                 continue
@@ -165,21 +165,25 @@ function sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc,
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; structured=false, reversible=false,strong_upperbounds = false,
-        factor=1.5, adapt=false, progress=nothing)
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; structured=false, reversible=false,strong_upperbounds = false,
+        factor=1.5, adapt=false, progress=false, progress_stops = 20)
     n = length(x0)
     t′ = t0
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
     f = zeros(Bool, n)
     Γ = sparse(F.Γ)
-    G = [i => rowvals(Γ)[nzrange(Γ, i)] for i in eachindex(θ0)]
-    G2 = [i => setdiff(union((G[j].second for j in G[i].second)...), G[i].second) for i in eachindex(G)]
+    G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
+    if G === nothing
+        G = G1
+    end
+    @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
+    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     x, θ = copy(x0), copy(θ0)
     θf = zero(θ)
     num = acc = 0
     Q = SPriorityQueue{Int,Float64}()
-    b = [ab(G, i, x, θ, c, F, args...) for i in eachindex(θ)]
+    b = [ab(G1, i, x, θ, c, F, args...) for i in eachindex(θ)]
     for i in eachindex(θ)
         trefl = poisson_time(b[i], rand())
         tfreez = freezing_time(x[i], θ[i], F)
@@ -197,17 +201,24 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; structured=fal
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
-    tstop = T/20
+    if progress
+        prg = Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
+    tstop = T/stops
     while t′ < T
-        t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q,
+        t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q,
                     c, b, t_old, f, θf, (acc, num), F, κ, args...; structured=structured, reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
         if t′ > tstop
-            tstop += T/20
-            progress !== nothing && progress()  
+            tstop += T/stops
+            next!(prg) 
         end  
     end
+    ismissing(prg) || ProgressMeter.finish!(prg)
     #t, x, θ = ssmove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
 end
