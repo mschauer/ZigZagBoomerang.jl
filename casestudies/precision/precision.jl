@@ -1,11 +1,11 @@
 using Random
 Random.seed!(5)
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
-n = 30
+n = 20
 d = n*(n+1)÷2
-N = 500
+N = 200
 K = 20
-T = 100.0
+T = 300.0
 
 outer(x) = x*x'
 function backform(u, 𝕀)
@@ -58,9 +58,8 @@ t0 = 0.0
 
 x0 = utrue + 0.01*randn(d) # jiggle the starting point to see convergence
 
-te = reshape(ForwardDiff.gradient(u -> ϕ(reshape(u, n, n), Y), backform(x0, 𝕀)[:]), n, n)
-
-@test norm(Vector(te[𝕀]) - [∇ϕ(x0, i, YY, (𝕀, 𝕁), N) for i in 1:d]) < 10d^2*eps()
+#te = reshape(ForwardDiff.gradient(u -> ϕ(reshape(u, n, n), Y), backform(x0, 𝕀)[:]), n, n)
+#@test norm(Vector(te[𝕀]) - [∇ϕ(x0, i, YY, (𝕀, 𝕁), N) for i in 1:d]) < 10d^2*eps()
 
 θ0 = rand([-1.0, 1.0], d)
 
@@ -68,12 +67,13 @@ te = reshape(ForwardDiff.gradient(u -> ϕ(reshape(u, n, n), Y), backform(x0, �
 G = [i => first.(j) for (i,j) in enumerate(𝕁)]
 
 # precision bounds
-c = 0.1ones(d)
+c = 0.5ones(d)
 dt = T/100
 Γ̂ = sparse(1.0I(d))
-μ̂ = cholesky(inv(Diagonal(cov(Y')))).L
+L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
+μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
 Z = ZigZag(Γ̂, μ̂)
-κ = 0.1ones(d)
+κ = 1.0ones(d)
 
 
 trc, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (𝕀, 𝕁), N; structured=true, adapt=true, progress=true)
