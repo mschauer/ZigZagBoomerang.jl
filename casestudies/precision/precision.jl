@@ -1,11 +1,11 @@
 using Random
 Random.seed!(5)
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
-n = 20
+n = 60
 d = n*(n+1)÷2
-N = 500
+N = 1000
 K = 20
-T = 300.0
+T = 800.0
 
 outer(x) = x*x'
 function backform(u, 𝕀)
@@ -67,13 +67,13 @@ x0 = utrue + 0.01*randn(d) # jiggle the starting point to see convergence
 G = [i => first.(j) for (i,j) in enumerate(𝕁)]
 
 # precision bounds
-c = 0.5ones(d)
+c = 10ones(d)
 dt = T/500
 Γ̂ = sparse(1.0I(d))
 L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
 μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
 Z = ZigZag(Γ̂, μ̂)
-κ = 1.0ones(d)
+κ = 0.01ones(d)
 
 
 trc, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (𝕀, 𝕁), N; structured=true, adapt=true, progress=true)
@@ -91,11 +91,11 @@ utrue - u
 
 ina(i) = "$(𝕀[J[i]][1]),$(𝕀[J[i]][2])"
 fig = Figure(resolution=(1000,1000))
-ax = fig[1,1:3] = Axis(fig, title="L")
+ax = fig[1,1:3] = Axis(fig, title="Error Gamma")
 fig[2,1] = Axis(fig, title="x$(ina(1))")
 fig[2,2] = Axis(fig, title="x$(ina(2))")
 fig[2,3] = Axis(fig, title="x$(ina(3))")
-heatmap!(ax, [Matrix(Γtrue) outer(Lhat)])
+heatmap!(ax, abs.(Matrix(Γtrue) - outer(Lhat)))
 lines!(fig[2,1], ts, getindex.(xs, 1))
 lines!(fig[2,1], ts, fill(utrue[J[1]], length(ts)), color=:green)
 lines!(fig[2,2], ts, getindex.(xs, 2))
