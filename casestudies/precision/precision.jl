@@ -3,7 +3,7 @@ Random.seed!(5)
 using Statistics, ZigZagBoomerang, LinearAlgebra, Test, SparseArrays
 n = 20
 d = n*(n+1)÷2
-N = 200
+N = 500
 K = 20
 T = 300.0
 
@@ -19,7 +19,7 @@ transform(L, 𝕀) = L[𝕀]
 
 const σ2 = 1.0
 const γ0 = 0.1
-dia = -0.4ones(n-1)
+dia = -0.3ones(n-1)
 Γtrue = sparse(SymTridiagonal(1.0ones(n), dia))
 
 Ltrue_ = cholesky(Γtrue).L
@@ -47,7 +47,7 @@ function ∇ϕ(u, i, YY, (𝕀, 𝕁), N)
 
     end
     if 𝕀[i][1] == 𝕀[i][2] 
-        c += -2.0*N/u[i] + 2(u[i]-1)
+        c += -N/u[i] #+ 2(u[i]-1)
     end
     c
 end 
@@ -68,7 +68,7 @@ G = [i => first.(j) for (i,j) in enumerate(𝕁)]
 
 # precision bounds
 c = 0.5ones(d)
-dt = T/100
+dt = T/500
 Γ̂ = sparse(1.0I(d))
 L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
 μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
@@ -81,28 +81,27 @@ trc, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (�
 J = [1,2,5]
 subtrc = subtrace(trc, J)
 
-#ts, xs = ZigZagBoomerang.sep(collect(discretize(subtrc, dt)))
-ts, xs = ZigZagBoomerang.sep(subtrc)
+ts, xs = ZigZagBoomerang.sep(collect(discretize(subtrc, dt)))
+#ts, xs = ZigZagBoomerang.sep(subtrc)
 
 # posterior mean
 u = mean(trc)
 Lhat = backform(u, 𝕀)
 utrue - u
 
-
-fig = Figure()
+ina(i) = "$(𝕀[J[i]][1]),$(𝕀[J[i]][2])"
+fig = Figure(resolution=(1000,1000))
 ax = fig[1,1:3] = Axis(fig, title="L")
-fig[2,1] = Axis(fig, title="x$(𝕁[J[1]])")
-fig[2,2] = Axis(fig, title="x$(𝕁[J[2]])")
-fig[2,3] = Axis(fig, title="x$(𝕁[J[3]])")
-jj = 50
-heatmap!(ax, [Matrix(Γtrue) outer(backform(u, 𝕀))])
+fig[2,1] = Axis(fig, title="x$(ina(1))")
+fig[2,2] = Axis(fig, title="x$(ina(2))")
+fig[2,3] = Axis(fig, title="x$(ina(3))")
+heatmap!(ax, [Matrix(Γtrue) outer(Lhat)])
 lines!(fig[2,1], ts, getindex.(xs, 1))
 lines!(fig[2,1], ts, fill(utrue[J[1]], length(ts)), color=:green)
 lines!(fig[2,2], ts, getindex.(xs, 2))
 lines!(fig[2,2], ts, fill(utrue[J[2]], length(ts)), color=:green)
 lines!(fig[2,3], ts, getindex.(xs, 3))
-lines!(fig[2,3], ts, fill(utrue[J[2]], length(ts)), color=:green)
+lines!(fig[2,3], ts, fill(utrue[J[3]], length(ts)), color=:green)
 display(fig)
 
 using FileIO
