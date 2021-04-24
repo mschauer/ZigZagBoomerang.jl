@@ -48,7 +48,7 @@ end
     Z = ZigZag(0.9Γ, x0*0)
     T = 1000.0
 
-    trace, _, acc = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ; structured=true)
+    trace, _, acc = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ)
     dt = 0.5
     ts, xs = sep(collect(discretize(trace, dt)))
 

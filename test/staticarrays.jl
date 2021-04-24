@@ -45,7 +45,7 @@ end
     Z = ZigZag(Γ, μ, σ; λref=0.01, ρ=0.0) # need refreshments!
     T = 800.0
 
-    @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, structured=true)
+    @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
 
     xs = last.(collect(discretize(trace, 2.0)))
     L = lchol(Matrix(Γ))

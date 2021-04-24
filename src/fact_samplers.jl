@@ -101,7 +101,7 @@ In both cases, updates `Q` according to the dependency graph `G`. The sampler pr
 until the next accepted reflection time or refreshment time. `(num, acc)`
 incrementally counts how many event times occour and how many of those are real reflection times.
 """
-function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
+function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
 
     while true
@@ -118,13 +118,13 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
             for j in neighbours(G, i)
                 a[j], b[j] = ab(G, j, x, θ, c, F)
                 t_old[j] = t
-                Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
+                Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
             end
         else
             ∇ϕi = ∇ϕ(x, i, args...)
             l, lb = λ(∇ϕi, i, x, θ, F), pos(a[i] + b[i]*(t - t_old[i]))
             num += 1
-            if rand()*lb < l
+            if rand(rng)*lb < l
                 acc += 1
                 if l >= lb
                     !adapt && error("Tuning parameter `c` too small.")
@@ -134,13 +134,13 @@ function pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                 for j in neighbours(G, i)
                     a[j], b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t
-                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand())
+                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
                 end
             else
                 # Move a, b, t_old inside the queue as auxiliary variables
                 a[i], b[i] = ab(G, i, x, θ, c, F)
                 t_old[i] = t
-                enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand()))
+                enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand(rng)))
                 continue
             end
         end
@@ -181,18 +181,19 @@ function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
     G = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     t, x, θ = t0, copy(x0), copy(θ0)
     num = acc = 0
+    rng = Rng()
     Q = PriorityQueue{Tuple{Bool, Int64},Float64}()
     for i in eachindex(θ)
         a[i], b[i] = ab(G, i, x, θ, c, F)
         t_old[i] = t
-        enqueue!(Q, (false, i) => poisson_time(a[i], b[i], rand()))
+        enqueue!(Q, (false, i) => poisson_time(a[i], b[i], rand(rng)))
         if hasrefresh(F)
             enqueue!(Q, (true, i)=>waiting_time_ref(F))
         end
     end
     Ξ = Trace(t0, x0, θ0, F)
     while t < T
-        t, x, θ, (acc, num), c, a, b, t_old = pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c, a, b, t_old = pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt)
     end
     Ξ, (t, x, θ), (acc, num), c
 end

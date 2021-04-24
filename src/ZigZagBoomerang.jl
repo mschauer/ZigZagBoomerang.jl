@@ -3,6 +3,10 @@ using Random
 using Requires
 using Statistics
 using ProgressMeter
+using RandomNumbers.Xorshifts
+using RandomNumbers: gen_seed
+const Rng = Xoroshiro128Plus 
+Seed() = gen_seed(UInt64, 2)
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")

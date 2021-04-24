@@ -55,8 +55,8 @@ export SelfMoving
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
-function spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
-     F::Union{ZigZag,FactBoomerang}, args...; structured=true, factor=1.5, adapt=false, adaptscale=false)
+function spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
+     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
     while true
         ii, t′ = peek(Q)
@@ -83,19 +83,15 @@ function spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
             for j in neighbours(G1, i)
                 b[j] = ab(G1, j, x, θ, c, F)
                 t_old[j] = t[j]
-                Q[j] = t[j] + poisson_time(b[j], rand())
+                Q[j] = t[j] + poisson_time(b[j], rand(rng))
             end
         else
-            if structured || (length(args) > 1  && args[1] isa SelfMoving)
-                # neighbours have moved (and all others are not our responsibility)
-            else
-                t, x, θ = smove_forward!(t, x, θ, t′, F)
-            end
+            # G neighbours have moved (and all others are not our responsibility)
 
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
             l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
             num += 1
-            if rand()*lb < l
+            if rand(rng)*lb < l
                 acc += 1
                 if l >= lb
                     !adapt && error("Tuning parameter `c` too small.")
@@ -107,12 +103,12 @@ function spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
                 for j in neighbours(G1, i)
                     b[j] = ab(G1, j, x, θ, c, F)
                     t_old[j] = t[j]
-                    Q[j] = t[j] + poisson_time(b[j], rand())
+                    Q[j] = t[j] + poisson_time(b[j], rand(rng))
                 end
             else
                 b[i] = ab(G1, i, x, θ, c, F)
                 t_old[i] = t[i]
-                Q[i] = t[i] + poisson_time(b[i], rand())
+                Q[i] = t[i] + poisson_time(b[i], rand(rng))
                 continue
             end
         end
@@ -136,8 +132,10 @@ out to be too small.) The final time, location and momentum at `T` can be obtain
 with `smove_forward!(t, x, θ, T, F)`.
 """
 function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-        factor=1.8, structured=false, adapt=false, adaptscale=false, progress=false, progress_stops = 20)
+        factor=1.8, adapt=false, adaptscale=false, progress=false, progress_stops = 20, seed=Seed())
     n = length(x0)
+
+    rng = Rng(seed)
     t′ = t0
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
@@ -152,7 +150,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
     Q = SPriorityQueue{Int,Float64}()
     b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
-        enqueue!(Q, i => poisson_time(b[i], rand()))
+        enqueue!(Q, i => poisson_time(b[i], rand(rng)))
     end
     if hasrefresh(F)
         for i in eachindex(θ)
@@ -168,8 +166,8 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
     tstop = T/stops
     Ξ = Trace(t0, x0, θ0, F)
     while t′ < T
-        ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(G, G1, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, (acc, num), F, args...; structured=structured, factor=factor, adapt=adapt, adaptscale=adaptscale)
+        ev, t, x, θ, t′, (acc, num), c,  b, t_old = spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q,
+                    c, b, t_old, (acc, num), F, args...; factor=factor, adapt=adapt, adaptscale=adaptscale)
         push!(Ξ, ev)
         if t′ > tstop
             tstop += T/stops

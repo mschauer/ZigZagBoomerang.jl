@@ -70,8 +70,11 @@ G = [i => first.(j) for (i,j) in enumerate(𝕁)]
 c = 10ones(d)
 dt = T/500
 Γ̂ = sparse(1.0I(d))
-L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
-μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
+#L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
+#μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
+L̂ = cholesky(cov(Y')).L
+μ̂ = transform(L̂, 𝕀)
+
 Z = ZigZag(Γ̂, μ̂)
 κ = 0.01ones(d)
 
@@ -95,7 +98,7 @@ ax = fig[1,1:3] = Axis(fig, title="Error Gamma")
 fig[2,1] = Axis(fig, title="x$(ina(1))")
 fig[2,2] = Axis(fig, title="x$(ina(2))")
 fig[2,3] = Axis(fig, title="x$(ina(3))")
-heatmap!(ax, abs.(Matrix(Γtrue) - outer(Lhat)))
+heatmap!(ax, (Matrix(Γtrue) - outer(Lhat)), colormap=:vik, colorrange=[-1/4,1/4])
 lines!(fig[2,1], ts, getindex.(xs, 1))
 lines!(fig[2,1], ts, fill(utrue[J[1]], length(ts)), color=:green)
 lines!(fig[2,2], ts, getindex.(xs, 2))

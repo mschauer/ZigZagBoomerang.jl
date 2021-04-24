@@ -67,17 +67,17 @@ function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
 end
 
 """
-    sspdmp_inner!(Ξ, G, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
+    sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
             F::ZigZag, κ, args...; strong_upperbounds = false, factor=1.5, adapt=false)
 
-Inner loop of the sticky ZigZag sampler. `G[i]` is the set of indices used to derive the
+Inner loop of the sticky ZigZag sampler. `G[i]` are indices which have to be moved, `G1[i]` is the set of indices used to derive the
 bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (neighbours of neighbours)
 
-If ∇ϕ is not self moving, then it is assumed that ∇ϕ[x, i] is function of x_i
-with i in G[i].
+Is assumed that ∇ϕ[x, i] is function of x_i
+with i in G[i] or that ∇ϕ takes care of moving .
 """
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ, args...; structured=true, reversible=false,strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
@@ -123,13 +123,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (
                 end
             end
         else # was either a reflection time or an event time from the upper bound
-            if structured
-                t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
-            elseif length(args) > 1  && args[1] isa SelfMoving
-                t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
-            else
-                t, x, θ = ssmove_forward!(t, x, θ, t′, F) # all
-            end
+            t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             # do it here so ∇ϕ is right event without self moving
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
             l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
@@ -141,10 +135,8 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (
                     acc = num = 0
                     adapt!(c, i, factor)
                 end
-                # already done above t, x, θ = smove_forward!(G, i, t, x, θ, t′, F) # neighbours
-                if structured # have not moved yet if structured
-                    t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
-                end
+                # have not moved yet
+                t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
                 θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G1, i)
                     if θ[j] != 0
@@ -165,7 +157,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (
     end
 end
 
-function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; structured=false, reversible=false,strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false,
         factor=1.5, adapt=false, progress=false, progress_stops = 20)
     n = length(x0)
     t′ = t0
@@ -210,7 +202,7 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; structured=
     tstop = T/stops
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, f, θf, (acc, num), F, κ, args...; structured=structured, reversible=reversible,
+                    c, b, t_old, f, θf, (acc, num), F, κ, args...; reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
         if t′ > tstop
@@ -222,3 +214,5 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; structured=
     #t, x, θ = ssmove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
 end
+
+sspdmp(∇ϕ, t0, x0, θ0, T, c, F, κ, args...; kwargs...) = sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, F, κ, args...;  kwargs...)
