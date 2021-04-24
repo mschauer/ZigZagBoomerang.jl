@@ -3,27 +3,27 @@ export FactSampler, trace
 abstract type PDMPSampler
 end
 
-struct FactSampler{TF,T∇ϕ,Tc,Tu0,TG,Targs} <: PDMPSampler
+struct FactSampler{TF,T∇ϕ,Tc,Tu0,TG,Trng,Targs} <: PDMPSampler
     F::TF
     ∇ϕ::T∇ϕ
     c::Tc
     u0::Tu0
     G::TG
+    rng::Trng
 
     args::Targs
 
     factor::Float64
-    structured::Bool
     adapt::Bool
 end
 
 function FactSampler(∇ϕ, u0, c, G, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8, structured=false, adapt=false)
-    return FactSampler(F, ∇ϕ, c, u0, G, args, factor, structured, adapt)
+    factor=1.8, adapt=false, seed=Seed())
+    return FactSampler(F, ∇ϕ, c, u0, G, Rng(seed), args, factor, adapt)
 end
 function FactSampler(∇ϕ, u0, c, F::Union{ZigZag,FactBoomerang}, args...;
-    factor=1.8, structured=false, adapt=false)
-    return FactSampler(F, ∇ϕ, c, u0, nothing, args, factor, structured, adapt)
+    factor=1.8, adapt=false)
+    return FactSampler(F, ∇ϕ, c, u0, nothing, Rng(), args, factor, adapt)
 end
 
 function iterate(FS::FactSampler)
@@ -45,7 +45,7 @@ function iterate(FS::FactSampler)
     Q = SPriorityQueue{Int,Float64}()
     b = [ab(G1, i, x, θ, FS.c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
-        enqueue!(Q, i => poisson_time(b[i], rand()))
+        enqueue!(Q, i => poisson_time(b[i], rand(FS.rng)))
     end
     if hasrefresh(F)
         for i in eachindex(θ)
@@ -59,8 +59,8 @@ end
 function iterate(FS::FactSampler, (u, t_old, (acc, num), Q, b, G, G1, G2))
     t, (x, θ) = u
     n = length(x)
-    ev, t, x, θ, t′, (acc, num), _,  b, t_old = spdmp_inner!(G, G1, G2, FS.∇ϕ, t, x, θ, Q,
-    FS.c, b, t_old, (acc, num), FS.F, FS.args...; structured=FS.structured, factor=FS.factor, adapt=FS.adapt)
+    ev, t, x, θ, t′, (acc, num), _,  b, t_old = spdmp_inner!(FS.rng, G, G1, G2, FS.∇ϕ, t, x, θ, Q,
+    FS.c, b, t_old, (acc, num), FS.F, FS.args...; factor=FS.factor, adapt=FS.adapt)
     u = t => (x, θ)
     return (t′ => ev), (u, t_old, (acc, num), Q, b, G, G1, G2)
 end

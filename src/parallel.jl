@@ -31,13 +31,13 @@ each(pt::Partition) = 1:pt.nt
 
 
 
-function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
+function parallel_innermost!(rng, partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old,
     F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
     t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
     ∇ϕi = ∇ϕ(x, i, args...)
     l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
     num = 1
-    if rand()*lb < l
+    if rand(rng)*lb < l
         if l >= lb
             !adapt && error("Tuning parameter `c` too small.")
             adapt!(c, i, factor)
@@ -48,25 +48,25 @@ function parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, 
             b[j] = ab(G1, j, x, θ, c, F)
             t_old[j] = t[j]
             q1, q2 = partition(j)
-            Q[q1][q2] = t[j] + poisson_time(b[j], rand())
+            Q[q1][q2] = t[j] + poisson_time(b[j], rand(rng))
         end
         return true
     else
         b[i] = ab(G1, i, x, θ, c, F)
         t_old[i] = t[i]
         q1, q2 = partition(i)
-        Q[q1][q2] = t[i] + poisson_time(b[i], rand())
+        Q[q1][q2] = t[i] + poisson_time(b[i], rand(rng))
         return false
     end
 end
 
 function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, Δ), inner, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old,
-    F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
-   acc = num = 0
-   VERBOSE && println("$ti starts.")
-   tnext = t0 + Δ
-
-   while true
+        F::Union{ZigZag,FactBoomerang}, (factor, adapt), args...)
+    acc = num = 0
+    VERBOSE && println("$ti starts.")
+    tnext = t0 + Δ
+    rng = Rng() 
+    while true
         num += 1
         ii, t′ = peek(Q[ti])
         i = partition(ti, ii)
@@ -93,12 +93,12 @@ function parallel_spdmp_inner!(latch, wakeup, ret, events, partition, ti, (t0, �
             end
             acc = num = 0
         else
-            success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
+            success = parallel_innermost!(rng, partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′, Q, c, b, t_old, F, (factor, adapt), args...)
             success || continue
             acc += 1
             push!(events, event(i, t, x, θ, F))
         end
-   end
+    end
 end
 
 function parallel_spdmp(partition, ∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
@@ -180,6 +180,7 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
     run2 = runs2 = 0
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = T/stops
+    rng = Rng() 
     while tmin < T
         if latch.active[] !== 0
             VERBOSE && println("Waiting $tmin")
@@ -221,7 +222,7 @@ function parallel_spdmp_outer!(tmin, t′, T, task, waitfor, latch, wakeup, evti
       
             waitfor[ti] != 0 && continue
 
-            success = parallel_innermost!(partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′_, Q, c, b, t_old, F, (factor, adapt), args...)
+            success = parallel_innermost!(rng, partition, G, G1, G2, ∇ϕ, i, t, x, θ, t′_, Q, c, b, t_old, F, (factor, adapt), args...)
         
             if success
                 acc += 1

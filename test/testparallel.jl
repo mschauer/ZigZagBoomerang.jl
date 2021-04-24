@@ -66,7 +66,7 @@ end
 
     println("Single thread:")
     Z = ZigZag(Γ, x0*0)
-    tr, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ; structured=true)
+    tr, _ = @time ZigZagBoomerang.spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
     @test 0.1/sqrt(T) < mean(abs.(mean(tr))) < 4/sqrt(T)    
     if d <= 100
         ts, xs = ZigZagBoomerang.sep(collect(discretize(tr, dt)))
