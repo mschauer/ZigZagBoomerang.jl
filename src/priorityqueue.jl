@@ -20,24 +20,14 @@ struct SPriorityQueue{K,V,O<:Ordering} <: AbstractDict{K,V}
 
     SPriorityQueue{K, V, O}(xs::Array{Pair{K,V}, 1}, o::O, index) where {K,V,O<:Ordering} = new(xs, o, index)
 
-    function SPriorityQueue{K,V,O}(o::O, itr) where {K,V,O<:Ordering}
-        xs = Vector{Pair{K,V}}(undef, length(itr))
-        index = Dict{K, Int}()
-        for (i, (k, v)) in enumerate(itr)
-            xs[i] = Pair{K,V}(k, v)
-            push!(index, i)
-        end
-        pq = new{K,V,O}(xs, o, index)
-
-        # heapify
-        for i in heapparent(length(pq.xs)):-1:1
-            percolate_down!(pq, i)
-        end
-
-        return pq
-    end
 end
-
+function SPriorityQueue(τ)
+    Q = SPriorityQueue{Int,eltype(τ)}()
+    for i in eachindex(τ)
+        enqueue!(Q, i => τ[i])
+    end
+    Q
+end
 Base.length(pq::SPriorityQueue) = length(pq.xs)
 Base.isempty(pq::SPriorityQueue) = isempty(pq.xs)
 
