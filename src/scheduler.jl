@@ -17,7 +17,7 @@ using Random, LinearAlgebra
 end
 
 """
-    sfindmin(wrangler::FunctionWrangler#=, args...=#)
+    sfindmin(wrangler::FunctionWrangler, args...)
     
 Look for the function which returns smallest value for the given arguments, and returns its index.
 """
@@ -54,12 +54,13 @@ function next2(j, e, i, t′, u)
     θ[j]*x[j] >= 0 ? Inf : t[j] - x[j]/θ[j]
 end
 
-struct Handler{T1,T2,T3,T4,T5}
+struct Handler{T1,T2,T3,T4,T5,T6}
     G::T1
     f::T2
     next::T3
     state::T4
     T::T5
+    args::T6
 end
 function Base.iterate(handler::Handler)
     d = length(handler.state)
@@ -74,12 +75,12 @@ function Base.iterate(handler, (u, action, Q))
     f! = handler.f
     next = handler.next
     G = handler.G
-    ev = handle!(u, G, f!, next, action, Q)
+    ev = handle!(u, G, f!, next, action, Q, handler.args...)
     ev[1] > handler.T && return nothing
     ev, (u, action, Q)
 end
 
-function handle(handler#=, args...=#)
+function handle(handler, args...)
      u = deepcopy(handler.state)
      G = handler.G
      f! = handler.f
@@ -88,22 +89,22 @@ function handle(handler#=, args...=#)
      action = zeros(Int, d)
      Q = SPriorityQueue(zeros(d))
      while true
-        ev = handle!(u, G, f!, next, action, Q#=, args...=#)
+        ev = handle!(u, G, f!, next, action, Q, args...)
         ev[1] > handler.T && return ev
      end
 end
 
-function handle!(u, G, f!, next, action, Q#=, args...=#)
+function handle!(u, G, f!, next, action, Q, args...)
     # Who is (i) next, when (t′) and what (j) happens?
     i, t′ = peek(Q)
     e = action[i] 
     # Trigger state change
     if e > 0 # something? 
-        sindex(f!, e, i, t′, u, #=, args...=#)
+        sindex(f!, e, i, t′, u, args...)
     end
     # What happens next now has changed for each j, trigger updates
-    for j in affected(G, e, i, t′, u#=, args...=#)
-        τ, e = sfindmin(next, j, e, i, t′, u#=, args...=#)
+    for j in affected(G, e, i, t′, u, args...)
+        τ, e = sfindmin(next, j, e, i, t′, u, args...)
         Q[j] = τ
         action[j] = e
     end
@@ -131,7 +132,7 @@ next = FunctionWrangler((next1, next2))
 G = nothing
 affected(::Nothing, e, i, t′, u) = i 
 u0 = StructArray(t=zeros(d), x=zeros(d), θ=ones(d), m=zeros(Int,d))
-h = Handler(G, fs, next, u0, T)
+h = Handler(G, fs, next, u0, T, ())
 l_ = @time lastiterate(h)
 @assert l_[3].x == 44.18692841846383
 l = @time handle(h)
