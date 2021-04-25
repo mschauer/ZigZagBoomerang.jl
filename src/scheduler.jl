@@ -62,6 +62,7 @@ struct Handler{T1,T2,T3,T4,T5,T6}
     T::T5
     args::T6
 end
+Base.eltype(::Type{Handler{T1,T2,T3,T4,T5,T6}}) where {T1,T2,T3,T4,T5,T6} = Tuple{Float64, Int, eltype(T4), Int}
 function Base.iterate(handler::Handler)
     d = length(handler.state)
     action = zeros(Int, d) # null events to trigger next event computations
@@ -69,7 +70,8 @@ function Base.iterate(handler::Handler)
     u = deepcopy(handler.state)
     iterate(handler, (u, action, Q))
 end
-Base.IteratorSize(::Handler) = Base.SizeUnknown()
+Base.IteratorSize(::Type{<:Handler}) = Base.SizeUnknown()
+Base.IteratorEltype(::Type{<:Handler}) = Base.HasEltype()
 
 function Base.iterate(handler, (u, action, Q))
     f! = handler.f
