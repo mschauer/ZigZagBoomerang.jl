@@ -3,7 +3,6 @@ using ZigZagBoomerang: sλ, sλ̄, reflect!, Rng, ab, smove_forward!, neighbours
 using Random
 include("engine.jl")
 T = 500.0
-T = 50.0
 d = 80
 seed = (UInt(1),UInt(1))
 using ConcreteStructs
@@ -76,8 +75,10 @@ return function freeze!(i, t′, u, P::SPDMP, args...)
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
-    
+     
     @assert norm(x[i] + θ[i]*(t′ - t[i]) - ξ) < 1e-7
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+    smove_forward!(G2, i, t, x, θ, m, t′, F)
     
     if m[i] == 0 # to freeze
         x[i] = ξ
@@ -86,6 +87,7 @@ return function freeze!(i, t′, u, P::SPDMP, args...)
         θ_old[i], θ[i] = θ[i], 0.0
     else # to unfreeze
         m[i] = 0
+        t[i] = t′
         θ[i] = θ_old[i]
     end
 
@@ -101,10 +103,13 @@ function discontinuity_at!(ξ, a, dir, i, t′, u, P::SPDMP, args...)
     t, x, θ, θ_old, m, c, t_old, b = components(u)
     
     @assert norm(x[i] + θ[i]*(t′ - t[i]) - ξ) < 1e-7
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+  
     x[i] = ξ
     t[i] = t′
     if dir*θ[i] > 0 && rand(P.rng) < a
         θ[i] *= -1
+        smove_forward!(G2, i, t, x, θ, m, t′, F)
         return true, neighbours(G1, i)
     else
         return false, [i]
@@ -116,7 +121,10 @@ function reflect0!(i, t′, u, P::SPDMP, args...)
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
      
-    @assert x[i] + θ[i]*(t′ - t[i]) < 1e-7
+    @assert x[i] + θ[i]*(t′ - t[i]) < 1e-7 "$(x[i])  "
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+    smove_forward!(G2, i, t, x, θ, m, t′, F)
+  
     x[i] = 0.0
     θ[i] = abs(θ[i])
     t[i] = t′
@@ -128,7 +136,10 @@ function reflect1!(i, t′, u, P::SPDMP, args...)
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
      
-    @assert norm(x[i] + θ[i]*(t′ - t[i]) - 1) < 1e-7
+    @assert x[i] + θ[i]*(t′ - t[i]) - 1  > -1e-7
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+    smove_forward!(G2, i, t, x, θ, m, t′, F)
+  
     x[i] = 1.0
     θ[i] = -abs(θ[i])
     t[i] = t′
@@ -139,6 +150,9 @@ function next_rand_reflect(j, i, t′, u, P, args...)
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
+    if m[j] == 1 
+        return Inf
+    end
     b[j] = ab(G1, j, x, θ, c, F)
     t_old[j] = t[j]
     t[j] + poisson_time(b[j], rand(P.rng))
@@ -146,15 +160,18 @@ end
 
 function next_reflect0(j, i, t′, u, args...) 
     t, x, θ, θ_old, m = components(u)
-    if x[i] < 0
+
+    if x[j] < 0
         return t[j]
-    else
-       θ[j]*x[j] >= 0 ? Inf : t[j] - x[j]/θ[j]
     end
+    θ[j]*x[j] >= 0 ? Inf : t[j] - x[j]/θ[j]
 end
 
 function next_reflect1(j, i, t′, u, args...) 
     t, x, θ, θ_old, m = components(u)
+    if x[j] > 1
+        return t[j]
+    end
     θ[j]*(x[j]-1) >= 0 ? Inf : t[j] - (x[j]-1)/θ[j]
 end
 
@@ -169,8 +186,7 @@ function next_freezeunfreeze_inner(ξ, κ, j, i, t′, u, args...)
     if m[j] == 0
         θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
     else
-        m[j] == 1
-        poisson_time(κ, rand(P.rng))
+        t[j] + poisson_time(κ, rand(P.rng))
     end
 end
 
@@ -235,8 +251,11 @@ P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor)
 
 #action! = FunctionWrangler((reset!, rand_reflect!, reflect0!, reflect1!))
 action! = (reset!, rand_reflect!, discontinuity!, freeze!, reflect0!, reflect1!)
-
 next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuity, next_freezeunfreeze, next_reflect0, next_reflect1))
+
+#action! = (reset!, rand_reflect!, discontinuity!, reflect0!, reflect1!)
+#next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuity,  next_reflect0, next_reflect1))
+
 #action! = FunctionWrangler((reset!, rand_reflect!))
 #next_action = FunctionWrangler((next_reset, next_rand_reflect))
 
@@ -259,7 +278,7 @@ trace, _, acc = @time spdmp(∇ϕ, t0, x, θ, T, c, G, F, Γ);
 #using ProfileView
 
 #ProfileView.@profview handler(zeros(d), 10T);
-
+using GLMakie
 subtrace1 = [t for t in trc_ if t[2] == 1]
 lines(getindex.(subtrace1, 1), getfield.(getindex.(subtrace1, 3), :x))
 
