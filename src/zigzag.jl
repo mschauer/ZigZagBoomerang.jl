@@ -3,6 +3,7 @@ using ZigZagBoomerang: sλ, sλ̄, reflect!, Rng, ab, smove_forward!, neighbours
 using Random
 include("engine.jl")
 T = 500.0
+T = 50.0
 d = 80
 seed = (UInt(1),UInt(1))
 using ConcreteStructs
@@ -68,9 +69,9 @@ function rand_reflect!(i, t′, u, P::SPDMP, args...)
     
 end
 
-return function freeze(i, t′, u, P::SPDMP, args...)
+return function freeze!(i, t′, u, P::SPDMP, args...)
 
-    ξ = 0.2
+    ξ = 0.25
 
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
@@ -92,23 +93,21 @@ return function freeze(i, t′, u, P::SPDMP, args...)
 
 end
 
-function discontinuity_at(ξ, a)
-    return function (i, t′, u, P::SPDMP, args...)
+function discontinuity_at!(ξ, a, dir, i, t′, u, P::SPDMP, args...)
 
-        dir = 1
-        G, G1, G2 = P.G, P.G1, P.G2
-        F = P.F
-        t, x, θ, θ_old, m, c, t_old, b = components(u)
-        
-        @assert norm(x[i] + θ[i]*(t′ - t[i]) - ξ) < 1e-7
-        x[i] = ξ
-        t[i] = t′
-        if dir*θ[i] > 0 && rand(P.rng) < a
-            θ[i] *= -1
-            return true, neighbours(G1, i)
-        else
-            return false, [i]
-        end
+
+    G, G1, G2 = P.G, P.G1, P.G2
+    F = P.F
+    t, x, θ, θ_old, m, c, t_old, b = components(u)
+    
+    @assert norm(x[i] + θ[i]*(t′ - t[i]) - ξ) < 1e-7
+    x[i] = ξ
+    t[i] = t′
+    if dir*θ[i] > 0 && rand(P.rng) < a
+        θ[i] *= -1
+        return true, neighbours(G1, i)
+    else
+        return false, [i]
     end
 end
 
@@ -159,15 +158,13 @@ function next_reflect1(j, i, t′, u, args...)
     θ[j]*(x[j]-1) >= 0 ? Inf : t[j] - (x[j]-1)/θ[j]
 end
 
-function next_hit(ξ)
-    return function (j, i, t′, u, args...) 
-        t, x, θ, θ_old, m = components(u)
-        θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
-    end
+function next_hit(ξ, j, i, t′, u, args...) 
+    t, x, θ, θ_old, m = components(u)
+    θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
 end
 
 
-function next_freezeunfreeze(ξ, κ, j, i, t′, u, args...) 
+function next_freezeunfreeze_inner(ξ, κ, j, i, t′, u, args...) 
     t, x, θ, θ_old, m = components(u)
     if m[j] == 0
         θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
@@ -179,14 +176,14 @@ end
 
 #if !@isdefined(discontinuity!)
 function discontinuity!(args...) 
-    discontinuity_at(0.5, 0.5, args...)
+    discontinuity_at!(0.5, 0.5, 1, args...)
 end
 function next_discontinuity(args...)
-    next_hit(0.5)(args...)
+    next_hit(0.5, args...)
 end 
 
 function next_freezeunfreeze(args...)
-    next_freezeunfreeze(0.25, 1.0, args...)
+    next_freezeunfreeze_inner(0.25, 1.0, args...)
 end 
 
 Random.seed!(1)
@@ -237,9 +234,9 @@ factor = 1.7
 P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor)
 
 #action! = FunctionWrangler((reset!, rand_reflect!, reflect0!, reflect1!))
-action! = (reset!, rand_reflect!, #=discontinuity!,=# reflect0!, reflect1!)
+action! = (reset!, rand_reflect!, discontinuity!, freeze!, reflect0!, reflect1!)
 
-next_action = FunctionWrangler((next_reset, next_rand_reflect, #=next_discontinuity,=# next_reflect0, next_reflect1))
+next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuity, next_freezeunfreeze, next_reflect0, next_reflect1))
 #action! = FunctionWrangler((reset!, rand_reflect!))
 #next_action = FunctionWrangler((next_reset, next_rand_reflect))
 
