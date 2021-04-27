@@ -16,6 +16,7 @@ using ConcreteStructs
     adapt
     factor
 end
+#factor(G, i) = G[i].first
 
 function ZigZagBoomerang.smove_forward!(G, i, t, x, θ, m, t′, Z::Union{BouncyParticle, ZigZag})
     nhd = neighbours(G, i)
@@ -43,6 +44,12 @@ function ZigZagBoomerang.smove_forward!(G, i, t, x, θ, m, t′, B::Union{Boomer
     t, x, θ
 end
 
+function reset!(i, t′, u,  P::SPDMP, args...)
+    false, P.G1[i].first
+end
+
+
+
 
 function rand_reflect!(i, t′, u, P::SPDMP, args...)
     G, G1, G2 = P.G, P.G1, P.G2
@@ -63,7 +70,7 @@ function rand_reflect!(i, t′, u, P::SPDMP, args...)
         ZigZagBoomerang.reflect!(i, ∇ϕi, x, θ, F)
         return true, neighbours(G1, i)
     else
-        return false, [i]
+        return false, G1[i].first
     end
     
 end
@@ -112,7 +119,7 @@ function discontinuity_at!(ξ, a, dir, i, t′, u, P::SPDMP, args...)
         smove_forward!(G2, i, t, x, θ, m, t′, F)
         return true, neighbours(G1, i)
     else
-        return false, [i]
+        return false, G1[i].first
     end
 end
 
@@ -235,7 +242,7 @@ end
 
 
 c = .6*[norm(Γ[:, i], 2) for i in 1:d]
-G = G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
+G = G1 = [[i] => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
 G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
 
 b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
@@ -250,6 +257,8 @@ factor = 1.7
 P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor)
 
 #action! = FunctionWrangler((reset!, rand_reflect!, reflect0!, reflect1!))
+#next_action = FunctionWrangler((next_reset, next_rand_reflect,  next_reflect0, next_reflect1))
+
 action! = (reset!, rand_reflect!, discontinuity!, freeze!, reflect0!, reflect1!)
 next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuity, next_freezeunfreeze, next_reflect0, next_reflect1))
 

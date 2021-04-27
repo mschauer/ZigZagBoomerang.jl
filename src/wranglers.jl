@@ -2,13 +2,14 @@
     argnames = [:(args[$i]) for i = 1:length(args)]
     return quote
         if idx == 1
-            affected = wrangler.op($(argnames...))
+            v, affected = wrangler.op($(argnames...))
             for j in affected 
                 #τ, e = sfindmin(next_action, j, $(argnames...))
                 τ, e = _sfindmin(next_action, Inf, 0, 1, j, $(argnames...))
                 Q[j] = τ
                 action[j] = e   
             end
+            v
         else
             return _action_nextaction(wrangler.next, next_action, Q, action, idx - 1, $(argnames...))
         end
