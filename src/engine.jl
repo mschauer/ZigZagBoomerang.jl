@@ -6,7 +6,7 @@ using Random, LinearAlgebra
 include("wranglers.jl")
 include("switch.jl")
 function reset!(i, t′, u, args...)
-    u, i
+    false, i
 end
 
 function next_reset(j, i, t′, u, args...)
@@ -56,12 +56,14 @@ end
 
 function handle!(u, action!, next_action, action, Q, args...) 
     # Who is (i) next_action, when (t′) and what (j) happens?
-
-    i, t′ = peek(Q)
-    e = action[i]
-    #action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
-    switch(e, action!, next_action, (Q, action), i, t′, u, args...)
-  
+    done = false
+    local e, t′, i
+    while !done
+        i, t′ = peek(Q)
+        e = action[i]
+        #action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
+        done = switch(e, action!, next_action, (Q, action), i, t′, u, args...)
+    end
     #= Equivalent to
     # Trigger state change
     affected = sindex(action!, e, i, t′, u, args...)::Union{Vector{Int},Int}
