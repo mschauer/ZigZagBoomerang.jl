@@ -44,11 +44,17 @@ function ZigZagBoomerang.smove_forward!(G, i, t, x, θ, m, t′, B::Union{Boomer
     t, x, θ
 end
 
-function reset!(i, t′, u,  P::SPDMP, args...)
+function reset!(i, t′, u, P::SPDMP, args...)
+    t, x, θ, θ_old, m = components(u)
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+    smove_forward!(G2, i, t, x, θ, m, t′, F)
+
     false, P.G1[i].first
 end
 
-
+function next_reset(j, i, t′, u, P, args...)
+    t′ + 0.5*u.x[j]
+end
 
 
 function rand_reflect!(i, t′, u, P::SPDMP, args...)
@@ -75,7 +81,7 @@ function rand_reflect!(i, t′, u, P::SPDMP, args...)
     
 end
 
-return function freeze!(i, t′, u, P::SPDMP, args...)
+function freeze!(i, t′, u, P::SPDMP, args...)
 
     ξ = 0.25
 
@@ -128,7 +134,7 @@ function reflect0!(i, t′, u, P::SPDMP, args...)
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
      
-    @assert x[i] + θ[i]*(t′ - t[i]) < 1e-7 "$(x[i])  "
+    @assert x[i] + θ[i]*(t′ - t[i]) < 1e-7 
     smove_forward!(G, i, t, x, θ, m, t′, F)
     smove_forward!(G2, i, t, x, θ, m, t′, F)
   
@@ -160,8 +166,9 @@ function next_rand_reflect(j, i, t′, u, P, args...)
     if m[j] == 1 
         return Inf
     end
-    b[j] = ab(G1, j, x, θ, c, F)
-    t_old[j] = t[j]
+    
+    b[j] = ab(G1, j, x, θ, c, F) .+ (1/(x[j]), 2/(x[j]^2))
+    t_old[j] = t′
     t[j] + poisson_time(b[j], rand(P.rng))
 end
 
@@ -188,7 +195,7 @@ function next_hit(ξ, j, i, t′, u, args...)
 end
 
 
-function next_freezeunfreeze_inner(ξ, κ, j, i, t′, u, args...) 
+function next_freezeunfreeze_inner(ξ, κ, j, i, t′, u, P, args...) 
     t, x, θ, θ_old, m = components(u)
     if m[j] == 0
         θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
@@ -216,7 +223,7 @@ using SparseArrays
 S = 1.3I + 0.5sprandn(d, d, 0.1)
 Γ = S*S'
 
-∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
+∇ϕ(x, i, Γ) = -1/x[i] + ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 
 # t, x, θ, θ_old, m, c, t_old, b 
 t0 = 0.0
@@ -265,14 +272,18 @@ next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuit
 #action! = (reset!, rand_reflect!, discontinuity!, reflect0!, reflect1!)
 #next_action = FunctionWrangler((next_reset, next_rand_reflect, next_discontinuity,  next_reflect0, next_reflect1))
 
-#action! = FunctionWrangler((reset!, rand_reflect!))
+#action! = ((reset!, rand_reflect!))
 #next_action = FunctionWrangler((next_reset, next_rand_reflect))
 
+
+#h = Handler(FunctionWrangler(action!), next_action, u0, T, (P, Γ))
 
 h = Handler(action!, next_action, u0, T, (P, Γ))
 
 l_ = lastiterate(h) 
 
+using ProfileView
+ProfileView.@profview lastiterate(h)
 l_ = @time lastiterate(h) 
 
 l = handle(h)
@@ -285,11 +296,11 @@ trace, _, acc = @time spdmp(∇ϕ, t0, x, θ, T, c, G, F, Γ);
 #@code_warntype handler(zeros(d), T, (f1!, f2!));
 
 #using ProfileView
-
+error()
 #ProfileView.@profview handler(zeros(d), 10T);
 using GLMakie
-subtrace1 = [t for t in trc_ if t[2] == 1]
-lines(getindex.(subtrace1, 1), getfield.(getindex.(subtrace1, 3), :x))
+#subtrace1 = [t for t in trc_ if t[2] == 1]
+#lines(getindex.(subtrace1, 1), getfield.(getindex.(subtrace1, 3), :x))
 
 ts, xs = ZigZagBoomerang.sep(ZigZagBoomerang.subtrace(trc, [1,4]))
 

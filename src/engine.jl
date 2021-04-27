@@ -5,13 +5,6 @@ using StructArrays: components
 using Random, LinearAlgebra
 include("wranglers.jl")
 include("switch.jl")
-function reset!(i, t′, u, args...)
-    false, i
-end
-
-function next_reset(j, i, t′, u, args...)
-    Inf
-end
 
 
 struct Handler{T1,T2,T3,T4,T5}
@@ -40,13 +33,24 @@ function Base.iterate(handler, (u, action, Q))
     ev, (u, action, Q)
 end
 
+@inline function queue_next!(J, next_action, Q, action, i, t′, u, args...)
+    for j in J # make typestable?
+        τ, e = _sfindmin(next_action, Inf, 0, 1, j, i, t′, u, args...)
+        Q[j] = τ
+        action[j] = e
+    end
+end
+
 function handle(handler)
      u = deepcopy(handler.state)
      action! = handler.action!
      next_action = handler.next_action
      d = length(handler.state)
      action = ones(Int, d) # resets
+     
      Q = SPriorityQueue(zeros(d))
+   #  @code_warntype handle!(u, action!, next_action, action, Q, handler.args...)
+     
      ev = handle!(u, action!, next_action, action, Q, handler.args...)
      while ev[1] < handler.T
         ev = handle!(u, action!, next_action, action, Q, handler.args...)
@@ -54,6 +58,7 @@ function handle(handler)
      return ev
 end
 
+#=
 function handle!(u, action!, next_action, action, Q, args...) 
     # Who is (i) next_action, when (t′) and what (j) happens?
     done = false
@@ -61,22 +66,46 @@ function handle!(u, action!, next_action, action, Q, args...)
     while !done
         i, t′ = peek(Q)
         e = action[i]
-        #action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
-        done = switch(e, action!, next_action, (Q, action), i, t′, u, args...)
+
+        if e == 1
+            done, affected1 = action![1](i, t′, u, args...)
+            queue_next!(affected1, next_action, Q, action, i, t′, u, args...) 
+        elseif e == 2
+            done, affected2 = action![2](i, t′, u, args...)
+            queue_next!(affected2, next_action, Q, action, i, t′, u, args...) 
+        elseif e == 3
+            done, affected3 = action![3](i, t′, u, args...)
+            queue_next!(affected3, next_action, Q, action, i, t′, u, args...) 
+        elseif e == 4
+            done, affected4 = action![4](i, t′, u, args...)
+            queue_next!(affected4, next_action, Q, action, i, t′, u, args...) 
+        elseif e == 5
+            done, affected5 = action![5](i, t′, u, args...)
+            queue_next!(affected5, next_action, Q, action, i, t′, u, args...) 
+        elseif e == 6
+            done, affected6 = action![6](i, t′, u, args...)
+            queue_next!(affected6, next_action, Q, action, i, t′, u, args...) 
+        end
     end
-    #= Equivalent to
-    # Trigger state change
-    affected = sindex(action!, e, i, t′, u, args...)::Union{Vector{Int},Int}
-    # What happens next_action now has changed actionor each j, trigger updates
-    for j in affected # make typestable?
-        τ, e = sfindmin(next_action, j, i, t′, u, args...)
-        Q[j] = τ
-        action[j] = e
-    end
-     =#    
 
     (t′, i, u[i], action[i])
 end
+=#
+
+function handle!(u, action!, next_action, action, Q, args, args2) 
+    # Who is (i) next_action, when (t′) and what (j) happens?
+    done = false
+    local e, t′, i
+    while !done
+        i, t′ = peek(Q)
+        e = action[i]
+
+        #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
+        done = switch(e, action!, next_action, (Q, action), i, t′, u, args, args2)
+    end
+    (t′, i, u[i], action[i])
+end
+
 function lastiterate(itr) 
     ϕ  = iterate(itr)
     if ϕ === nothing
