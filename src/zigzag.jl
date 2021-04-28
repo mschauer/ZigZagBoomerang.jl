@@ -46,14 +46,14 @@ end
 
 function reset!(i, t′, u, P::SPDMP, args...)
     t, x, θ, θ_old, m = components(u)
-    smove_forward!(G, i, t, x, θ, m, t′, F)
-    smove_forward!(G2, i, t, x, θ, m, t′, F)
+    smove_forward!(P.G, i, t, x, θ, m, t′, P.F)
+    smove_forward!(P.G2, i, t, x, θ, m, t′, P.F)
 
     false, P.G1[i].first
 end
-
+𝕁(j) = mod(j,2) == 0
 function next_reset(j, i, t′, u, P, args...)
-    t′ + 0.5*u.x[j]
+    (!𝕁(j)) ? Inf : t′ + 0.5*u.x[j]
 end
 
 
@@ -166,8 +166,11 @@ function next_rand_reflect(j, i, t′, u, P, args...)
     if m[j] == 1 
         return Inf
     end
-    
-    b[j] = ab(G1, j, x, θ, c, F) .+ (1/(x[j]), 2/(x[j]^2))
+    if !𝕁(j)
+        b[j] = ab(G1, j, x, θ, c, F)
+    else
+        b[j] = ab(G1, j, x, θ, c, F) .+ (1/(x[j]), 2/(x[j]^2))
+    end
     t_old[j] = t′
     t[j] + poisson_time(b[j], rand(P.rng))
 end
@@ -223,7 +226,7 @@ using SparseArrays
 S = 1.3I + 0.5sprandn(d, d, 0.1)
 Γ = S*S'
 
-∇ϕ(x, i, Γ) = -1/x[i] + ZigZagBoomerang.idot(Γ, i, x) # sparse computation
+∇ϕ(x, i, Γ) = -(𝕁(i))/x[i] + ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 
 # t, x, θ, θ_old, m, c, t_old, b 
 t0 = 0.0
@@ -282,7 +285,8 @@ h = Handler(action!, next_action, u0, T, (P, Γ))
 
 l_ = lastiterate(h) 
 
-using ProfileView
+using ProfileView, Profile
+Profile.init(10000000, 0.00001)
 ProfileView.@profview lastiterate(h)
 l_ = @time lastiterate(h) 
 

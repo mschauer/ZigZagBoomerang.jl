@@ -92,7 +92,7 @@ function handle!(u, action!, next_action, action, Q, args...)
 end
 =#
 
-function handle!(u, action!, next_action, action, Q, args, args2) 
+function handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) where {N}
     # Who is (i) next_action, when (t′) and what (j) happens?
     done = false
     local e, t′, i
@@ -101,7 +101,7 @@ function handle!(u, action!, next_action, action, Q, args, args2)
         e = action[i]
 
         #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
-        done = switch(e, action!, next_action, (Q, action), i, t′, u, args, args2)
+        done = switch(e, action!, next_action, (Q, action), i, t′, u, args...)
     end
     (t′, i, u[i], action[i])
 end

@@ -11,7 +11,7 @@ function next_reset(j, i, t′, u, args...)
     Inf
 end
 
-function action1!(i, t′, u, _)
+function action1!(i, t′, u, args...)
     t, x, θ, m = components(u)
     x[i] += θ[i]*(t′ - t[i]) 
     if rand() < 0.1
@@ -22,7 +22,7 @@ function action1!(i, t′, u, _)
     
 end
 
-function action2!(i, t′, u, _)
+function action2!(i, t′, u, args...)
     t, x, θ, m = components(u)
     x[i] += θ[i]*(t′ - t[i]) 
     @assert norm(x[i]) < 1e-7
@@ -31,11 +31,11 @@ function action2!(i, t′, u, _)
     true, i
 end
 
-function next_action1(j, i, t′, u, _)
+function next_action1(j, i, t′, u, args...)
     t, x, θ, m = components(u)
     t[j] + randexp()
 end 
-function next_action2(j, i, t′, u, _) 
+function next_action2(j, i, t′, u, args...) 
     t, x, θ, m = components(u)
     θ[j]*x[j] >= 0 ? Inf : t[j] - x[j]/θ[j]
 end
