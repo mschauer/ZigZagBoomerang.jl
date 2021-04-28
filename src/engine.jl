@@ -28,7 +28,7 @@ Base.IteratorEltype(::Type{<:Handler}) = Base.HasEltype()
 function Base.iterate(handler, (u, action, Q))
     action! = handler.action!
     next_action = handler.next_action
-    ev = handle!(u, action!, next_action, action, Q, handler.args...)
+    num, ev = handle!(u, action!, next_action, action, Q, handler.args...)
     ev[1] > handler.T && return nothing
     ev, (u, action, Q)
 end
@@ -52,10 +52,12 @@ function handle(handler)
    #  @code_warntype handle!(u, action!, next_action, action, Q, handler.args...)
      
      ev = handle!(u, action!, next_action, action, Q, handler.args...)
+     total = 0
      while ev[1] < handler.T
-        ev = handle!(u, action!, next_action, action, Q, handler.args...)
-     end
-     return ev
+        num, ev = handle!(u, action!, next_action, action, Q, handler.args...)
+        total += num
+        end
+    return total, ev
 end
 
 #=
@@ -96,14 +98,16 @@ function handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) where
     # Who is (i) next_action, when (t′) and what (j) happens?
     done = false
     local e, t′, i
+    num = 0
     while !done
+        num += 1
         i, t′ = peek(Q)
         e = action[i]
 
         #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
         done = switch(e, action!, next_action, (Q, action), i, t′, u, args...)
     end
-    (t′, i, u[i], action[i])
+    num, (t′, i, u[i], action[i])
 end
 
 function lastiterate(itr) 

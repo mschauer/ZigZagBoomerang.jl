@@ -209,7 +209,7 @@ end
 
 #if !@isdefined(discontinuity!)
 function discontinuity!(args...) 
-    discontinuity_at!(0.5, 0.5, 1, args...)
+    discontinuity_at!(0.5, 0.0, 1, args...)
 end
 function next_discontinuity(args...)
     next_hit(0.5, args...)
@@ -290,8 +290,8 @@ Profile.init(10000000, 0.00001)
 ProfileView.@profview lastiterate(h)
 l_ = @time lastiterate(h) 
 
-l = handle(h)
-l = @time handle(h)
+total, l = handle(h)
+_, l = @time handle(h)
 trc_ = @time collect(h);
 trc = ZigZagBoomerang.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
 
