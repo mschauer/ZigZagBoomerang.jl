@@ -57,4 +57,3 @@ switch(i, f, g, q, args...) = _switch(i, f, g, q, args...)
     return qu
 end
 switch1(i, f, args...) = _switch1(i, f, args...)
-#time switch(2, (+, -), nothing, nothing, 1, 2)

@@ -4,6 +4,7 @@ authors = ["Sebastiano Grazzi and Moritz Schauer"]
 version = "0.8.0"
 
 [deps]
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 FunctionWranglers = "b554fa5d-8411-41ee-8688-d60d0f644aa9"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

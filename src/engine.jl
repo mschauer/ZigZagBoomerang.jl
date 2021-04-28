@@ -1,4 +1,3 @@
-using ZigZagBoomerang: SPriorityQueue, enqueue!
 using FunctionWranglers
 using StructArrays
 using StructArrays: components
@@ -7,23 +6,23 @@ include("wranglers.jl")
 include("switch.jl")
 
 
-struct Handler{T1,T2,T3,T4,T5}
+struct Schedule{T1,T2,T3,T4,T5}
     action!::T1
     next_action::T2
     state::T3
     T::T4
     args::T5
 end
-Base.eltype(::Type{Handler{T1,T2,T3,T4,T5}}) where {T1,T2,T3,T4,T5} = Tuple{Float64, Int, eltype(T3), Int}
-function Base.iterate(handler::Handler)
+Base.eltype(::Type{Schedule{T1,T2,T3,T4,T5}}) where {T1,T2,T3,T4,T5} = Tuple{Float64, Int, eltype(T3), Int}
+function Base.iterate(handler::Schedule)
     d = length(handler.state)
     action = ones(Int, d) # reset! events to trigger next_action event computations
     Q = SPriorityQueue(zeros(d))
     u = deepcopy(handler.state)
     iterate(handler, (u, action, Q))
 end
-Base.IteratorSize(::Type{<:Handler}) = Base.SizeUnknown()
-Base.IteratorEltype(::Type{<:Handler}) = Base.HasEltype()
+Base.IteratorSize(::Type{<:Schedule}) = Base.SizeUnknown()
+Base.IteratorEltype(::Type{<:Schedule}) = Base.HasEltype()
 
 function Base.iterate(handler, (u, action, Q))
     action! = handler.action!
@@ -41,7 +40,7 @@ end
     end
 end
 
-function handle(handler)
+function simulate(handler)
      u = deepcopy(handler.state)
      action! = handler.action!
      next_action = handler.next_action
@@ -49,15 +48,15 @@ function handle(handler)
      action = ones(Int, d) # resets
      
      Q = SPriorityQueue(zeros(d))
-   #  @code_warntype handle!(u, action!, next_action, action, Q, handler.args...)
      
-     ev = handle!(u, action!, next_action, action, Q, handler.args...)
-     total = 0
-     while ev[1] < handler.T
+     total, lastev = handle!(u, action!, next_action, action, Q, handler.args...)
+     while true
         num, ev = handle!(u, action!, next_action, action, Q, handler.args...)
         total += num
-        end
-    return total, ev
+        ev[1] > handler.T && break
+        lastev = ev
+     end
+    return total, lastev
 end
 
 #=
@@ -110,21 +109,5 @@ function handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) where
     num, (t′, i, u[i], action[i])
 end
 
-function lastiterate(itr) 
-    ϕ  = iterate(itr)
-    if ϕ === nothing
-        error("empty")
-    end
-    x, state = ϕ
-    while true
-        ϕ = iterate(itr, state)
-        if ϕ === nothing 
-            return x
-        end
-        x, state = ϕ
-    end
-end
 
 
-#r = range(-1, 1, length=500)
-#image(Float64[(x + 1/(2sqrt(3)) > 0) && ((x + 1/(2sqrt(3)))*4/3 + abs(y)*2 < 1) for x in r, y in r]')

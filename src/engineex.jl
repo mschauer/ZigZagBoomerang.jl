@@ -1,6 +1,25 @@
 using ZigZagBoomerang
+using StructArrays
+using StructArrays: components
 using Random
-include("engine.jl")
+using LinearAlgebra
+
+function lastiterate(itr) 
+    ϕ  = iterate(itr)
+    if ϕ === nothing
+        error("empty")
+    end
+    x, state = ϕ
+    while true
+        ϕ = iterate(itr, state)
+        if ϕ === nothing 
+            return x
+        end
+        x, state = ϕ
+    end
+end
+using Random
+#include("engine.jl")
 T = 100.0
 d = 10000
 function reset!(i, t′, u, args...)
@@ -40,19 +59,23 @@ function next_action2(j, i, t′, u, args...)
     θ[j]*x[j] >= 0 ? Inf : t[j] - x[j]/θ[j]
 end
 
-Random.seed!(1)
+
 
 action! = (reset!, action1!, action2!)
 #action! = FunctionWrangler(action!)
 next_action = FunctionWrangler((next_reset, next_action1, next_action2))
 
 u0 = StructArray(t=zeros(d), x=zeros(d), θ=ones(d), m=zeros(Int,d))
-h = Handler(action!, next_action, u0, T, ())
+Random.seed!(1)
+h = Schedule(action!, next_action, u0, T, ())
 l_ = lastiterate(h) 
 @assert l_[3].x == 44.18692841846383
 l_ = @time lastiterate(h) 
-handle(h)
-l = @time handle(h)
+
+Random.seed!(1)
+n, l = simulate(h)
+@assert l[3].x == 44.18692841846383
+l = @time simulate(h)
 trc = @time collect(h)
 #@code_warntype handler(zeros(d), T, (f1!, f2!));
 
