@@ -28,7 +28,7 @@ seed = (UInt(1),UInt(1))
 
 𝕁(j) = mod(j,2) == 0
 function next_reset(j, _, t′, u, P, args...)
-    (!𝕁(j)) ? Inf : t′ + 0.5*u.x[j]
+    0, (!𝕁(j)) ? Inf : t′ + 0.5*u.x[j]
 end
 
 
@@ -46,7 +46,7 @@ function next_rand_reflect(j, i, t′, u, P, args...)
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
     if m[j] == 1 
-        return Inf
+        return 0, Inf
     end
     if !𝕁(j)
         b[j] = ab(G1, j, x, θ, c, F)
@@ -54,7 +54,7 @@ function next_rand_reflect(j, i, t′, u, P, args...)
         b[j] = ab(G1, j, x, θ, c, F) .+ (1/(x[j]), 2/(x[j]^2))
     end
     t_old[j] = t′
-    t[j] + poisson_time(b[j], rand(P.rng))
+    0, t[j] + poisson_time(b[j], rand(P.rng))
 end
 
 function next_reflect0(j, i, t′, u, args...) 
@@ -157,7 +157,7 @@ trc_ = @time collect(h);
 trc = Zig.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
 
 
-trace, _, acc = @time spdmp(∇ϕ, t0, x, θ, T, c, G, F, Γ);
+#trace, _, acc = @time spdmp(∇ϕ, t0, x, θ, T, c, G, F, Γ);
 #@code_warntype handler(zeros(d), T, (f1!, f2!));
 
 #using ProfileView

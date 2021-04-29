@@ -32,8 +32,8 @@ end
     TOp === Nothing && return :(tmin, j)
     argnames = [:(args[$i]) for i = 1:length(args)]
     return quote
-        t = wrangler.op($(argnames...))
-        tmin, j = t ≤ tmin ? (t, n) : (tmin, j)
+        k, t = wrangler.op($(argnames...))
+        tmin, j = t ≤ tmin ? (t, k > 0 ? k : n) : (tmin, j)
         return _sfindmin(wrangler.next, tmin, j, n + 1, $(argnames...))            
     end
 end

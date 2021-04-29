@@ -139,34 +139,34 @@ function next_rand_reflect(j, i, t′, u, P::SPDMP, args...)
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
     if m[j] == 1 
-        return Inf
+        return 0, Inf
     end
     b[j] = ab(G1, j, x, θ, c, F)
     t_old[j] = t′
-    t[j] + poisson_time(b[j], rand(P.rng))
+    0, t[j] + poisson_time(b[j], rand(P.rng))
 end
 
 function next_reflect(ξ, dir,  j, i, t′, u, P::SPDMP, args...) 
     t, x, θ, θ_old, m = components(u)
 
     if dir*(x[j] - ξ) < 0
-        return t[j]
+        return 0, t[j]
     end
-    θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
+    0, θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
 end
 
 
 function next_hit(ξ, j, i, t′, u, P::SPDMP, args...) 
     t, x, θ, θ_old, m = components(u)
-    θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
+    0, θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
 end
 
 
 function next_freezeunfreeze(ξ, κ, j, i, t′, u, P::SPDMP, args...) 
     t, x, θ, θ_old, m = components(u)
     if m[j] == 0
-        θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
+        0, θ[j]*(x[j] - ξ) >= 0 ? Inf : t[j] - (x[j] - ξ)/θ[j]
     else
-        t[j] + poisson_time(κ, rand(P.rng))
+        0, t[j] + poisson_time(κ, rand(P.rng))
     end
 end

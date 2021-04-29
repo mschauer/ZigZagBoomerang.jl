@@ -13,7 +13,7 @@ struct Schedule{T1,T2,T3,T4,T5}
     T::T4
     args::T5
 end
-Base.eltype(::Type{Schedule{T1,T2,T3,T4,T5}}) where {T1,T2,T3,T4,T5} = Tuple{Float64, Int, eltype(T3), Int}
+Base.eltype(::Type{Schedule{T1,T2,T3,T4,T5}}) where {T1,T2,T3,T4,T5} = Tuple{Float64, Int, eltype(T3), Int, Int}
 function Base.iterate(handler::Schedule)
     d = length(handler.state)
     action = ones(Int, d) # reset! events to trigger next_action event computations
@@ -27,7 +27,7 @@ Base.IteratorEltype(::Type{<:Schedule}) = Base.HasEltype()
 function Base.iterate(handler, (u, action, Q))
     action! = handler.action!
     next_action = handler.next_action
-    num, ev = handle!(u, action!, next_action, action, Q, handler.args...)
+    ev = handle!(u, action!, next_action, action, Q, handler.args...)
     ev[1] > handler.T && return nothing
     ev, (u, action, Q)
 end
@@ -40,23 +40,38 @@ end
     end
 end
 
-function simulate(handler)
-     u = deepcopy(handler.state)
-     action! = handler.action!
-     next_action = handler.next_action
-     d = length(handler.state)
-     action = ones(Int, d) # resets
-     
-     Q = SPriorityQueue(zeros(d))
-     
-     total, lastev = handle!(u, action!, next_action, action, Q, handler.args...)
-     while true
-        num, ev = handle!(u, action!, next_action, action, Q, handler.args...)
-        total += num
-        ev[1] > handler.T && break
-        lastev = ev
-     end
-    return total, lastev
+function simulate(handler; progress=true, progress_stops = 20)
+    T = handler.T
+    if progress
+        prg = Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
+    tstop = T/stops
+
+    u = deepcopy(handler.state)
+    action! = handler.action!
+    next_action = handler.next_action
+    d = length(handler.state)
+    action = ones(Int, d) # resets
+    
+    Q = SPriorityQueue(zeros(d))
+    
+    ev = handle!(u, action!, next_action, action, Q, handler.args...)
+    evs = [ev]
+    while true
+        ev = handle!(u, action!, next_action, action, Q, handler.args...)
+        t′ = ev[1]
+        t′ > T && break
+        push!(evs, ev)
+        if t′ > tstop
+            tstop += T/stops
+            next!(prg) 
+        end  
+    end
+    ismissing(prg) || ProgressMeter.finish!(prg)
+    return evs
 end
 
 #=
@@ -89,7 +104,7 @@ function handle!(u, action!, next_action, action, Q, args...)
         end
     end
 
-    (t′, i, u[i], action[i])
+    (t′, i, u[i], action[i], num)
 end
 =#
 
@@ -106,7 +121,7 @@ function handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) where
         #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
         done = switch(e, action!, next_action, (Q, action), i, t′, u, args...)
     end
-    num, (t′, i, u[i], action[i])
+    (t′, i, u[i], action[i], num)
 end
 
 
