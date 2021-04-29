@@ -10,7 +10,7 @@ using LinearAlgebra
 
 seed = (UInt(1),UInt(1))
 
-n = 60
+n = 400
 d = n*(n+1)÷2
 N = 1000
 K = 20
@@ -30,6 +30,7 @@ const σ2 = 1.0
 const γ0 = 0.1
 dia = -0.3ones(n-1)
 Γtrue = sparse(SymTridiagonal(1.0ones(n), dia))
+Γtrue[1,1] = Γtrue[end,end] = 1/2
 
 Ltrue_ = cholesky(Γtrue).L
 Y = Ltrue_\randn(n, N)
@@ -88,7 +89,7 @@ function freeze!(args...)
 end
 
 function next_freezeunfreeze(args...)
-    Zig.next_freezeunfreeze(0.0, 0.1, args...)
+    Zig.next_freezeunfreeze(0.0, 0.04, args...)
 end 
 
 
@@ -152,6 +153,7 @@ u = mean(trc)
 Lhat = backform(u, 𝕀)
 utrue - u
 
+using Makie
 ina(i) = "$(𝕀[J[i]][1]),$(𝕀[J[i]][2])"
 fig = Figure(resolution=(1800,1000))
 ax = fig[1,1:3] = Axis(fig, title="Error Gamma")
