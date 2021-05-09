@@ -35,9 +35,10 @@ Base.peek(pq::SPriorityQueue) = pq.xs[1]
 
 function percolate_down!(pq::SPriorityQueue, i::Integer)
     x = pq.xs[i]
-    @inbounds while (l = heapleft(i)) <= length(pq)
+    L = length(pq)
+    @inbounds while (l = heapleft(i)) <= L
         r = heapright(i)
-        j = r > length(pq) || lt(pq.o, pq.xs[l].second, pq.xs[r].second) ? l : r
+        j = r > L || lt(pq.o, pq.xs[l].second, pq.xs[r].second) ? l : r
         if lt(pq.o, pq.xs[j].second, x.second)
             pq.index[pq.xs[j].first] = i
             pq.xs[i] = pq.xs[j]

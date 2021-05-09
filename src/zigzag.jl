@@ -46,7 +46,7 @@ function reset!(i, t′, u, P::SPDMP, args...)
 end
 
 function never_reset(j, _, t′, u, P, args...)
-    Inf
+    0, Inf
 end
 
 

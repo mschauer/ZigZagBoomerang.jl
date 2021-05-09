@@ -5,21 +5,7 @@ using Random
 using StructArrays
 using StructArrays: components
 using LinearAlgebra
-using ZigZagBoomerang: SPriorityQueue, enqueue!
-function lastiterate(itr) 
-    ϕ  = iterate(itr)
-    if ϕ === nothing
-        error("empty")
-    end
-    x, state = ϕ
-    while true
-        ϕ = iterate(itr, state)
-        if ϕ === nothing 
-            return x
-        end
-        x, state = ϕ
-    end
-end
+using ZigZagBoomerang: SPriorityQueue, enqueue!, lastiterate
 
 T = 500.0
 d = 80
