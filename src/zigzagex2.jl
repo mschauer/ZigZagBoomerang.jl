@@ -40,7 +40,6 @@ function Zig.simulate(handler; progress=true, progress_stops = 20)
     while true
         ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
         t′ = ev[end][1]
-        println("current time: $(t′)")
         t′ > T && break
         append!(evs, ev)
         if t′ > tstop
@@ -61,7 +60,6 @@ function Zig.handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) w
         num += 1
         i, t′ = Zig.peek(Q)
         e = action[i]
-
         #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
         done = Zig.switch(e, action!, next_action, (Q, action), i, t′, u, args...)
     end
@@ -70,10 +68,8 @@ end
 function traceevent(t′, i, u, action, num)
     if 1 <= i <= length(u)
         return  [(t′, i, u[i], action[i], num)]
-#        return (t′, i, u[i], action[i], num)
     else
         return [(t′, 1, u[1], action[1], num), (t′, 2, u[2], action[2], num)] 
-  #      return (t′, 2, u[2], action[2], num)   
     end
 end
 
@@ -90,12 +86,13 @@ function next_rand_reflect(j, i, t′, u, P::SPDMP, args...)
     0, t[j] + poisson_time(b[j], rand(P.rng))
 end
 
-function rand_reflect!(i, t′, u, P::SPDMP, args...)
+function rand_reflect!(i, t′, u, P::SPDMP, nt, args...)
+    μ, rsq = nt.μ, nt.rsq
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
     @assert 1 <= i <= length(u)
-    smove_forward!(G, i, t, x, θ, m, t′, F)
+    smove_forward!(G, i, t, x, θ, m, t′, F) 
     ∇ϕi = P.∇ϕ(x, i, args...)
     l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
     if rand(P.rng)*lb < l
@@ -143,12 +140,6 @@ function circle_boundary_reflection!(x, θ, μ)
     end
     θ
 end
-
-# choose center of ball and squared radius
-# μ = [0.0, 0.0]
-# rsq = 2.0
-# abc_eq2d(x, θ) = abc_eq2d(x, θ, μ, rsq) 
-# boundary_reflection!(x, v) = boundary_reflection!(x, v, μ, rsq)
 
 function next_circle_hit(j, i, t′, u, P::SPDMP, nt, args...) 
     μ, rsq = nt.μ, nt.rsq
@@ -244,4 +235,4 @@ next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_
 rsq = 1.0
 μ = [0.0, 0.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
-total, l = Zig.simulate(h, progress=true)
+trace = Zig.simulate(h, progress=true)
