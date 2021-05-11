@@ -17,6 +17,7 @@ using ZigZagBoomerang: SPriorityQueue, enqueue!, lastiterate
 import ZigZagBoomerang: next_rand_reflect, rand_reflect!, reflect!, reset!
 
 
+# overload simulate and handle! to allow having more clocks than coordinates
 function Zig.simulate(handler; progress=true, progress_stops = 20)
     T = handler.T
     if progress
@@ -72,6 +73,7 @@ function Zig.handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) w
     end
     traceevent(t′, i, u, action, num)
 end
+
 function traceevent(t′, i, u, action, num)
     if 1 <= i <= length(u)
         return  [(t′, i, u[i], action[i], num)]
@@ -200,9 +202,10 @@ end
 
 
 
-Γ = sparse(Matrix([1.0 0.0; 
-                    0.0 1.0]))
+Sigma = Matrix([1.0 0.9; 
+                    0.9 1.0])
 
+Γ = sparse(Sigma^(-1))
 
 ϕ(x) =  -0.5*x'*Γ*x  # negated log-density
 ∇ϕ(x, i, nt) = Zig.idot(nt.Γ, i, x) # sparse computation
@@ -249,12 +252,12 @@ ts, xs = Zig.sep(Zig.discretize(trc, 0.001))
 error("")
 
 using Makie
-scatter(ts, getindex.(xs, 2))
-fig = lines(getindex.(xs, 1), getindex.(xs, 2))
-
+# scatter(ts, getindex.(xs, 2))
+fig = lines(getindex.(xs, 1), getindex.(xs, 2), )
+axes = Axis(fig)
 #draw the circle with radius r, centered in μ
 r = sqrt(rsq)
-x1 = Float64.(-r:0.01:r)
+x1 = Float64.(-r:0.0001:r)
 x2 = zero(x1)
 for i in eachindex(x1)
     x2[i] = sqrt(r^2 - x1[i]^2)
