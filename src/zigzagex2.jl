@@ -35,11 +35,12 @@ function Zig.simulate(handler; progress=true, progress_stops = 20)
     
     Q = Zig.SPriorityQueue(zeros(d+1))
     
-    ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
-    evs = [ev]
+    evs = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
+ #   evs = [ev]
     while true
         ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
-        t′ = ev[1]
+        t′ = ev[end][1]
+        println("current time: $(t′)")
         t′ > T && break
         append!(evs, ev)
         if t′ > tstop
@@ -64,13 +65,15 @@ function Zig.handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) w
         #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
         done = Zig.switch(e, action!, next_action, (Q, action), i, t′, u, args...)
     end
-    traceevent(t′, i, u[i], action[i], num)
+    traceevent(t′, i, u, action, num)
 end
-function traceevent(t′, i, u, action, num) =
+function traceevent(t′, i, u, action, num)
     if 1 <= i <= length(u)
-        [(t′, i, u[i], action[i], num)]
+        return  [(t′, i, u[i], action[i], num)]
+#        return (t′, i, u[i], action[i], num)
     else
-        [(t′, 1, u[1], action[i1], num), (t′, 2, u[2], action[2], num)]   
+        return [(t′, 1, u[1], action[1], num), (t′, 2, u[2], action[2], num)] 
+  #      return (t′, 2, u[2], action[2], num)   
     end
 end
 
@@ -157,8 +160,12 @@ function next_circle_hit(j, i, t′, u, P::SPDMP, nt, args...)
         dis = a2^2 - 4a1*a3 #discriminant
         if dis < 0.0 # no solutions
             return 0, Inf 
-        else #pick the first event time
-            return 0, t′ + min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1)) #hitting time
+        else #pick the first positive event time 
+            hitting_time = min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1))
+            if hitting_time <= 0.0
+                return 0, Inf
+            end
+            return 0, t′ + hitting_time #hitting time
         end 
     end
 end
@@ -237,5 +244,4 @@ next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_
 rsq = 1.0
 μ = [0.0, 0.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
-
-total, l = Zig.simulate(h)
+total, l = Zig.simulate(h, progress=true)
