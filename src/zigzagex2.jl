@@ -93,7 +93,7 @@ function rand_reflect!(i, t′, u, P::SPDMP, nt, args...)
     t, x, θ, θ_old, m, c, t_old, b = components(u)
     @assert 1 <= i <= length(u)
     smove_forward!(G, i, t, x, θ, m, t′, F) 
-    ∇ϕi = P.∇ϕ(x, i, args...)
+    ∇ϕi = P.∇ϕ(x, i, nt, args...)
     l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
     if rand(P.rng)*lb < l
         if l >= lb
@@ -236,3 +236,5 @@ rsq = 1.0
 μ = [0.0, 0.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
 trace = Zig.simulate(h, progress=true)
+trc_ = @time collect(h);
+trc = Zig.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
