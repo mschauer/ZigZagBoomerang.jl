@@ -13,25 +13,126 @@ using StructArrays
 using StructArrays: components
 using LinearAlgebra
 using ZigZagBoomerang: SPriorityQueue, enqueue!, lastiterate
+# import standard reflection of zigzag
+import ZigZagBoomerang: next_rand_reflect, rand_reflect!, reflect!, reset!
 
+
+function Zig.simulate(handler; progress=true, progress_stops = 20)
+    T = handler.T
+    if progress
+        prg = Zig.Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
+    tstop = T/stops
+
+    u = deepcopy(handler.state)
+    action! = handler.action!
+    next_action = handler.next_action
+    d = length(handler.state)
+    action = ones(Int, d+1) # resets
+    
+    Q = Zig.SPriorityQueue(zeros(d+1))
+    
+    ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
+    evs = [ev]
+    while true
+        ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
+        t′ = ev[1]
+        t′ > T && break
+        append!(evs, ev)
+        if t′ > tstop
+            tstop += T/stops
+            Zig.next!(prg) 
+        end  
+    end
+    ismissing(prg) || Zig.ProgressMeter.finish!(prg)
+    return evs
+end
+
+function Zig.handle!(u, action!, next_action, action, Q, args::Vararg{Any, N}) where {N}
+    # Who is (i) next_action, when (t′) and what (j) happens?
+    done = false
+    local e, t′, i
+    num = 0
+    while !done
+        num += 1
+        i, t′ = Zig.peek(Q)
+        e = action[i]
+
+        #done = action_nextaction(action!, next_action, Q, action, e, i, t′, u, args...)
+        done = Zig.switch(e, action!, next_action, (Q, action), i, t′, u, args...)
+    end
+    traceevent(t′, i, u[i], action[i], num)
+end
+function traceevent(t′, i, u, action, num) =
+    if 1 <= i <= length(u)
+        [(t′, i, u[i], action[i], num)]
+    else
+        [(t′, 1, u[1], action[i1], num), (t′, 2, u[2], action[2], num)]   
+    end
+end
+
+function next_rand_reflect(j, i, t′, u, P::SPDMP, args...)
+    1 <= j <= length(u) || return 0, Inf
+    G, G1, G2 = P.G, P.G1, P.G2
+    F = P.F
+    t, x, θ, θ_old, m, c, t_old, b = components(u)
+    if m[j] == 1 
+        return 0, Inf
+    end
+    b[j] = ab(G1, j, x, θ, c, F)
+    t_old[j] = t′
+    0, t[j] + poisson_time(b[j], rand(P.rng))
+end
+
+function rand_reflect!(i, t′, u, P::SPDMP, args...)
+    G, G1, G2 = P.G, P.G1, P.G2
+    F = P.F
+    t, x, θ, θ_old, m, c, t_old, b = components(u)
+    @assert 1 <= i <= length(u)
+    smove_forward!(G, i, t, x, θ, m, t′, F)
+    ∇ϕi = P.∇ϕ(x, i, args...)
+    l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
+    if rand(P.rng)*lb < l
+        if l >= lb
+            !P.adapt && error("Tuning parameter `c` too small.")
+            adapt!(c, i, P.factor)
+        end
+        smove_forward!(G2, i, t, x, θ, m, t′, F)
+        ZigZagBoomerang.reflect!(i, ∇ϕi, x, θ, F)
+        return true, neighbours(G1, i)
+    else
+        return false, G1[i].first
+    end
+    
+end
+
+
+
+Random.seed!(1)
+
+using SparseArrays
 T = 100.0
 d = 2
 seed = (UInt(1),UInt(1))
 
-# maybe new relfects and new rand_reflect? 
-using ZigZagBoomerang: next_rand_reflect, reflect!
 
+function reset!(i, t′, u, P::SPDMP, args...) # should move the coordinates if called later in the game
+    false, P.G1[i].first
+end
 
 # coefficients of the quadratic equation coming for the condition \|x + θ*t - μ\|^2 > rsq
 function abc_eq2d(x, θ, μ, rsq)
-    a = θ^2[1] + θ^2[2]
+    a = θ[1]^2 + θ[2]^2
     b = 2*((x[1] -μ[2]) *θ[1] + (x[2] - μ[2])*θ[2]) 
     c = (x[1]-μ[1])^2 + (x[2]-μ[2])^2 - rsq 
     a, b, c
 end
 
 # joint reflection at the boundary
-function boundary_reflection!(x, θ, μ, rsq)
+function circle_boundary_reflection!(x, θ, μ)
     for i in eachindex(x[1:end-1])
         if θ[i]*(x[i]-μ[i])>0 
              θ[i]*=-1
@@ -46,85 +147,95 @@ end
 # abc_eq2d(x, θ) = abc_eq2d(x, θ, μ, rsq) 
 # boundary_reflection!(x, v) = boundary_reflection!(x, v, μ, rsq)
 
-function next_circle_hit(j, i, t′, u, P::SPDMP, μ, rsq, args...) 
-    t, x, θ, c, t_old, b = components(u)
-    G, G1, G2 = P.G, P.G1, P.G2
-    t_old[j] = t′
-    if j <= length(x) # standard reflection time
-        # b[j] = ab(G1, j, x, θ, c, F)
-        # new_time = poisson_time(b[j], rand(P.rng))
-        
+function next_circle_hit(j, i, t′, u, P::SPDMP, nt, args...) 
+    μ, rsq = nt.μ, nt.rsq
+    if j <= length(u) # not applicable
+        return 0, Inf
     else #hitting time to the ball with radius `radius`
-        a1,a2,a3 = abc_eq2d(x, θ, μ, rsq) #solving quadradic equation
+        t, x, θ, θ_old, m, c, t_old, b = components(u)
+        a1, a2, a3 = abc_eq2d(x, θ, μ, rsq) #solving quadradic equation
         dis = a2^2 - 4a1*a3 #discriminant
         if dis < 0.0 # no solutions
-            new_time = Inf 
+            return 0, Inf 
         else #pick the first event time
-            new_time = min((-a2 - sqrt(dis))/2*a1,(-a2 + sqrt(dis))/2*a1) #hitting time
+            return 0, t′ + min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1)) #hitting time
         end 
     end
-    return 0, t[j] + new_time
 end
 
 # either standard reflection, or bounce at the boundary or traversing the boundary
-function reflect_traverse!(i, t′, u, P::SPDMP, μ, rsq, args...)
+function circle_hit!(i, t′, u, P::SPDMP, nt, args...)
+    μ, rsq = nt.μ, nt.rsq
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
-    t, x, θ, t_old, b = components(u)
-    if i == 3 #hiting boundary
-        @assert (x[1] - μ[1] + θ[1]*(t′ - t[1]))^2 + (x[2] - μ[2] + θ[2]*(t′ - t[2]))^2  - rsq < 1e-7 # make sure to hit be on the circle
+    t, x, θ, θ_old, m, c, t_old, b = components(u)
+
+    if i == 3 #hitting boundary
         smove_forward!(G, i, t, x, θ, m, t′, F)
-        t[i] = t′
+ 
+        if abs((x[1] - μ[1])^2 + (x[2] - μ[2])^2  - rsq) > 1e-7 # make sure to hit be on the circle
+            dump(u)
+            error("not on the circle")
+        end
+       
         disc =  ϕ(x) - ϕ(-x + 2c) # magnitude of the discontinuity
         if  disc < 0.0 || rand() > exp(-disc) # traverse the ball
-                # jump on the other side drawing a line passing through the center of the ball
-                x .= -x + 2 .*μ
+            # jump on the other side drawing a line passing through the center of the ball
+            x .= -x + 2 .*μ # improve by looking at G[3]
         else    # bounce off 
-                θ = boundary_reflection!(x,v)    
+            θ .= circle_boundary_reflection!(x, θ, μ)    
         end
         return true, neighbours(G1, i)
     else 
-        return rand_reflect!(i, t′, u, P::SPDMP, args...)
+        error("action not available for clock $i")
     end
 end
 
-Random.seed!(1)
 
-using SparseArrays
 
 # last row with zeros (fake coordinate)
-Γ = sparse(Matrix([1.0 0.0 0.0; 
-                    0.0 1.0 0.0;
-                    0.0 0.0 0.0]))
+Γ = sparse(Matrix([1.0 0.0; 
+                    0.0 1.0]))
 
 
 ϕ(x) =  -0.5*x'*Γ*x  # negated log-density
-∇ϕ(x, i, Γ) = Zig.idot(Γ, i, x) # sparse computation
+∇ϕ(x, i, nt) = Zig.idot(nt.Γ, i, x) # sparse computation
 
 # t, x, θ, c, t_old, b 
+d = 2
 t0 = 0.0
-t = fill(t0, 3)
-x = rand(3) 
-θ = θ0 = rand([-1.0, 1.0], 3)
+t = fill(t0, d)
+x = [2.0, 2.0] + rand(d) 
+θ = θ0 = rand([-1.0, 1.0], d)
 F = ZigZag(Γ, x*0)
 
+# G, G2: Clocks to coordinates
+# G1: Clocks to clocks
 
-c = (zero(x) .+ 0.1) .*(eachindex(x) .!= 3)
-G = [[i] => [rowvals(F.Γ)[nzrange(F.Γ, i)]..., 3] for i in eachindex(θ0[1:end-1])]
-push!(G, [3] => [1, 2, 3])
-G1 = G
-G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
+c = (zero(x) .+ 0.1)
+G = [[i] => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
+push!(G, [3] => [1,2]) # move all coordinates
+G1 = [[i] => [rowvals(F.Γ)[nzrange(F.Γ, i)];3] for i in eachindex(θ0)]
+push!(G1, [3] => [1, 2, 3]) # invalidate ALL the clocks yeah
 
-b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)]
+G2 = [1 => [2], 2 => [1], 3=>Int[]] # 
+#G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G)]
+
+b = [ab(G1, i, x, θ, c, F) for i in eachindex(θ)] # specific for subsampling
   
-u0 = StructArray(t=t, x=x, θ=θ, c=c, t_old=copy(t), b=b)
+u0 = StructArray(t=t, x=x, θ=θ, θ_old=zeros(d), m=zeros(Int,d), c=c, t_old=copy(t), b=b)
 
 
 rng = Rng(seed)
 t_old = copy(t)
 adapt = false
 factor = 1.7
-P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor)
+P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor) # ?
 
-action! = (reflect_traverse!)
-next_action = FunctionWrangler((next_event))
+action! = (reset!, rand_reflect!, circle_hit!)
+next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_hit))
+rsq = 1.0
+μ = [0.0, 0.0]
+h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
+
+total, l = Zig.simulate(h)
