@@ -121,7 +121,7 @@ end
 Random.seed!(1)
 
 using SparseArrays
-T = 100.0
+T = 500.0
 d = 2
 seed = (UInt(1),UInt(1))
 
@@ -185,8 +185,8 @@ function circle_hit!(i, t′, u, P::SPDMP, nt, args...)
             error("not on the circle")
         end
         disc =  ϕ(x) - ϕ(-x + 2*μ) # magnitude of the discontinuity
-        # if  disc < 0.0 || rand() > exp(-disc) # traverse the ball
-        if false # never traverse    
+        if  disc < 0.0 || rand() > 1 - exp(-disc) # teleport
+        # if false # never teleport
             # jump on the other side drawing a line passing through the center of the ball
             x .= -x + 2 .*μ # improve by looking at G[3]
         else    # bounce off 
@@ -239,8 +239,8 @@ P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor) # ?
 
 action! = (reset!, rand_reflect!, circle_hit!)
 next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_hit))
-rsq = 1.0
-μ = [0.0, 0.0]
+rsq = 3.0
+μ = [-1.0, -1.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
 trc_ = Zig.simulate(h, progress=true)
 trc = Zig.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
@@ -253,8 +253,7 @@ scatter(ts, getindex.(xs, 2))
 fig = lines(getindex.(xs, 1), getindex.(xs, 2))
 
 #draw the circle with radius r, centered in μ
-r = 1.0
-μ = [0.0, 0.0]
+r = sqrt(rsq)
 x1 = Float64.(-r:0.01:r)
 x2 = zero(x1)
 for i in eachindex(x1)
@@ -262,4 +261,4 @@ for i in eachindex(x1)
 end
 lines!(x1 .+ μ[1], x2 .+ μ[2], color = "red")
 lines!(x1 .+ μ[1], -x2 .+ μ[2], color = "red")
-save("bounce_off_the_ball.png", fig)
+save("bounce_off_the_ball_with_teleportation.png", fig)
