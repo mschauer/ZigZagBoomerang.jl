@@ -39,7 +39,14 @@ function Zig.simulate(handler; progress=true, progress_stops = 20)
  #   evs = [ev]
     while true
         ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
+        if length(ev) == 1
+            println("reflection")
+        else
+            println("hitting the circle")
+        end
         t′ = ev[end][1]
+        println("at time current time: $(t′)")
+        println("")
         t′ > T && break
         append!(evs, ev)
         if t′ > tstop
@@ -133,8 +140,8 @@ end
 
 # joint reflection at the boundary
 function circle_boundary_reflection!(x, θ, μ)
-    for i in eachindex(x[1:end-1])
-        if θ[i]*(x[i]-μ[i])>0 
+    for i in eachindex(x)
+        if θ[i]*(x[i]-μ[i]) < 0.0 
              θ[i]*=-1
         end 
     end
@@ -149,13 +156,15 @@ function next_circle_hit(j, i, t′, u, P::SPDMP, nt, args...)
         t, x, θ, θ_old, m, c, t_old, b = components(u)
         a1, a2, a3 = abc_eq2d(x, θ, μ, rsq) #solving quadradic equation
         dis = a2^2 - 4a1*a3 #discriminant
-        if dis < 0.0 # no solutions
+         # no solutions or inside
+        if dis <=  1e-7 || (x[1] - μ[1])^2 + (x[2] - μ[2])^2  - rsq < 1e-7 
             return 0, Inf 
         else #pick the first positive event time 
             hitting_time = min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1))
             if hitting_time <= 0.0
                 return 0, Inf
             end
+
             return 0, t′ + hitting_time #hitting time
         end 
     end
@@ -175,9 +184,9 @@ function circle_hit!(i, t′, u, P::SPDMP, nt, args...)
             dump(u)
             error("not on the circle")
         end
-       
-        disc =  ϕ(x) - ϕ(-x + 2c) # magnitude of the discontinuity
-        if  disc < 0.0 || rand() > exp(-disc) # traverse the ball
+        disc =  ϕ(x) - ϕ(-x + 2*μ) # magnitude of the discontinuity
+        # if  disc < 0.0 || rand() > exp(-disc) # traverse the ball
+        if false # never traverse    
             # jump on the other side drawing a line passing through the center of the ball
             x .= -x + 2 .*μ # improve by looking at G[3]
         else    # bounce off 
@@ -191,7 +200,6 @@ end
 
 
 
-# last row with zeros (fake coordinate)
 Γ = sparse(Matrix([1.0 0.0; 
                     0.0 1.0]))
 
@@ -215,7 +223,6 @@ G = [[i] => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
 push!(G, [3] => [1,2]) # move all coordinates
 G1 = [[i] => [rowvals(F.Γ)[nzrange(F.Γ, i)];3] for i in eachindex(θ0)]
 push!(G1, [3] => [1, 2, 3]) # invalidate ALL the clocks yeah
-
 G2 = [1 => [2], 2 => [1], 3=>Int[]] # 
 #G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G)]
 
@@ -235,6 +242,24 @@ next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_
 rsq = 1.0
 μ = [0.0, 0.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
-trace = Zig.simulate(h, progress=true)
-trc_ = @time collect(h);
+trc_ = Zig.simulate(h, progress=true)
 trc = Zig.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
+
+ts, xs = Zig.sep(Zig.discretize(trc, 0.001))
+error("")
+
+using Makie
+scatter(ts, getindex.(xs, 2))
+fig = lines(getindex.(xs, 1), getindex.(xs, 2))
+
+#draw the circle with radius r, centered in μ
+r = 1.0
+μ = [0.0, 0.0]
+x1 = Float64.(-r:0.01:r)
+x2 = zero(x1)
+for i in eachindex(x1)
+    x2[i] = sqrt(r^2 - x1[i]^2)
+end
+lines!(x1 .+ μ[1], x2 .+ μ[2], color = "red")
+lines!(x1 .+ μ[1], -x2 .+ μ[2], color = "red")
+save("bounce_off_the_ball.png", fig)
