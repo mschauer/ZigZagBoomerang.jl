@@ -132,10 +132,10 @@ function reset!(i, t′, u, P::SPDMP, args...) # should move the coordinates if 
     false, P.G1[i].first
 end
 
-# coefficients of the quadratic equation coming for the condition \|x + θ*t - μ\|^2 > rsq
+# coefficients of the quadratic equation coming for the condition \|x + θ*t - μ\|^2 = rsq
 function abc_eq2d(x, θ, μ, rsq)
     a = θ[1]^2 + θ[2]^2
-    b = 2*((x[1] -μ[2]) *θ[1] + (x[2] - μ[2])*θ[2]) 
+    b = 2*((x[1] - μ[1]) *θ[1] + (x[2] - μ[2])*θ[2]) 
     c = (x[1]-μ[1])^2 + (x[2]-μ[2])^2 - rsq 
     a, b, c
 end
@@ -178,7 +178,6 @@ function circle_hit!(i, t′, u, P::SPDMP, nt, args...)
     G, G1, G2 = P.G, P.G1, P.G2
     F = P.F
     t, x, θ, θ_old, m, c, t_old, b = components(u)
-
     if i == 3 #hitting boundary
         smove_forward!(G, i, t, x, θ, m, t′, F)
  
@@ -214,7 +213,7 @@ Sigma = Matrix([1.0 0.9;
 d = 2
 t0 = 0.0
 t = fill(t0, d)
-x = [2.0, 2.0] + rand(d) 
+x = [+1.0, -2.0] + rand(d) 
 θ = θ0 = rand([-1.0, 1.0], d)
 F = ZigZag(Γ, x*0)
 
@@ -242,8 +241,8 @@ P = SPDMP(G, G1, G2, ∇ϕ, F, rng, adapt, factor) # ?
 
 action! = (reset!, rand_reflect!, circle_hit!)
 next_action = FunctionWrangler((Zig.never_reset, next_rand_reflect, next_circle_hit))
-rsq = 3.0
-μ = [-1.0, -1.0]
+rsq = 0.5
+μ = [2.0, -2.0]
 h = Schedule(action!, next_action, u0, T, (P, (Γ=Γ, μ=μ, rsq=rsq)))
 trc_ = Zig.simulate(h, progress=true)
 trc = Zig.FactTrace(F, t0, x, θ, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in trc_])
@@ -264,4 +263,4 @@ for i in eachindex(x1)
 end
 lines!(x1 .+ μ[1], x2 .+ μ[2], color = "red")
 lines!(x1 .+ μ[1], -x2 .+ μ[2], color = "red")
-save("bounce_off_the_ball_with_teleportation.png", fig)
+# save("bounce_off_the_ball_with_teleportation.png", fig)
