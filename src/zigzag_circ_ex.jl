@@ -36,14 +36,7 @@ function Zig.simulate(handler; progress=true, progress_stops = 20)
  #   evs = [ev]
     while true
         ev = Zig.handle!(u, action!, next_action, action, Q, handler.args...)
-        if length(ev) == 1
-            println("reflection")
-        else
-            println("hitting the circle")
-        end
         t′ = ev[end][1]
-        println("at time current time: $(t′)")
-        println("")
         t′ > T && break
         append!(evs, ev)
         if t′ > tstop
