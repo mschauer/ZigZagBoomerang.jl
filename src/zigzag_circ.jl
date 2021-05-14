@@ -41,14 +41,18 @@ function next_circle_hit(μ, rsq, dir, j, i, t′, u, P::SPDMP, args...)
         a1, a2, a3 = abc_eq2d(μ, rsq, x, θ) #solving quadradic equation
         dis = a2^2 - 4a1*a3 #discriminant
          # no solutions or TABU region  
-        if dis <=  1e-7 || dir*((x[1] - μ[1])^2 + (x[2] - μ[2])^2  - rsq - 1e-7) < 0.0 
+        if dis <=  1e-7 || dir*((x[1] - μ[1])^2 + (x[2] - μ[2])^2  - rsq -  1e-7) < 0.0 
             return 0, Inf 
-        else #pick the first positive event time 
-            hitting_time = min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1))
-            if hitting_time <= 0.0
-                return 0, Inf
+        else #pick the first positive event time
+            if dir == 1  
+                hitting_time = min((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1))
+                if hitting_time <= 0.0
+                    return 0, Inf
+                end
+            else #dir == -1
+                hitting_time = max((-a2 - sqrt(dis))/(2*a1),(-a2 + sqrt(dis))/(2*a1))
+                @assert hitting_time > 0
             end
-
             return 0, t′ + hitting_time #hitting time
         end 
     end

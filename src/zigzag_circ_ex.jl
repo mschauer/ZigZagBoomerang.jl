@@ -119,16 +119,18 @@ function reset!(i, t′, u, P::SPDMP, args...) # should move the coordinates if 
     false, P.G1[i].first
 end
 
+
+
 include("./zigzag_circ.jl")
 # stay outside ball centered at μ1 with radius rsq1, if hit then teleport or reflect
-α(μ, rsq, x, v) = (-x + 2*μ, v) # teleportation
-# α = nothing # no teleportation
-next_circle_hit1(j, i, t′, u, P::SPDMP, args...) = next_circle_hit([-1.0, -1.0], 0.5, 1, j, i, t′, u, P::SPDMP, args...) 
-circle_hit1!(i, t′, u, P::SPDMP, args...) = circle_hit!(α, [-1.0, -1.0], 0.5, 1, i, t′, u, P::SPDMP, args...)
+# α(μ, rsq, x, v) = (-x + 2*μ, v) # teleportation
+α = nothing # no teleportation
+next_circle_hit1(j, i, t′, u, P::SPDMP, args...) = next_circle_hit([-0.7, -0.7], 0.5, 1, j, i, t′, u, P::SPDMP, args...) 
+circle_hit1!(i, t′, u, P::SPDMP, args...) = circle_hit!(α, [-0.7, -0.7], 0.5, 1, i, t′, u, P::SPDMP, args...)
 
 # stay outside ball centered at μ1 with radius rsq1, if hit then teleport or reflect 
-next_circle_hit2(j, i, t′, u, P::SPDMP, args...) = next_circle_hit([1.0, 1.0], 0.5, 1, j, i, t′, u, P::SPDMP, args...) 
-circle_hit2!(i, t′, u, P::SPDMP, args...) = circle_hit!(α, [1.0, 1.0], 0.5, 1, i, t′, u, P::SPDMP, args...)
+next_circle_hit2(j, i, t′, u, P::SPDMP, args...) = next_circle_hit([0.0, 0.0], 4.0, -1, j, i, t′, u, P::SPDMP, args...) 
+circle_hit2!(i, t′, u, P::SPDMP, args...) = circle_hit!(α, [0.0, 0.0], 4.0, -1, i, t′, u, P::SPDMP, args...)
 
 Sigma = Matrix([1.0 0.0; 
                     0.0 1.0])
@@ -142,7 +144,7 @@ Sigma = Matrix([1.0 0.0;
 d = 2
 t0 = 0.0
 t = fill(t0, d)
-x = [-3.0, 3.0] + rand(d) 
+x = [1.0, 1.0] + rand(d) 
 θ = θ0 = rand([-1.0, 1.0], d)
 F = ZigZag(Γ, x*0)
 
@@ -195,6 +197,6 @@ ts, xs = Zig.sep(Zig.discretize(trc, 0.001))
 using Makie
 # scatter(ts, getindex.(xs, 2))
 fig = lines(getindex.(xs, 1), getindex.(xs, 2), )
-lines!(draw_circ([1.0, 1.0], 0.5), color = :red)
-lines!(draw_circ([-1.0, -1.0], 0.5), color = :red)
-save("two_balls.png", fig)
+lines!(draw_circ([0.0, 0.0], 4.0), color = :red)
+lines!(draw_circ( [-0.7, -0.7], 0.5), color = :red)
+save("two_balls_one_inside_the_other.png", fig)
