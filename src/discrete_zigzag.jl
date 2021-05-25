@@ -18,9 +18,6 @@ function next_discrete_move(j, i, t′, u, P::SPDMP, args...)
     t, x, θ, θ_old, m, c, t_old, b, θ2 = components(u)
     @assert m[j] == 1
     d[j] == 1 || return false, Inf # if it s not a discrete random variable, then return Inf
-    # G, G1, G2 = P.G, P.G1, P.G2
-    # F = P.F
-    # t_old[j] = t′
     0, t[j] + randexp() # new exponential time
 end
 
@@ -34,21 +31,12 @@ function discrete_move!(i, t′, u, P::SPDMP, args...)
     end
     @assert m[i] == 1
     t, x, θ = smove_forward!(G, i, t, x, θ, m, t′, F) 
-    t[i] = t′
-    # ∇ϕi = P.∇ϕ(x, i, args...)
-    # l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
-    x′ = deepcopy(x) 
-    x′ = x + θ2 #proposed a jump
+    x′ = x + θ2 #propose a jump
     ϕx′ = P.∇ϕ[2](x′)
     ϕx = P.∇ϕ[2](x)
-    println("")
-    println("current position $(x[1]),$(θ2[1]), with  $(exp(-ϕx))")
-    println("new proposed position $(x′[1]),$(θ2[1]) with probability $(exp(-ϕx′))")
     if  ϕx′ < ϕx || randexp() >   ϕx′ - ϕx 
-        println("accepted")
         x .= x′
     else
-        println("rejected")
         θ2[i] *= -1
     end
     return true, neighbours(G1, i)    
