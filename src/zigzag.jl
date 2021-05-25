@@ -14,7 +14,7 @@ end
 function ZigZagBoomerang.smove_forward!(G, i, t, x, θ, m, t′, Z::Union{BouncyParticle, ZigZag})
     nhd = neighbours(G, i)
     for i in nhd
-        if m != 1   #  not frozen
+        if m[i] != 1   #  not frozen
             t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
         else    # frozen 
             t[i] = t′
