@@ -17,6 +17,7 @@ Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 [compat]
 DataStructures = "0.17, 0.18"
 ProgressMeter = "1"
+RandomNumbers = "1.4"
 Requires = "1.1"
 Trajectories = "0.2"
 julia = "1"
