@@ -120,7 +120,7 @@ end
     for i in 1:d
         #Γ0[d,d] = 1
     end
-    Z = FactBoomerang(1.2Γ0, x0*0, 0.5)
+    Z = FactBoomerang(1.2Γ0, x0*0, 0.1)
     θ0 = sqrt(Diagonal(Z.Γ))\randn(d)
     T = 3000.0
 
@@ -131,7 +131,7 @@ end
 
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 3/sqrt(T)
 end
 
 @testset "Boomerang" begin
