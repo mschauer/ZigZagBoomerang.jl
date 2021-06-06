@@ -41,16 +41,15 @@ function iterate(FS::FactSampler)
     @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
     G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     x, θ = copy(x0), copy(θ0)
-    num = acc = 0
+    num = 0
+    acc = zeros(Int, n)
     Q = SPriorityQueue{Int,Float64}()
     b = [ab(G1, i, x, θ, FS.c, F) for i in eachindex(θ)]
     for i in eachindex(θ)
         enqueue!(Q, i => poisson_time(b[i], rand(FS.rng)))
     end
     if hasrefresh(F)
-        for i in eachindex(θ)
-            enqueue!(Q, (n + i) => waiting_time_ref(F))
-        end
+        enqueue!(Q, (n + 1) => waiting_time_ref(F))
     end
     iterate(FS, ((t => (x, θ)), t_old, (acc, num), Q, b, G, G1, G2))
 end

@@ -1,7 +1,7 @@
 using SparseArrays
  
 
-@testset "SZigZag (Iter" begin
+@testset "SZigZag (Iter)" begin
     d = 8
     S = 1.3I + 0.5sprandn(d, d, 0.1)
     Γ = S*S'
