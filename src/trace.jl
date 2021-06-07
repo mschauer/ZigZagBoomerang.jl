@@ -177,6 +177,53 @@ function Statistics.mean(trace::ZigZagBoomerang.Trace)
     y
 end
 
+
+function cummean(trace::FactTrace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    T = trace.events[end][1]
+    t2 = trace.t0
+    ys = [(t=[t2], y=[xi]) for xi in x]
+  
+ 
+    t = fill(t2, length(x))
+    k = 1
+    while k <= length(trace.events)
+        t2, i, xi, θi = trace.events[k]
+        k += 1
+        y[i] += (x[i]+xi)*(t2-t[i]) 
+        t[i] = t2
+        x[i] = xi
+        θ[i] = θi
+        push!(ys[i].t, t[i])
+        push!(ys[i].y, y[i]/(2t[i]))
+    end
+    ys
+end
+export cummean
+
+function cummean(trace::PDMPTrace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    ys = fill(y, 0)
+    T = trace.events[end][1]
+    t2 = trace.t0
+    t = t2
+    k = 1
+    while k <= length(trace.events)
+        t2, x2, _ =trace.events[k]
+        k += 1
+        y  += (x + x2)*(t2-t) 
+        t = t2
+        x  = x2
+        push!(ys, y/(2t))
+    end
+    ys
+end
+
+
 """
     subtrace(tr, J)
 
