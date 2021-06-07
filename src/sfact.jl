@@ -51,15 +51,36 @@ function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
     t[i], i, x[i], θ[i]
 end
 
+
+"""
+    ExtendedForm()
+
+Indicates as `args[1]` that `∇ϕ` 
+depends on the extended arguments
+
+    ∇ϕ(t, x, θ, i, t′, Z, args...)
+
+instead of 
+
+    ∇ϕ(x, i, args...)
+
+
+Can be used to implement `∇ϕ` depending on random coefficients.
+"""
+struct ExtendedForm
+end
+
 """
     SelfMoving()
 
 Indicates as `args[1]` that `∇ϕ` depends only on few coeffients
-and takes responsibility to call `smove_forward!`
+and takes responsibility to call `smove_forward!`.
+
+Replaced by `ExtendedForm`.
 """
-struct SelfMoving
-end
-export SelfMoving
+const SelfMoving = ExtendedForm
+export ExtendedForm, SelfMoving
+
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, args...) = ∇ϕ(x, i, args...)
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, args...)
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
