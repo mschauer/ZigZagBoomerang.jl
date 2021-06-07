@@ -39,6 +39,9 @@ function poisson_time(a, u)
     -log(u)/a
 end
 
+function poisson_time(rng, a)
+    randexp(rng)/a
+end
 function poisson_time(a)
     randexp()/a
 end

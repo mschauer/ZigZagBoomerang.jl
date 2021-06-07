@@ -42,7 +42,7 @@ end
     μ = 0*x0
     c = [50.0 for i in 1:n]
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
-    Z = ZigZag(Γ, μ, σ; λref=0.01, ρ=0.0) # need refreshments!
+    Z = ZigZag(Γ, μ, σ; λref=0.02, ρ=0.0) # need refreshments!
     T = 800.0
 
     @time trace, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ)
