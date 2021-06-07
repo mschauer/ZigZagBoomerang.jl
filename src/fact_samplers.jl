@@ -101,52 +101,78 @@ In both cases, updates `Q` according to the dependency graph `G`. The sampler pr
 until the next accepted reflection time or refreshment time. `(num, acc)`
 incrementally counts how many event times occour and how many of those are real reflection times.
 """
-function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
-     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
+function spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
+    F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
+   n = length(x)
+   while true
+       i, t′ = peek(Q)
+       refresh = i > n
+       if refresh
+           i = rand(1:n)
+       end
+       t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
+       if refresh
+           i = rand(1:n)
+           t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
+           if adaptscale && F isa ZigZag
+               adapt_γ = 0.01; adapt_t0 = 15.; adapt_κ = 0.75
+               pre = log(2.0) - sqrt(1.0 + t′)/(adapt_γ*(1.0 + t′ + adapt_t0))*log((1+acc[i])/(1.0 + 0.3*t′))
+               η = (1 + t′)^(-adapt_κ)
+               F.σ[i] = exp(η*pre + (1-η)*log(F.σ[i]))
+               θ[i] = F.σ[i]*sign(θ[i])
+           else
+               if adaptscale
+                   effi = (1 + 2*F.ρ/(1 - F.ρ))
+                   τ = effi/(t[i]*F.λref)
+                   if τ < 0.2
+                       F.σ[i] = F.σ[i]*exp(((0.3t[i]/acc[i] > 1.66) - (0.3t[i]/acc[i] < 0.6))*0.03*min(1.0, sqrt(τ/F.λref)))
+                   end
+               end
+               if F isa ZigZag && eltype(θ) <: Number
+                   θ[i] = F.σ[i]*rand((-1,1))
+               else
+                   θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn(eltype(θ))
+               end
+           end
+ 
+           #renew refreshment
+           Q[(n + 1)] = t′ + waiting_time_ref(F)
+           #update reflections
+           for j in neighbours(G1, i)
+               b[j] = ab(G1, j, x, θ, c, F)
+               t_old[j] = t[j]
+               Q[j] = t[j] + poisson_time(b[j], rand(rng))
+           end
+       else
+           # G neighbours have moved (and all others are not our responsibility)
 
-    while true
-        (refresh, i), t′ = dequeue_pair!(Q)
-        if t′ - t < 0
-            error("negative time")
-        end
-        t, x, θ = move_forward!(t′ - t, t, x, θ, F)
-        if refresh
-            θ[i] = F.ρ*θ[i] + sqrt(1-F.ρ^2)*F.σ[i]*randn(eltype(θ))
-            #renew refreshment
-            enqueue!(Q, (true, i) => t + waiting_time_ref(F))
-            #update reflections
-            for j in neighbours(G, i)
-                a[j], b[j] = ab(G, j, x, θ, c, F)
-                t_old[j] = t
-                Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
-            end
-        else
-            ∇ϕi = ∇ϕ(x, i, args...)
-            l, lb = λ(∇ϕi, i, x, θ, F), pos(a[i] + b[i]*(t - t_old[i]))
-            num += 1
-            if rand(rng)*lb < l
-                acc += 1
-                if l >= lb
-                    !adapt && error("Tuning parameter `c` too small.")
-                    c[i] *= factor
-                end
-                θ = reflect!(i, ∇ϕi, x, θ, F)
-                for j in neighbours(G, i)
-                    a[j], b[j] = ab(G, j, x, θ, c, F)
-                    t_old[j] = t
-                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
-                end
-            else
-                # Move a, b, t_old inside the queue as auxiliary variables
-                a[i], b[i] = ab(G, i, x, θ, c, F)
-                t_old[i] = t
-                enqueue!(Q, (false, i) => t + poisson_time(a[i], b[i], rand(rng)))
-                continue
-            end
-        end
-        push!(Ξ, event(i, t, x, θ, F))
-        return t, x, θ, (acc, num), c, a, b, t_old
-    end
+           ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
+           l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
+           num += 1
+           if rand(rng)*lb < l
+               acc[i] += 1
+               if l >= lb
+                   !adapt && error("Tuning parameter `c` too small.")
+                   #acc .= 0 
+                   #num = 0
+                   adapt!(c, i, factor)
+               end
+               t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
+               θ = reflect!(i, ∇ϕi, x, θ, F)
+               for j in neighbours(G1, i)
+                   b[j] = ab(G1, j, x, θ, c, F)
+                   t_old[j] = t[j]
+                   Q[j] = t[j] + poisson_time(b[j], rand(rng))
+               end
+           else
+               b[i] = ab(G1, i, x, θ, c, F)
+               t_old[i] = t[i]
+               Q[i] = t[i] + poisson_time(b[i], rand(rng))
+               continue
+           end
+       end
+       return event(i, t, x, θ, F), t, x, θ, t′, (acc, num), c, b, t_old
+   end
 end
 
 
