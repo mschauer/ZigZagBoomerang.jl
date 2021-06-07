@@ -95,7 +95,7 @@ end
     for i in 1:d
         #Γ0[d,d] = 1
     end
-    Z = FactBoomerang(0.85Γ0, x0*0, 0.1)
+    Z = FactBoomerang(0.85Γ0, x0*0, 0.3)
     θ0 = sqrt(Diagonal(Z.Γ))\randn(d)
 
     T = 3000.0
@@ -106,7 +106,7 @@ end
     ts, xs = sep(collect(discretize(trace, dt)))
 
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 3/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 4/sqrt(T)
 end
 
 @testset "SFactBoomerang" begin

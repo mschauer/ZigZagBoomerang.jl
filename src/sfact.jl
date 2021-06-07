@@ -1,3 +1,8 @@
+struct All
+end
+struct Matched
+end
+
 function smove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     nhd = neighbours(G, i)
     for i in nhd
@@ -9,6 +14,11 @@ function smove_forward!(i::Int, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}
     t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     return t, x, θ
 end
+
+smove_forward!(::Nothing, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}) = t, x, θ
+smove_forward!(::All, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}) = smove_forward!(t, x, θ, t′, Z)
+smove_forward!(::Nothing, i, t, x, θ, t′, Z::Union{Boomerang, FactBoomerang}) = t, x, θ
+smove_forward!(::All, i, t, x, θ, t′, Z::Union{Boomerang, FactBoomerang}) = smove_forward!(t, x, θ, t′, Z)
 
 function smove_forward!(t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
     for i in eachindex(x)
@@ -55,6 +65,26 @@ export SelfMoving
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄((a,b), Δt) = pos(a + b*Δt)
 
+
+"""
+    spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
+F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
+
+[Outdated]
+Inner loop of the factorised samplers: the factorised Boomerang algorithm and
+the Zig-Zag sampler. Given a dependency graph `G`, gradient `∇ϕ`,
+current position `x`, velocity `θ`, Queue of events `Q`, time `t`, tuning parameter `c`,
+terms of the affine bounds `a`,`b` and time when the upper bounds were computed `t_old`
+
+The sampler 1) extracts from the queue the first event time. 2) moves deterministically
+according to its dynamics until event time. 3) Evaluates whether the event
+time is a accepted reflection or refreshment time or shadow time. 4) If it is a
+reflection time, the velocity reflects according its reflection rule, if it is a
+refreshment time, the sampler updates the velocity from its prior distribution (Gaussian).
+In both cases, updates `Q` according to the dependency graph `G`. The sampler proceeds
+until the next accepted reflection time or refreshment time. `(num, acc)`
+incrementally counts how many event times occour and how many of those are real reflection times.
+"""
 function spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
@@ -153,11 +183,15 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
-    if G === nothing
+    if G == Matched()
         G = G1
     end
-    @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
-    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
+    if G == All()
+        G2 = nothing
+    else
+        @assert all(a.second ⊇ b.second for (a,b) in zip(G, G1))
+        G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
+    end
     x, θ = copy(x0), copy(θ0)
     num = 0
     acc = zeros(Int, length(θ))
@@ -191,4 +225,26 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
     Ξ, (t, x, θ), (acc, num), c
 end
 
-spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, nothing, F, args...; kargs...) 
+spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, Matched(), F, args...; kargs...) 
+
+"""
+    pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args..., args) = Ξ, (t, x, θ), (acc, num), c
+
+Outer loop of the factorised samplers, the Factorised Boomerang algorithm
+and the Zig-Zag sampler. Inputs are a function `∇ϕ` giving `i`th element of gradient
+of negative log target density `∇ϕ(x, i, args...)`, starting time and position `t0, x0`,
+velocities `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
+
+The process moves to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
+a collection of reflection points which, together with the initial triple `t`, `x`
+`θ` are sufficient for reconstructuing continuously the continuous path.
+It returns a `FactTrace` (see [`Trace`](@ref)) object `Ξ`, which can be collected
+into pairs `t => x` of times and locations and discretized with `discretize`.
+Also returns the `num`ber of total and `acc`epted Poisson events and updated bounds
+`c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
+out to be too small.)
+
+This version does not assume that `∇ϕ` has sparse conditional dependencies,
+see [`spdmp`](@ref).
+"""
+pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, All(), F, args...; kargs...) 
