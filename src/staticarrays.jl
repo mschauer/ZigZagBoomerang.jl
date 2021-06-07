@@ -9,7 +9,7 @@ function ZigZagBoomerang.reflect!(∇ϕx, x::SVector, θ, ::Union{BouncyParticle
     θ -= (2*dot(∇ϕx, θ)/ZigZagBoomerang.normsq(∇ϕx))*∇ϕx
     θ
 end
-function ZigZagBoomerang.refresh!(θ::SVector{d}, F) where {d}
+function ZigZagBoomerang.refresh!(rng, θ::SVector{d}, F) where {d}
     ρ̄ = sqrt(1-F.ρ^2)
-    F.ρ*θ + ρ̄*@SVector(randn(d))
+    F.ρ*θ + ρ̄*randn(rng, SVector{5})
 end
