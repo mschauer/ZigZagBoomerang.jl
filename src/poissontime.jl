@@ -35,7 +35,7 @@ end
 Obtaining waiting time for homogeneous Poisson Process
 with rate of the form λ(t) = a, `a` ≥ 0, `u` uniform random variable
 """
-function poisson_time(a, u)
+function poisson_time(a::Number, u::Number)
     -log(u)/a
 end
 
