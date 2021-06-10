@@ -29,15 +29,16 @@ Input: argument `Γ`, a sparse precision matrix approximating target precision.
 Bouncy particle sampler,  `λ` is the refreshment rate, which has to be
 strictly positive.
 """
-struct BouncyParticle{T, S, R} <: ContinuousDynamics
+struct BouncyParticle{T, S, R, V} <: ContinuousDynamics
     Γ::T
     μ::S
     λref::R
     ρ::R
+    U::V
 end
-BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ)
+BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing)
 # simple constructor for first experiments
-BouncyParticle(λ, d) = BouncyParticle(I(d), zeros(d), λ, 0.0)
+BouncyParticle(λ, d) = BouncyParticle(I(d), zeros(d), λ, 0.0, nothing)
 """
     Boomerang(μ, λ) <: ContinuousDynamics
 
@@ -91,3 +92,32 @@ struct Boomerang1d{S,T} <: ContinuousDynamics
 end
 Boomerang1d(λ) = Boomerang1d(1.0, 0.0, λ)
 Boomerang1d(μstar, λ) = Boomerang1d(1.0, μstar, λ)
+
+
+"""
+    ExtendedForm()
+
+Indicates as `args[1]` that `∇ϕ` 
+depends on the extended arguments
+
+    ∇ϕ(t, x, θ, i, t′, Z, args...)
+
+instead of 
+
+    ∇ϕ(x, i, args...)
+
+
+Can be used to implement `∇ϕ` depending on random coefficients.
+"""
+struct ExtendedForm
+end
+
+abstract type Bound end
+struct LocalBound{T} <: Bound
+    c::T
+end
+struct GlobalBound{T} <: Bound
+    c::T
+end
+
+Base.:*(C::T, a) where {T <: Bound} = T(C.c*a)
