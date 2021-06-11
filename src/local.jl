@@ -148,5 +148,5 @@ function spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, G_, F::Union{ZigZag,FactBoo
     Ξ, (t, x, θ), (acc, num), C
 end
 
-spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, Matched(), F, args...; kargs...) 
+spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)], F, args...; kargs...) 
 pdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, All(), F, args...; kargs...) 
