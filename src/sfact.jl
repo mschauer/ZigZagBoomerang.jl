@@ -84,7 +84,7 @@ export ExtendedForm, SelfMoving
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, args...) = ∇ϕ(x, i, args...)
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, args...)
 sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
-sλ̄((a,b), Δt) = pos(a + b*Δt)
+sλ̄(abc, Δt) = pos(abc[1] + abc[2]*Δt)
 
 
 """

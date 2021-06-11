@@ -25,6 +25,8 @@ include("not_fact_samplers.jl")
 include("priorityqueue.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
+include("local.jl")
+
 include("parallel.jl")
 include("sfactiter.jl")
 

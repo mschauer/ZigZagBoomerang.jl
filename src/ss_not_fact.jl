@@ -117,7 +117,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
             tref = t + waiting_time_ref(Flow) # regenerate refreshment time
             b = ab(x, θ, c, Flow) # regenerate reflection time
             told = t
-            t′ = t + poisson_time(b, rand())
+            t′, _ = next_time(t, b, rand())
             tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
             for i in eachindex(f) # make function later...
                 if !f[i]
@@ -138,7 +138,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 if !(strong_upperbounds) #not strong upperbounds, draw new waiting time
                     b = ab(x, θ, c, Flow) # regenerate reflection time
                     told = t
-                    t′ = t + poisson_time(b, rand())
+                    t′, _ = next_time(t, b, rand())
                 end
             else # is frozen ->  unfreeze
                 @assert x[i] == 0 && θ[i] == 0
@@ -147,7 +147,7 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 tfrez[i] = t + freezing_time(x[i], θ[i], Flow.μ[i], Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
-                t′ = t + poisson_time(b, rand())
+                t′, _ = next_time(t, b, rand())
             end
         else #   t′ usual bouncy particle / boomerang step
             ∇ϕx = ∇ϕ!(∇ϕx, x, args...)
@@ -163,12 +163,12 @@ function sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tf
                 θ = reflect_sticky!(∇ϕx, x, θ, f, Flow)
                 b = ab(x, θ, c, Flow) # regenerate reflection time
                 told = t
-                t′ = t + poisson_time(b, rand())
+                t′, _ = next_time(t, b, rand())
                 tfrez = freezing_time!(tfrez, t, x, θ, f, Flow)
             else # nothing happened
                 b = ab(x, θ, c, Flow)
                 told = t
-                t′ = t + poisson_time(b, rand())
+                t′, _ = next_time(t, b, rand())
                 continue
             end
         end
@@ -192,7 +192,7 @@ function sspdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang
     tfrez = freezing_time!(tfrez, t0, x0, θ0, f, Flow) #freexing times
     num = acc = 0
     b = ab(x, θ, c, Flow)
-    t′ = t + poisson_time(b, rand()) # reflection time
+    t′, _ = next_time(t, b, rand()) # reflection time
     while t < T
         t, x, θ, t′, tref, tfrez, told, f, θf, (acc, num), c, b = sticky_pdmp_inner!(Ξ, ∇ϕ!, ∇ϕx, t, x, θ, c, b, t′, f, θf, tfrez, tref, told, (acc, num),
                 Flow, κ, args...; strong_upperbounds = strong_upperbounds, factor = factor, adapt = adapt)
