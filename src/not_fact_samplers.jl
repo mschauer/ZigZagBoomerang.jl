@@ -8,7 +8,7 @@ function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
     y
 end
 
-λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ)) + F.U
+λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
 
 #=
 function refresh!(rng, θ, F::BouncyParticle)
