@@ -1,8 +1,3 @@
-function ab(G, i, x, θ, C::LocalBound, ∇ϕi, vi, Z::JointFlow{<:Vector{<:LaplaceZigZag}}, args...)
-    a = C.c[i]
-    b = 0.0
-    a, b, 2.0/C.c[i]
-end
 
 function ab(G, i, x, θ, C::LocalBound, ∇ϕi, vi, Z::ZigZag, args...)
     a = C.c[i] + ∇ϕi'*θ[i] 
