@@ -8,7 +8,7 @@ function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
     y
 end
 
-λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
+λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ)) + F.U
 
 #=
 function refresh!(rng, θ, F::BouncyParticle)
@@ -24,7 +24,7 @@ function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::BouncyParticle)
     (C.c + θ'*(B.Γ*(x-B.μ)), θ'*(B.Γ*θ), Inf)
 end
 function ab(x, θ, C::LocalBound, ∇ϕx, v, B::BouncyParticle)
-    (0.05 + dot(θ, ∇ϕx), v, 2.0/C.c/norm(θ, Inf))
+    (C.c + dot(θ, ∇ϕx), v, 2.0/C.c/norm(θ, Inf))
 end
 
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
@@ -46,7 +46,7 @@ function next_time(t, abc, z = rand(rng))
 end
 
 function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
-     Flow::Union{BouncyParticle, Boomerang}, args...; factor=1.5, adapt=false)
+     Flow::Union{BouncyParticle, Boomerang}, args...; subsample=false, factor=1.5, adapt=false)
     while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
@@ -82,7 +82,7 @@ function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew)
                 ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
                 abc = ab(x, θ, c, ∇ϕx, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
-                return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+                !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
             else
                 abc = ab(x, θ, c, ∇ϕx, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
@@ -109,7 +109,7 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 `c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
 out to be too small.)
 """
-function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, Flow)
@@ -129,7 +129,7 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
 
     t′, renew = next_time(t, abc, rand(rng))
     while t < T
-        t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, Flow))
 
         if t > tstop

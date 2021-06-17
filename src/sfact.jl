@@ -14,7 +14,7 @@ function smove_forward!(i::Int, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}
     t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
     return t, x, θ
 end
-
+neighbours(::Nothing, i) = Int[]
 smove_forward!(::Nothing, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}) = t, x, θ
 smove_forward!(::All, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag}) = smove_forward!(t, x, θ, t′, Z)
 smove_forward!(::Nothing, i, t, x, θ, t′, Z::Union{Boomerang, FactBoomerang}) = t, x, θ
@@ -47,28 +47,11 @@ function smove_forward!(t, x, θ, t′, B::Union{Boomerang, FactBoomerang})
     t, x, θ
 end
 
-function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang})
+function event(i, t::Vector, x, θ, Z::Union{ZigZag,FactBoomerang,JointFlow})
     t[i], i, x[i], θ[i]
 end
 
 
-"""
-    ExtendedForm()
-
-Indicates as `args[1]` that `∇ϕ` 
-depends on the extended arguments
-
-    ∇ϕ(t, x, θ, i, t′, Z, args...)
-
-instead of 
-
-    ∇ϕ(x, i, args...)
-
-
-Can be used to implement `∇ϕ` depending on random coefficients.
-"""
-struct ExtendedForm
-end
 
 """
     SelfMoving()
@@ -83,7 +66,7 @@ export ExtendedForm, SelfMoving
 
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, args...) = ∇ϕ(x, i, args...)
 ∇ϕ_(∇ϕ, t, x, θ, i, t′, Z, S::SelfMoving, args...) = ∇ϕ(t, x, θ, i, t′, Z, args...)
-sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang}) = λ(∇ϕi, i, x, θ, Z)
+sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang,JointFlow}) = λ(∇ϕi, i, x, θ, Z)
 sλ̄(abc, Δt) = pos(abc[1] + abc[2]*Δt)
 
 
@@ -134,9 +117,9 @@ function spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num
                     end
                 end
                 if F isa ZigZag && eltype(θ) <: Number
-                    θ[i] = F.σ[i]*rand((-1,1))
+                    θ[i] = F.σ[i]*rand(rng, (-1,1))
                 else
-                    θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn(eltype(θ))
+                    θ[i] = F.ρ*θ[i] + F.ρ̄*F.σ[i]*randn(rng, eltype(θ))
                 end
             end
   
@@ -195,7 +178,7 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 out to be too small.) The final time, location and momentum at `T` can be obtained
 with `smove_forward!(t, x, θ, T, F)`.
 """
-function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args...;
+function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang,JointFlow}, args...;
         factor=1.8, adapt=false, adaptscale=false, progress=false, progress_stops = 20, seed=Seed())
     n = length(x0)
 
@@ -222,7 +205,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
         enqueue!(Q, i => poisson_time(b[i], rand(rng)))
     end
     if hasrefresh(F)
-        enqueue!(Q, (n + 1) => waiting_time_ref(F))
+        enqueue!(Q, (n + 1) => waiting_time_ref(rng, F))
     end
     if progress
         prg = Progress(progress_stops, 1)
@@ -240,13 +223,14 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang}, args
             tstop += T/stops
             next!(prg) 
         end  
+        @show t′, T
     end
     ismissing(prg) || ProgressMeter.finish!(prg)
     #t, x, θ = smove_forward!(t, x, θ, T, F)
     Ξ, (t, x, θ), (acc, num), c
 end
 
-spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, Matched(), F, args...; kargs...) 
+spdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang,JointFlow}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, Matched(), F, args...; kargs...) 
 
 """
     pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args..., args) = Ξ, (t, x, θ), (acc, num), c
@@ -268,4 +252,4 @@ out to be too small.)
 This version does not assume that `∇ϕ` has sparse conditional dependencies,
 see [`spdmp`](@ref).
 """
-pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, All(), F, args...; kargs...) 
+pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang,JointFlow}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, c, All(), F, args...; kargs...) 

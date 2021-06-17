@@ -1,3 +1,9 @@
+function ab(G, i, x, θ, C::LocalBound, ∇ϕi, vi, Z::JointFlow{<:Vector{<:LaplaceZigZag}}, args...)
+    a = C.c[i]
+    b = 0.0
+    a, b, 2.0/C.c[i]
+end
+
 function ab(G, i, x, θ, C::LocalBound, ∇ϕi, vi, Z::ZigZag, args...)
     a = C.c[i] + ∇ϕi'*θ[i] 
     b = C.c[i]/100 + vi
@@ -25,42 +31,20 @@ until the next accepted reflection time or refreshment time. `(num, acc)`
 incrementally counts how many event times occour and how many of those are real reflection times.
 """
 function spdmp_inner!(rng, G, G2, ∇ϕ, t, x, θ, Q, c::LocalBound, (b, renew), t_old, (acc, num),
- F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
-n = length(x)
-while true
-    i, t′ = peek(Q)
-    refresh = i > n
-    if refresh
-        i = rand(1:n)
-    end
-    if refresh
-        error("not implemented")
-    elseif renew[i]
-        t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
-        ∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
-        b[i] = ab(G, i, x, θ, c, ∇ϕi, vi, F)
-        t_old[i] = t[i]
-        τ, renew[i] = next_time(t[i], b[i], rand(rng))
-        Q[i] = τ
-        continue
-    else
-        t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
-        ∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
-        l, lb = sλ(∇ϕi, i, x, θ, F), pos(b[i][1] + b[i][2]*(t[i] - t_old[i]))
-        num += 1
-        if rand(rng)*lb < l
-            acc[i] += 1
-            if l >= lb
-                if !adapt
-                    @show t[i] - t_old[i]
-                    @show ∇ϕi, vi, l, lb, b
-                    error("Tuning parameter `c = $(c.c[i])` too small.")
-                end
-                c.c[i] = c.c[i]*factor
-            end
+ F::Union{ZigZag,FactBoomerang,JointFlow}, args...; factor=1.5, adapt=false, adaptscale=false)
+    n = length(x)
+    while true
+        i, t′ = peek(Q)
+     #   @show i
+        refresh = i > n
+        if refresh
+            i = rand(1:n)
+        end
+        if refresh && F isa JointFlow
+            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
-            θ = reflect!(i, ∇ϕi, x, θ, F)
-            #∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
+            x[i], θ[i] = ZigZagBoomerang.refresh(rng, x[i], θ[i], F[i])
+            Q[(n + 1)] = t′ + waiting_time_ref(rng, F) #renew refreshment time
             for j in neighbours(G, i)
                 ∇ϕj, vj = ∇ϕ(t, x, θ, j, t′, F, args...)
                 b[j] = ab(G, j, x, θ, c, ∇ϕj, vj, F)
@@ -68,16 +52,51 @@ while true
                 τ, renew[j] = next_time(t[j], b[j], rand(rng))
                 Q[j] = τ
             end
-        else
+         #   @show x, θ, i, t′
+        elseif renew[i]
+            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
+            ∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
             b[i] = ab(G, i, x, θ, c, ∇ϕi, vi, F)
             t_old[i] = t[i]
             τ, renew[i] = next_time(t[i], b[i], rand(rng))
             Q[i] = τ
             continue
+        else
+            t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
+            ∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
+            l, lb = sλ(∇ϕi, i, x, θ, F), pos(b[i][1] + b[i][2]*(t[i] - t_old[i]))
+            #@show i, θ, l, lb
+            num += 1
+            if rand(rng)*lb < l
+                acc[i] += 1
+                if l >= lb
+                    if !adapt
+                        @show t[i] - t_old[i]
+                        @show ∇ϕi, vi, l, lb, b
+                        error("Tuning parameter `c = $(c.c[i])` too small.")
+                    end
+                    c.c[i] = c.c[i]*factor
+                end
+                t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
+                θ = reflect!(i, ∇ϕi, x, θ, F)
+                #∇ϕi, vi = ∇ϕ(t, x, θ, i, t′, F, args...)
+                for j in neighbours(G, i)
+                    ∇ϕj, vj = ∇ϕ(t, x, θ, j, t′, F, args...)
+                    b[j] = ab(G, j, x, θ, c, ∇ϕj, vj, F)
+                    t_old[j] = t[j]
+                    τ, renew[j] = next_time(t[j], b[j], rand(rng))
+                    Q[j] = τ
+                end
+            else
+                b[i] = ab(G, i, x, θ, c, ∇ϕi, vi, F)
+                t_old[i] = t[i]
+                τ, renew[i] = next_time(t[i], b[i], rand(rng))
+                Q[i] = τ
+                continue
+            end
         end
+        return event(i, t, x, θ, F), t, x, θ, t′, (acc, num), c, (b, renew), t_old
     end
-    return event(i, t, x, θ, F), t, x, θ, t′, (acc, num), c, (b, renew), t_old
-end
 end
 
 """
@@ -95,7 +114,7 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 out to be too small.) The final time, location and momentum at `T` can be obtained
 with `smove_forward!(t, x, θ, T, F)`.
 """
-function spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, G_, F::Union{ZigZag,FactBoomerang}, args...;
+function spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, G_, F::Union{ZigZag,FactBoomerang,JointFlow}, args...;
     factor=1.8, adapt=false, adaptscale=false, progress=false, progress_stops = 20, seed=Seed())
     n = length(x0)
 
@@ -148,5 +167,5 @@ function spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, G_, F::Union{ZigZag,FactBoo
     Ξ, (t, x, θ), (acc, num), C
 end
 
-spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)], F, args...; kargs...) 
-pdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, All(), F, args...; kargs...) 
+spdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang,JointFlow}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)], F, args...; kargs...) 
+pdmp(∇ϕ, t0, x0, θ0, T, C::LocalBound, F::Union{ZigZag,FactBoomerang,JointFlow}, args...; kargs...) = spdmp(∇ϕ, t0, x0, θ0, T, C, All(), F, args...; kargs...) 
