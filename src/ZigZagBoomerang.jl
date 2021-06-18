@@ -15,10 +15,11 @@ include("dynamics.jl")
 export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
 const LocalZigZag = ZigZag
 export LocalZigZag, BouncyParticle, Boomerang
+#include("laplace.jl")
 
 include("poissontime.jl")
 export poisson_time
-
+include("jointflow.jl")
 include("fact_samplers.jl")
 include("not_fact_samplers.jl")
 
@@ -41,6 +42,7 @@ include("ss_not_fact.jl")
 export sticky_pdmp
 
 include("trace.jl")
+include("condition.jl")
 include("discretise.jl")
 const discretise = discretize 
 export discretise, discretize, sdiscretize, subtrace

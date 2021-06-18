@@ -35,7 +35,7 @@ inplace, so copies have to be made if the `x` is to be saved.
 `collect` applied to a trace object automatically copies `x`.
 [`discretize`](@ref) returns a discretized version.
 """
-Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
+Trace(t0::T, x0, θ0, F::Union{ZigZag,FactBoomerang,JointFlow}) where {T} = FactTrace(F, t0, x0, θ0, Tuple{T,Int,eltype(x0),eltype(θ0)}[])
 Trace(t0::T, x0::U, θ0::U2, F::Union{BouncyParticle,Boomerang}) where {T, U, U2} = PDMPTrace(F, t0, x0, θ0, ones(Bool, length(x0)), Tuple{T,U,U2,Nothing}[])
 Trace(t0::T, x0::U, θ0::U2, f::U3, F::Union{BouncyParticle,Boomerang}) where {T, U, U2, U3} = PDMPTrace(F, t0, x0, θ0, f, Tuple{T,U,U2,U3}[])
 
@@ -103,7 +103,7 @@ function Base.iterate(D::Discretize{<:PDMPTrace})
     t => x, (t, x, θ, f, 1)
 end
 
-function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Union{FactBoomerang,ZigZag}}
+function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Union{FactBoomerang,ZigZag,JointFlow}}
     dt = D.dt
     FT = D.FT
     while true
