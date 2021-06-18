@@ -19,7 +19,7 @@ export LocalZigZag, BouncyParticle, Boomerang
 
 include("poissontime.jl")
 export poisson_time
-
+include("jointflow.jl")
 include("fact_samplers.jl")
 include("not_fact_samplers.jl")
 
