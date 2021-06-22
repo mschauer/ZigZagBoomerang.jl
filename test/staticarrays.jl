@@ -68,7 +68,7 @@ end
     c = 50.0
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
     BP = BouncyParticle(Γ, x0*0, 0.5)
-    T = 200.0
+    T = 400.0
 
     @time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, BP, Γ)
     xs = last.(collect(discretize(trace, 0.01)))
