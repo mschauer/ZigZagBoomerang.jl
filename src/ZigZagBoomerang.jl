@@ -8,6 +8,8 @@ using RandomNumbers: gen_seed
 const Rng = Xoroshiro128Plus 
 Seed() = gen_seed(UInt64, 2)
 
+#using AbstractMCMC
+
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")
 include("common.jl")
@@ -30,6 +32,8 @@ include("local.jl")
 
 include("parallel.jl")
 include("sfactiter.jl")
+include("notfactiter.jl")
+
 
 include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition

@@ -203,6 +203,26 @@ function cummean(trace::FactTrace)
 end
 export cummean
 
+
+function Statistics.mean(trace::PDMPTrace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    ys = fill(y, 0)
+    T = trace.events[end][1]
+    t2 = trace.t0
+    t = t2
+    k = 1
+    while k <= length(trace.events)
+        t2, x2, _ =trace.events[k]
+        k += 1
+        y  += (x + x2)*(t2-t) 
+        t = t2
+        x  = x2
+    end
+    y/T
+end
+
 function cummean(trace::PDMPTrace)
     x = copy(trace.x0)
     θ = copy(trace.θ0)

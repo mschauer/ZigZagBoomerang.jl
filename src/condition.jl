@@ -82,3 +82,53 @@ end
 function Base.collect(D::ConditionalTrace{<:PDMPTrace})
     collect(t=>copy(x) for (t, x) in D)
 end
+
+
+##### 
+
+conditional_trace(FS::NotFactSampler, f) = ConditionalTrace(FS, f)
+
+function Base.iterate(D::ConditionalTrace{<:NotFactSampler})
+    FS = D.FT
+    ϕ = iterate(FS)
+    ϕ === nothing && return nothing
+    t, (x, θ) = deepcopy(FS.u0)
+    ev, state = ϕ   
+    _, _, _, f_ = ev # CHECKME?
+    if isnothing(f_)
+        f = ones(Bool, length(x)) # simplified all moving
+    else 
+        f = f_
+    end
+    
+    iterate(D, ((t, x, θ, f), ev, state))
+end
+
+function Base.iterate(D::ConditionalTrace{<:NotFactSampler}, ((t, x, θ, f), ev, state))
+    (p,n) = D.plane
+    FS = D.FT
+    while true
+        tn = first(ev)
+        τ = hittingtime(x, θ, (p, n), FS.F)
+#        println(t, " ", τ, " ", tn, " ", x[end])
+        if τ > 0 && t + τ < tn
+            t, x, θ = smove_forward!(τ, t, x, θ, f, FS.F)
+            return (t => copy(x)), ((t, x, θ, f), ev, state)
+        else
+            Δt = tn - t
+            t, x, θ = smove_forward!(Δt, t, x, θ, f, FS.F)
+        end
+        t, x_, θ_, f_ = ev
+        x .= x_
+        θ .= θ_
+        ϕ = iterate(FS, state)
+        ϕ === nothing && return nothing
+        ev, state = ϕ
+        if !isnothing(f_)
+            f = f_
+        end
+    end
+end
+
+
+

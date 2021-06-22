@@ -117,7 +117,7 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
     ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
     ∇ϕx = grad_correct!(∇ϕx, x, Flow)
     num = acc = 0
-    l = 0.0
+    #l = 0.0
     abc = ab(x, θ, c, ∇ϕx, v, Flow)
     if progress
         prg = Progress(progress_stops, 1)
