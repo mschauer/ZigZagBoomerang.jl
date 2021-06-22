@@ -1,3 +1,6 @@
+abstract type PDMPSampler
+end
+
 """
     ContinuousDynamics
 
@@ -38,7 +41,7 @@ struct BouncyParticle{T, S, R, V} <: ContinuousDynamics
 end
 BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing)
 # simple constructor for first experiments
-BouncyParticle(λ, d) = BouncyParticle(I(d), zeros(d), λ, 0.0, nothing)
+BouncyParticle(λ, d) = BouncyParticle(1.0I(d), zeros(d), λ, 0.0, nothing)
 """
     Boomerang(μ, λ) <: ContinuousDynamics
 

@@ -223,7 +223,7 @@ function spdmp(∇ϕ, t0, x0, θ0, T, c, G, F::Union{ZigZag,FactBoomerang,JointF
             tstop += T/stops
             next!(prg) 
         end  
-        @show t′, T
+   #     @show t′, T
     end
     ismissing(prg) || ProgressMeter.finish!(prg)
     #t, x, θ = smove_forward!(t, x, θ, T, F)

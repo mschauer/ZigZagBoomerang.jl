@@ -1,7 +1,6 @@
 import Base.iterate
 export FactSampler, trace
-abstract type PDMPSampler
-end
+
 
 struct FactSampler{TF,T∇ϕ,Tc,Tu0,TG,Trng,Targs} <: PDMPSampler
     F::TF
