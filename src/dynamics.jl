@@ -86,11 +86,12 @@ Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
 """
 function reflect!(∇ϕx, x, θ, F::BouncyParticle)
-    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L*∇ϕx))*(F.Γ*∇ϕx)
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
     θ
 end
 function reflect!(∇ϕx, x, θ, F::Boomerang)
-    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
+#    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
     θ
 end
 
@@ -110,6 +111,14 @@ end
 function refresh!(rng, θ, F::BouncyParticle)
     ρ̄ = sqrt(1-F.ρ^2)
     θ .*= F.ρ
-    θ .+= ρ̄*F.L'*randn(rng, length(θ))
+    u = ρ̄*(F.L'\randn(rng, length(θ)))
+    θ .+= u
+    θ
+end
+function refresh!(rng, θ, F::Boomerang)
+    ρ̄ = sqrt(1-F.ρ^2)
+    θ .*= F.ρ
+    u = ρ̄*(F.L'\randn(rng, length(θ)))
+    θ .+= u
     θ
 end

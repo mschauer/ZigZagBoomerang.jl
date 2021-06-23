@@ -40,7 +40,7 @@ struct BouncyParticle{T, S, R, V, LT} <: ContinuousDynamics
     U::V
     L::LT
 end
-BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing, sparse(cholesky(Symmetric(Γ)).L))
+BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing, (cholesky(Symmetric(Γ)).L))
 # simple constructor for first experiments
 BouncyParticle(λ, d) = BouncyParticle(1.0I(d), zeros(d), λ, 0.0, nothing)
 """
@@ -56,7 +56,7 @@ struct Boomerang{U, T, S, LT} <: ContinuousDynamics
     ρ::S
     L::LT
 end
-Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ, sparse(cholesky(Symmetric(Γ)).L))
+Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ, (cholesky(Symmetric(Γ)).L))
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 
