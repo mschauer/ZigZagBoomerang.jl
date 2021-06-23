@@ -75,5 +75,7 @@ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 5. Joris Bierkens, Alexandre Bouchard-Côté, Arnaud Doucet, Andrew B. Duncan, Paul Fearnhead, Thibaut Lienart, Gareth Roberts, Sebastian J. Vollmer:
 Piecewise deterministic Markov processes for scalable Monte Carlo on restricted domains, *Statistics & Probability Letters*, 136. 2018.
 [https://doi.org/10.1016/j.spl.2018.02.021].
+6. Joris Bierkens, Andrea Bertazzi: Adaptive Schemes for Piecewise Deterministic Monte Carlo Algorithms, 2020. [https://arxiv.org/abs/arXiv:2012.13924].
+
 
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
