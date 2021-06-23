@@ -32,14 +32,15 @@ Input: argument `Γ`, a sparse precision matrix approximating target precision.
 Bouncy particle sampler,  `λ` is the refreshment rate, which has to be
 strictly positive.
 """
-struct BouncyParticle{T, S, R, V} <: ContinuousDynamics
+struct BouncyParticle{T, S, R, V, LT} <: ContinuousDynamics
     Γ::T
     μ::S
     λref::R
     ρ::R
     U::V
+    L::LT
 end
-BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing)
+BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing, sparse(cholesky(Symmetric(Γ)).L))
 # simple constructor for first experiments
 BouncyParticle(λ, d) = BouncyParticle(1.0I(d), zeros(d), λ, 0.0, nothing)
 """
@@ -48,13 +49,14 @@ BouncyParticle(λ, d) = BouncyParticle(1.0I(d), zeros(d), λ, 0.0, nothing)
 Dynamics preserving the `N(μ, Σ)` measure (Boomerang)
 with refreshment time `λ`
 """
-struct Boomerang{U, T, S} <: ContinuousDynamics
+struct Boomerang{U, T, S, LT} <: ContinuousDynamics
     Γ::U
     μ::T
     λref::S
     ρ::S
+    L::LT
 end
-Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ)
+Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ, sparse(cholesky(Symmetric(Γ)).L))
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 

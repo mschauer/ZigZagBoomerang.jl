@@ -65,7 +65,7 @@ end
     θ0 = @SVector ones(Float64, 5)
 
     μ = 0*x0
-    c = 50.0
+    c = 100.0
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
     BP = BouncyParticle(Γ, x0*0, 0.5)
     T = 400.0

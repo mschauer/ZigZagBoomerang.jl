@@ -155,12 +155,13 @@ end
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    c = 1.001
+    c = 1.1
     Γ0 = copy(Γ)
     B = BouncyParticle(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
-    T = 3000.0
-    trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    T = 300.0
+    trace, _, acc, more = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B, progress=true)
+    @show more
     @show acc[1]/acc[2]
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
