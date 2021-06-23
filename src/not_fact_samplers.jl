@@ -1,13 +1,16 @@
-# Implementation of d dimesional Boomerang and Bouncy particle samplers (the two
+# Implementation of d-dimensional Boomerang and Bouncy particle samplers (the two
 # most known not-factorised PDMC)
 using LinearAlgebra
 
 grad_correct!(y, x, F::Union{BouncyParticle, ZigZag}) = y
-function grad_correct!(y, x, F::Union{Boomerang, FactBoomerang})
-    @. y -= (x - F.μ)
+function grad_correct!(y, x, F::FactBoomerang)
+    @. y -= x - F.μ
     y
 end
-
+function grad_correct!(y, x, F::Boomerang)
+    y .-= (F.L'\(F.L\(x - F.μ)))
+    y
+end
 λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
 
 #=
