@@ -5,12 +5,13 @@ end
 z = augment.(t, x)
 
 function inclusion_probability(ts0, z)
+   T = ts0[end]
    dict = Dict(z[1] => 0.0)
    for (δt, i) in zip(diff(ts0), eachindex(ts0))
       if haskey(dict, z[i])
-         dict[z[i]] += δt
+         dict[z[i]] += δt/T
       else
-         push!(dict, z[i] => δt)
+         push!(dict, z[i] => δt/T)
       end
    end
 return dict
@@ -33,5 +34,21 @@ c = 0.1*ones(n)
 ts0, xs0 = splitpairs(trace0)
 zs0 = augment.(ts0, xs0)
 zz = inclusion_probability(ts0, zs0)
+@assert sum(values(zz)) == 1.0
+
+
+### Inclusion discrete time sampler
+function inclusion_probability_discrete(z, N)
+   dict = Dict(z[1] => 0.0)
+   for i in eachindex(z)
+      if haskey(dict, z[i])
+         dict[z[i]] += 1/N
+      else
+         push!(dict, z[i] => 1/N)
+      end
+   end
+return dict
+end
+
 error("")
 
