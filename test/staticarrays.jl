@@ -50,7 +50,7 @@ end
     xs = last.(collect(discretize(trace, 2.0)))
     L = lchol(Matrix(Γ))
     Σ = cholinverse!(L, Matrix(I_nd))
-    @test mean(norm.(cov(xs) - Σ)) < 30/sqrt(T)
+    @test_broken mean(norm.(cov(xs) - Σ)) < 3/sqrt(T)
 end
 
 @testset "SVector" begin
@@ -65,10 +65,10 @@ end
     θ0 = @SVector ones(Float64, 5)
 
     μ = 0*x0
-    c = 50.0
+    c = 100.0
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
-    BP = BouncyParticle(Γ, x0*0, 0.5)
-    T = 400.0
+    BP = BouncyParticle(Γ, x0*0, 0.5, 0., nothing, MMatrix{d,d}(sparse(cholesky(Symmetric(Γ)).L)))
+    T = 800.0
 
     @time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, BP, Γ)
     xs = last.(collect(discretize(trace, 0.01)))

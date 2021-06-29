@@ -148,19 +148,20 @@ end
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2.5/sqrt(T)
 end
 
 @testset "Bouncy Particle Sampler" begin
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    c = 1.001
+    c = 1.1
     Γ0 = copy(Γ)
     B = BouncyParticle(Γ0, x0*0, 0.5)
     ∇ϕ!(y, x) = mul!(y, Γ, x)
-    T = 3000.0
-    trace, _, acc = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B)
+    T = 300.0
+    trace, _, acc, more = @time pdmp(∇ϕ!, t0, x0, θ0, T, c, B, progress=true)
+    @show more
     @show acc[1]/acc[2]
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
@@ -197,12 +198,12 @@ end
     ∇ϕ(x) = [-π*sin(π*x[1]) + x[1]]
     ∇ϕ(x, i) = -π*sin(π*x[1]) + x[1] # (REPLACE IT WITH AUTOMATIC DIFFERENTIATION)
     c = [3.5π]
-    λref = 1.0
+    λref = 1.5
     n = 1
     x0 = randn(n)
     θ0 = randn(n)
     t0 = 0.0
-    T = 10000.0
+    T = 10100.0
     Γ = sparse(Matrix(1.0I, n, n))
     B = FactBoomerang(Γ, x0*0, λref)
     trace, _,  acc = pdmp(∇ϕ, t0, x0, θ0, T, c, B)

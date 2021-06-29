@@ -85,10 +85,16 @@ end
 Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
 """
-function reflect!(∇ϕx, x, θ, ::Union{BouncyParticle, Boomerang})
-    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx
+function reflect!(∇ϕx, x, θ, F::BouncyParticle)
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
     θ
 end
+function reflect!(∇ϕx, x, θ, F::Boomerang)
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
+#    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
+    θ
+end
+
 
 waiting_time_ref(rng, F) = poisson_time(rng, F.λref)
 waiting_time_ref(F) = poisson_time(F.λref)
@@ -99,5 +105,20 @@ function refresh!(rng, θ, F)
     @inbounds for i in eachindex(θ)
         θ[i] = F.ρ*θ[i] + ρ̄*randn(rng)
     end
+    θ
+end
+
+function refresh!(rng, θ, F::BouncyParticle)
+    ρ̄ = sqrt(1-F.ρ^2)
+    θ .*= F.ρ
+    u = ρ̄*(F.L'\randn(rng, length(θ)))
+    θ .+= u
+    θ
+end
+function refresh!(rng, θ, F::Boomerang)
+    ρ̄ = sqrt(1-F.ρ^2)
+    θ .*= F.ρ
+    u = ρ̄*(F.L'\randn(rng, length(θ)))
+    θ .+= u
     θ
 end

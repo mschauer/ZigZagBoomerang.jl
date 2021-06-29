@@ -71,7 +71,7 @@ end
 
     c = 10.0
 
-    B = Boomerang(sparse(I(d)), μ, 0.5, 0.95)
+    B = Boomerang(sparse(I(d)), μ, 0.5, 0.95, sparse(I(d)))
     T = 1000.0
 
     trace, _, acc = @time sspdmp(∇ϕ!, t0, x0, θ0, T, c, B, κ, Γ, μ)
