@@ -29,6 +29,8 @@ function poisson_time(a, b, u)
     end
 end
 
+
+
 """
     poisson_time(a[, u])
 
