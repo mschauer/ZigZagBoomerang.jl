@@ -37,9 +37,9 @@ function poisson_time((a, b, c)::NTuple{3}, u)
         return (-log(u) +  a^2/(2*b))/c, 0
     else
         π = -(a + c + sqrt((a + c)^2 - 2*b*log(u)))/b
-        if a + π*b >= 0 && a > 0
+        if a > 0 && a + π*b >= 0
             return π, 0 #1/2*π*(2*a + π*b + 2*c) == -log(u) 
-        else
+        else # a <= 0 && (a + π*b > 0)
            #? 
         end
     end
