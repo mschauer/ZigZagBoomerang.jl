@@ -1,4 +1,5 @@
 using ZigZagBoomerang
+using Test
 using ZigZagBoomerang: poisson_time
 """
 int (max(a + b*t, 0) + c) dt from 0 to pi 
@@ -29,23 +30,20 @@ end
         end
     end
 end
-#=
+
 @testset "poisson" begin
     for k in 1:100
         a, b = 2rand(2) .- 1
         c = rand()
         u = rand()
-        s, i = poisson_time((a,b,c), u)
+        s = poisson_time((a,b,c), u)
         if s == Inf
             t = F((a,b,c), s)
-            @show i
             @test t < -log(u)
         else
-            @show i
 
             t = F((a,b,c), s)
             @test t ≈ -log(u)
         end
     end
 end
-=#
