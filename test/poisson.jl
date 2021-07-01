@@ -13,7 +13,6 @@ function F((a,b,c), π)
         return 1/2*π*(2*a + π*b + 2*c) 
     else # a <= 0 && (a + π*b > 0)
         return a^2/(2*b) + π*a + (π^2*b)/2 + π*c 
-        #return (π*b*(π*b + 2*c) - 2*(-a)*π*b + a^2)/(2b)
     end
 end
 @testset "poisson" begin
