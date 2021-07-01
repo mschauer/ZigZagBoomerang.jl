@@ -1,6 +1,8 @@
 using ZigZagBoomerang
 using ZigZagBoomerang: poisson_time
-
+"""
+int (max(a + b*t, 0) + c) dt from 0 to pi 
+"""
 function F((a,b,c), π)
     if a <= 0 && (a + π*b <= 0)
         return π*c
@@ -11,6 +13,12 @@ function F((a,b,c), π)
     else
         return a^2/(2*b) + π*a + (π^2*b)/2 + π*c 
     end
+
+    if a < 0 && π*b + a <= 0 
+        return π*c 
+    else
+        return (π*b*(π*b + 2*c) - 2*(-a)*π*b + a^2)/(2b)
+    end    
 end
 @testset "poisson" begin
     for k in 1:100
@@ -32,11 +40,14 @@ end
         a, b = 2rand(2) .- 1
         c = rand()
         u = rand()
-        s = poisson_time((a,b,c), u)
+        s, i = poisson_time((a,b,c), u)
         if s == Inf
             t = F((a,b,c), s)
+            @show i
             @test t < -log(u)
         else
+            @show i
+
             t = F((a,b,c), s)
             @test t ≈ -log(u)
         end
