@@ -57,7 +57,7 @@ function poisson_time((a,b,c)::NTuple{3}, u)
     else # b[i] < 0
         if a <= 0.0 
             return -log(u)/c
-        elseif  !(- c*a/b - a^2/(2*b)  + log(u) <= 0.0)
+        elseif  - c*a/b - a^2/(2*b)  + log(u) > 0.0
             return +sqrt((a+c)^2 - 2.0*log(u)*b)/b - (a+c)/b
         else
             return (-log(u)+ a^2/(2*b))/c
