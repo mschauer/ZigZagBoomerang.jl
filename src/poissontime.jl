@@ -40,21 +40,20 @@ function poisson_time((a,b,c)::NTuple{3}, u)
     if b > 0
         if a < 0
             if !(-c*a/b + log(u) >= 0)
-                # return sqrt((-log(u) + a^2/(2*b))*2.0/b) - (a+c)/b
                 return sqrt(-2*b*log(u) + c^2 + 2*a*c)/b - (a+c)/b
             else
                 return -log(u)/c
             end
-        else # a[i]>0 OK
+        else # a >0
             return sqrt(-log(u)*2.0*b + (a+c)^2)/b - (a+c)/b
         end
     elseif b == 0
         if a > 0
             return -log(u)/(a + c)
-        else # a[i] <= 0
+        else # a <= 0
             return -log(u)/c
         end
-    else # b[i] < 0
+    else # b < 0
         if a <= 0.0 
             return -log(u)/c
         elseif  - c*a/b - a^2/(2*b)  + log(u) > 0.0
