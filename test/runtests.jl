@@ -8,7 +8,7 @@ const CI = true
 
 Random.seed!(1)
 
-
+include("poisson.jl")
 include("test1d.jl")
 include("maintest.jl")
 include("testiter.jl")
@@ -16,3 +16,5 @@ include("testparallel.jl")
 include("staticarrays.jl")
 
 include("sticky.jl")
+
+#include("forwarddiff.jl")
