@@ -39,7 +39,7 @@ where `c`> 0 ,`a, b` ∈ R, `u` uniform random variable
 function poisson_time((a,b,c)::NTuple{3}, u)
     if b > 0
         if a < 0
-            if !(-c*a/b + log(u) >= 0)
+            if -c*a/b + log(u) < 0.0
                 return sqrt(-2*b*log(u) + c^2 + 2*a*c)/b - (a+c)/b
             else
                 return -log(u)/c
