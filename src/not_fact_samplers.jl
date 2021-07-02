@@ -48,30 +48,30 @@ function next_time(t, abc, z = rand(rng))
     end
 end
 
-function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
+function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, ∂∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
      Flow::Union{BouncyParticle, Boomerang}, args...; subsample=false, factor=1.5, adapt=false)
     while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
             θ = refresh!(rng, θ, Flow)
-            ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+            _, ∇ϕx, v = ∇ϕ!(∇ϕx, ∂∇ϕx, t, x, θ, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l = λ(∇ϕx, θ, Flow) 
             τref = t + waiting_time_ref(rng, Flow)
             abc = ab(x, θ, c, ∇ϕx, v, Flow)
             t′, renew = next_time(t, abc, rand(rng))
-            return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+            return t, x, θ, (acc, num), c, abc, (t′, renew), τref, ∇ϕx, v
         elseif renew
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow) 
-            ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+            _, ∇ϕx, v = ∇ϕ!(∇ϕx, ∂∇ϕx, t, x, θ, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             abc = ab(x, θ, c, ∇ϕx, v, Flow)
             t′, renew = next_time(t, abc, rand(rng))
         else
             τ = t′ - t
             t, x, θ = move_forward!(τ, t, x, θ, Flow)
-            ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+            _, ∇ϕx, v = ∇ϕ!(∇ϕx, ∂∇ϕx, t, x, θ, args...)
             ∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l, lb = λ(∇ϕx, θ, Flow), pos(abc[1] + abc[2]*τ)
             num += 1
@@ -82,10 +82,10 @@ function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew)
                     c *= factor
                 end
                 θ = reflect!(∇ϕx, x, θ, Flow)
-                ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+                _, ∇ϕx, v = ∇ϕ!(∇ϕx, ∂∇ϕx, t, x, θ, args...)
                 abc = ab(x, θ, c, ∇ϕx, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
-                !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+                !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, ∇ϕx, v
             else
                 abc = ab(x, θ, c, ∇ϕx, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
@@ -113,11 +113,11 @@ Also returns the `num`ber of total and `acc`epted Poisson events and updated bou
 out to be too small.)
 """
 function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boomerang}, args...; adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
-    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    t, x, θ, ∇ϕx, ∂∇ϕx = t0, copy(x0), copy(θ0), copy(θ0), copy(θ0)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, Flow)
     τref = waiting_time_ref(rng, Flow)
-    ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+    _, ∇ϕx, v = ∇ϕ!(∇ϕx, ∂∇ϕx, t, x, θ, args...)
     ∇ϕx = grad_correct!(∇ϕx, x, Flow)
     num = acc = 0
     #l = 0.0
@@ -132,7 +132,7 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
 
     t′, renew = next_time(t, abc, rand(rng))
     while t < T
-        t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; subsample=subsample, factor=factor, adapt=adapt)
+        t, x, θ, (acc, num), c, abc, (t′, renew), τref, ∇ϕx, v = pdmp_inner!(rng, ∇ϕ!, ∇ϕx, ∂∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, Flow))
 
         if t > tstop
@@ -150,7 +150,7 @@ wrap_(f, args...) = f
 struct Wrapper{F}
     f::F
 end
-(F::Wrapper)(y, t, x, θ, args...) = F.f(y, x, args...), nothing
+(F::Wrapper)(y, v, t, x, θ, args...) = nothing, F.f(y, x, args...), nothing
 
 pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}, args...; nargs...) = 
 pdmp(Wrapper(∇ϕ!), t0, x0, θ0, T, GlobalBound(c), Flow, args...; nargs...)

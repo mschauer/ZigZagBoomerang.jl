@@ -148,7 +148,7 @@ end
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2.5/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 3.0/sqrt(T)
 end
 
 @testset "Bouncy Particle Sampler" begin
@@ -166,7 +166,7 @@ end
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2/sqrt(T)
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 3/sqrt(T)
 end
 
 @testset "ZigZag (independent)" begin
@@ -211,5 +211,5 @@ end
     m = mean(last.(collect(trace)))
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
-    @test mean(xs)[1] < 2.5/sqrt(T)
+    @test mean(xs)[1] < 4/sqrt(T)
 end

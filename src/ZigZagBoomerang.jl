@@ -53,6 +53,7 @@ export discretise, discretize, sdiscretize, subtrace
 
 function __init__()
     @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" include("staticarrays.jl")
+    @require ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210" include("forwarddiff.jl")
 end
 
 end
