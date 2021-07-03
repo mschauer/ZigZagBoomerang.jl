@@ -98,4 +98,76 @@ k = 1.0
 out4, acc = ss_pdmp(∇ϕ, x0, v0, T, c, k, ZigZag1d())
 trace4 = ZigZagBoomerang.discretize(out4, B, dt)
 
+### animation 5: as 4) + boundaries
+function hitting_bounds(x, θ, b)
+    b1, b2 = b
+    if θ*(x-b1) > 0
+        return -(x-b2)/θ
+    else
+        return -(x-b1)/θ
+    end
+end
 
+function ss_pdmp_b(b, ∇ϕ, x, θ, T, c, k, Flow::ZZB.ContinuousDynamics; adapt=false, factor=2.0)
+    b1, b2 = b
+    t = zero(T)
+    Ξ = [(t, x, θ)]
+    num = acc = 0
+    a, b = ZZB.ab(x, θ, c, Flow)
+    t_ref = t + ZZB.waiting_time_ref(Flow)
+    t′ =  t + poisson_time(a, b, rand())
+    tˣ = t + freezing_time(x, θ)
+    tb = t + hitting_bounds(x, θ, b)
+    while t < T
+        if  tˣ < min(t_ref, t′, tb)
+            t, x, θ = ZZB.move_forward(tˣ - t, t, x, θ, Flow) # go to 0
+            @assert -0.0001 < x < 0.0001 #check
+            #t, x , θ = tˣ, 0.0, θ #go to 0
+            push!(Ξ, (t, x, 0.0))
+            t = t - log(rand())/k #wait exponential time
+            push!(Ξ, (t, x, θ))
+            tˣ  = Inf
+        elseif  tb < min(t_ref, t′)
+            t, x, θ = ZZB.move_forward(tb - t, t, x, θ, Flow) # go to 0
+            #t, x , θ = tˣ, 0.0, θ #go to 0
+            @assert (b1-0.0001 < x < b1 + 0.0001 || b2 - 0.0001 < x < b2 + 0.0001 )  #check
+            θ > 0.0 ? x = b2 : x = b1
+            θ = -θ    
+            push!(Ξ, (t, x, θ))
+            tˣ  =  t + hitting_bounds(x, θ, b)
+        elseif t_ref < t′
+            t, x, θ = ZZB.move_forward(t_ref - t, t, x, θ, Flow)
+            θ = sqrt(Flow.Σ)*randn()
+            t_ref = t +  ZZB.waiting_time_ref(Flow)
+            tˣ = t + freezing_time(x, θ)
+            push!(Ξ, (t, x, θ))
+        else
+            τ = t′ - t
+            t, x, θ = ZZB.move_forward(τ, t, x, θ, Flow)
+            l, lb = ZZB.λ(∇ϕ, x, θ, Flow), ZZB.λ_bar(τ, a, b)
+            num += 1
+            if rand()*lb < l
+                acc += 1
+                if l >= lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c *= factor
+                end
+                θ = -θ  # In multi dimensions the change of velocity is different:
+                        # reflection symmetric on the normal vector of the contour
+                tˣ = t + freezing_time(x, θ)
+                push!(Ξ, (t, x, θ))
+            end
+        end
+        a, b = ZZB.ab(x, θ, c, Flow)
+        t′ = t + poisson_time(a, b, rand())
+    end
+    return Ξ, acc/num
+end
+
+∇ϕ(x) = (x-1.0)/1.0 + (x + 1.0)/1.0
+k = 1.0 # rate of stickying time
+c = 3.0
+k = 1.0
+b = (-2.0, 2.0) #buondaries
+out5, acc = ss_pdmp_b(∇ϕ, x0, v0, T, c, k, ZigZag1d())
+trace5 = ZigZagBoomerang.discretize(out4, B, dt)
