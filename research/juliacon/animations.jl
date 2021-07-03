@@ -5,8 +5,20 @@ const ZZB = ZigZagBoomerang
 x0, v0 = -2.0, 1.0
 dt = 0.01
 # fake trace from -2.0 to +2.0
-trace1 = [x0 + t for t in 0.0:dt:4.0]
+trace1 = [(t, x0 + t) for t in 0.0:dt:4.0]
 # animate: todo
+
+### animation 1b: no reflection (lebsgue measure) with stickyness at 0
+x0, v0 = -2.0, 1.0
+dt = 0.01
+dtinv = Int(1/dt)
+κ = 1.0
+T = 10.0
+wait = floor(-log(rand())/κ*dtinv)/dtinv #  10^-2
+# fake trace from -2.0 to +2.0
+trace1b = [[(t, x0 + t) for t in 0.0:dt:2.0]..., [(2.0 + t, 0.0)  for t in dt:dt:wait]...,[(2.0 + wait + t, 0.0+ t)  for t in dt:dt:T]... ]
+# animate: todo
+
 
 
 ### animation 2: Boomerang sampler with rereshments but no reflections
