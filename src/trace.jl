@@ -13,7 +13,7 @@ struct FactTrace{FT,T,S,S2,R} <: Trace
 end
 
 """
-    FactTrace
+    PDMPTrace
 
 See [`Trace`](@ref).
 """

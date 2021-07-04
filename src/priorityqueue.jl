@@ -20,24 +20,14 @@ struct SPriorityQueue{K,V,O<:Ordering} <: AbstractDict{K,V}
 
     SPriorityQueue{K, V, O}(xs::Array{Pair{K,V}, 1}, o::O, index) where {K,V,O<:Ordering} = new(xs, o, index)
 
-    function SPriorityQueue{K,V,O}(o::O, itr) where {K,V,O<:Ordering}
-        xs = Vector{Pair{K,V}}(undef, length(itr))
-        index = Dict{K, Int}()
-        for (i, (k, v)) in enumerate(itr)
-            xs[i] = Pair{K,V}(k, v)
-            push!(index, i)
-        end
-        pq = new{K,V,O}(xs, o, index)
-
-        # heapify
-        for i in heapparent(length(pq.xs)):-1:1
-            percolate_down!(pq, i)
-        end
-
-        return pq
-    end
 end
-
+function SPriorityQueue(τ)
+    Q = SPriorityQueue{Int,eltype(τ)}()
+    for i in eachindex(τ)
+        enqueue!(Q, i => τ[i])
+    end
+    Q
+end
 Base.length(pq::SPriorityQueue) = length(pq.xs)
 Base.isempty(pq::SPriorityQueue) = isempty(pq.xs)
 
@@ -45,9 +35,10 @@ Base.peek(pq::SPriorityQueue) = pq.xs[1]
 
 function percolate_down!(pq::SPriorityQueue, i::Integer)
     x = pq.xs[i]
-    @inbounds while (l = heapleft(i)) <= length(pq)
+    L = length(pq)
+    @inbounds while (l = heapleft(i)) <= L
         r = heapright(i)
-        j = r > length(pq) || lt(pq.o, pq.xs[l].second, pq.xs[r].second) ? l : r
+        j = r > L || lt(pq.o, pq.xs[l].second, pq.xs[r].second) ? l : r
         if lt(pq.o, pq.xs[j].second, x.second)
             pq.index[pq.xs[j].first] = i
             pq.xs[i] = pq.xs[j]

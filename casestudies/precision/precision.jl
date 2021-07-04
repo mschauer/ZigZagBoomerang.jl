@@ -79,8 +79,9 @@ Z = ZigZag(Γ̂, μ̂)
 κ = 0.01ones(d)
 
 
-trc, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (𝕀, 𝕁), N; structured=true, adapt=true, progress=true)
+trc__, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (𝕀, 𝕁), N; adapt=true, progress=true)
 
+trc = trc__
 J = [1,2,5]
 subtrc = subtrace(trc, J)
 

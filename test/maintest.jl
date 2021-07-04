@@ -193,6 +193,7 @@ end
 end
 
 @testset "FactBoomerang1" begin
+    Random.seed!(1)
     ϕ(x) = [cos(π*x[1]) + x[1]^2/2] # not needed
     # gradient of ϕ(x)
     ∇ϕ(x) = [-π*sin(π*x[1]) + x[1]]
