@@ -8,13 +8,21 @@ using StructArrays
 using StructArrays: components
 using LinearAlgebra
 
+function countids(f, s)
+    res = Dict{Int, Int}()
+    for c in s; 
+        i = f(c)
+        res[i] = get(res, i, 0) + 1
+    end
+    return res
+end
 seed = (UInt(1),UInt(1))
 
 n = 400
 d = n*(n+1)÷2
 N = 1000
-K = 20
-T = 800.0
+
+T = 600.0
 
 outer(x) = x*x'
 function backform(u, 𝕀)
@@ -26,8 +34,8 @@ function backform(u, 𝕀)
 end
 transform(L, 𝕀) = L[𝕀] 
 
-const σ2 = 1.0
-const γ0 = 0.1
+#const σ2 = 1.0
+#const γ0 = 0.1
 dia = -0.3ones(n-1)
 Γtrue = sparse(SymTridiagonal(1.0ones(n), dia))
 Γtrue[1,1] = Γtrue[end,end] = 1/2
@@ -96,22 +104,22 @@ end
 t0 = 0.0
 t = zeros(d)
 
-x0 = utrue + 0.01*randn(d) # jiggle the starting point to see convergence
+x0 = utrue #+ 0.01*randn(d) # jiggle the starting point to see convergence
 
 #te = reshape(ForwardDiff.gradient(u -> ϕ(reshape(u, n, n), Y), backform(x0, 𝕀)[:]), n, n)
 #@test norm(Vector(te[𝕀]) - [∇ϕ(x0, i, YY, (𝕀, 𝕁), N) for i in 1:d]) < 10d^2*eps()
 
 θ0 = ones(d)
 
-Γ̂ = cov(Y')
+Γ̂ = inv(cov(Y'))
 
 # precision bounds
-c = 1ones(d)
+c = 0.01ones(d)
 dt = T/500
-Γ̂Z = sparse(1.0I(d))
+Γ̂Z = sparse(1.0I(d))*N
 #L̂ = cholesky(sparse(SymTridiagonal(cov(Y')))).L
 #μ̂ = transform(Matrix(sparse(L̂)), 𝕀)
-L̂ = cholesky(Γ̂).L
+L̂ = cholesky(Symmetric(Γ̂)).L
 μ̂ = transform(L̂, 𝕀)
 
 F = Z = ZigZag(Γ̂Z, μ̂)
@@ -143,6 +151,8 @@ trc = Zig.FactTrace(F, t0, x0, θ0, [(ev[1], ev[2], ev[3].x, ev[3].θ) for ev in
 #trc, _ = @time ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, G, Z, κ, YY, (𝕀, 𝕁), N; structured=true, adapt=true, progress=true)
 
 J = [1,2,5]
+J, C = Zig.sep([(i,c) for (i,c) in enumerate(𝕀) if abs(c[1] - c[2]) <= 1])
+
 subtrc = subtrace(trc, J)
 
 ts, xs = ZigZagBoomerang.sep(collect(discretize(subtrc, dt)))
@@ -157,9 +167,11 @@ using Makie
 ina(i) = "$(𝕀[J[i]][1]),$(𝕀[J[i]][2])"
 fig = Figure(resolution=(1800,1000))
 ax = fig[1,1:3] = Axis(fig, title="Error Gamma")
-fig[2,1] = Axis(fig, title="x$(ina(1))")
-fig[2,2] = Axis(fig, title="x$(ina(2))")
-fig[2,3] = Axis(fig, title="x$(ina(3))")
+ax1 = fig[2,1] = Axis(fig, title="x$(ina(1))")
+ax2 = fig[2,2] = Axis(fig, title="x$(ina(2))")
+ax3 = fig[2,3] = Axis(fig, title="x$(ina(3))")
+linkaxes!(ax1, ax2, ax3)
+
 heatmap!(ax, [Matrix(Γ̂); Matrix(Γtrue); outer(Lhat); Matrix(Γtrue) - outer(Lhat)], colormap=:vik, colorrange=[-1/4,1/4])
 lines!(fig[2,1], ts, getindex.(xs, 1))
 lines!(fig[2,1], ts, fill(utrue[J[1]], length(ts)), color=:green)

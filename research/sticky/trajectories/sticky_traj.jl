@@ -1,12 +1,13 @@
 using Pkg
-Pkg.activate(joinpath(@__DIR__, "..", ".."))
-using ZigZagBoomerang
 
+#Pkg.activate(joinpath(@__DIR__, "..", ".."))
+using ZigZagBoomerang
+using Makie
 
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
 #using Revise
-using DataStructures
+#using DataStructures
 using LinearAlgebra
 using Random
 using SparseArrays
@@ -15,7 +16,7 @@ using FileIO
 using Statistics
 using Makie, AbstractPlotting
 using ForwardDiff
-using StructArrays
+#using StructArrays
 const ρ0 = 0.0
 Σ = [1 ρ0; ρ0 1]
 const d = 2
@@ -51,15 +52,15 @@ function gradϕ!(y, x)
 end
 
 
-κ = [0.1, 0.1]
+κ = [Inf, Inf]
 t0 = 0.0
-x0 = randn(d)
+x0 = rand(d)
 θ0 = [1.0, 1.0]
 c = 20.0
 T = 1000.0
 
 #sspdmp(∇ϕi, t0, x0, θ0, T, c*ones(d), ZigZag(sparse(I(d)), 0*x0), κ; adapt=false)
-trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ, t0, x0, θ0, T, c*ones(d), ZigZag(sparse(I(d)), 0*x0), κ; adapt=false)
+trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ, t0, x0, θ0, T, c*ones(d), ZigZag(sparse(I(d)), 0*x0), κ; reversible=true, adapt=false)
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
 ts, xs = ZigZagBoomerang.sep(collect(trace))
 
@@ -68,15 +69,20 @@ p1 = lines(first.(xs), last.(xs), color=ts)
 
 
 scene, layout = layoutscene(resolution = (1200, 900))
-layout[1, 1] = ax1 = Axis(scene)
-layout[2, 1] = ax2 = Axis(scene)
 
+layout[1:2, 1] = ax0 = Axis(scene)
+layout[1, 2] = ax1 = Axis(scene)
+layout[2, 2] = ax2 = Axis(scene)
+lines!(ax0, first.(xs), last.(xs), color=ts)
 linkyaxes!(ax1, ax2)
 linkxaxes!(ax1, ax2)
 
 lines!(ax1, ts, first.(xs))
 lines!(ax2, ts, last.(xs))
 p1a = scene
+
+error("here")
+
 trace, (tT, xT, θT), (acc, num) = sspdmp(gradϕ!, t0, x0, θ0, T, c, BouncyParticle(sparse(I(d)), 0*x0, 0.1), κ; adapt=false)
 
 #ts, xs = ZigZagBoomerang.sep(collect(discretize(trace, 0.05)))
