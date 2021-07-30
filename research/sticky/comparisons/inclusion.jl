@@ -20,7 +20,7 @@ end
 function inclusion_probability(trace)
    ts, xs = splitpairs(trace0) 
    zs = augment.(ts, xs)
-   inclusion_probability(ts0, z)
+   inclusion_probability(ts, zs)
 end
       
 Random.seed!(10)
