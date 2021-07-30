@@ -17,6 +17,11 @@ function inclusion_probability(ts0, z)
 return dict
 end
 
+function inclusion_probability(trace)
+   ts, xs = splitpairs(trace0) 
+   zs = augment.(ts, xs)
+   inclusion_probability(ts0, z)
+end
       
 Random.seed!(10)
 function ϕ(x, i, μ)
