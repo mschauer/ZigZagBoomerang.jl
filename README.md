@@ -7,6 +7,7 @@
 [![Build Status](https://travis-ci.com/mschauer/ZigZagBoomerang.jl.svg?branch=master)](https://travis-ci.com/mschauer/ZigZagBoomerang.jl)
 [![DOI](https://zenodo.org/badge/276593775.svg)](https://zenodo.org/badge/latestdoi/276593775)
 
+ 
 ## Overview
 Markov chain Monte Carlo (MCMC) methods are used to sample from a probability distribution, for example the posterior distribution in a Bayesian model. *Piecewise deterministic Monte Carlo* (PDMC) methods which are implemented in `ZigZagBoomerang.jl` have the same goal except for the fact that here the distribution is explored through the continuous movement of a particle and not one point at a time.
 
@@ -50,6 +51,12 @@ take a function `∇ϕ!(y, x)` writing the gradient of the potential `ϕ(x) = -l
 
 <img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/logisticZigZag.png" width="600">
 
+## JuliaCon 2021
+
+
+[![ZigZagBoomerang.jl - parallel inference and variable selection | Moritz Schauer | JuliaCon2021](https://img.youtube.com/vi/wJAjP_I1BnQ/0.jpg)](https://www.youtube.com/watch?v=wJAjP_I1BnQ)
+
+
 ## Gallery
 
 <img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/zigzag.png" width="300"><img src="https://raw.githubusercontent.com/mschauer/ZigZagBoomerang.jl/master/figures/boomerang.png" width="300">
@@ -76,6 +83,7 @@ See [https://github.com/mschauer/ZigZagBoomerang.jl/tree/master/scripts].
 Piecewise deterministic Markov processes for scalable Monte Carlo on restricted domains, *Statistics & Probability Letters*, 136. 2018.
 [https://doi.org/10.1016/j.spl.2018.02.021].
 6. Joris Bierkens, Andrea Bertazzi: Adaptive Schemes for Piecewise Deterministic Monte Carlo Algorithms, 2020. [https://arxiv.org/abs/arXiv:2012.13924].
+7. Werner Krauth: Event-chain Monte Carlo: foundations, applications, and prospects, 2021. [https://arxiv.org/abs/2102.07217].
 
 
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
