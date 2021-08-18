@@ -54,7 +54,7 @@ take a function `∇ϕ!(y, x)` writing the gradient of the potential `ϕ(x) = -l
 ## JuliaCon 2021
 
 
-[![ZigZagBoomerang.jl - parallel inference and variable selection | Moritz Schauer | JuiaCon2021](https://img.youtube.com/vi/wJAjP_I1BnQ/0.jpg)](https://www.youtube.com/watch?v=wJAjP_I1BnQ)
+[![ZigZagBoomerang.jl - parallel inference and variable selection | Moritz Schauer | JuliaCon2021](https://img.youtube.com/vi/wJAjP_I1BnQ/0.jpg)](https://www.youtube.com/watch?v=wJAjP_I1BnQ)
 
 
 ## Gallery
