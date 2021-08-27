@@ -3,14 +3,14 @@ using ZigZagBoomerang
 const Zig = ZigZagBoomerang
 using ZigZagBoomerang: sλ, sλ̄, reflect!, Rng, ab, smove_forward!, neighbours
 using ZigZagBoomerang: next_rand_reflect, reflect!, adapt!, loosen, idot, Trace
-using ZigZagBoomerang: move_forward!, λ, pos
+using ZigZagBoomerang: move_forward!, λ, pos, PDMPTrace
 using Random
 using StructArrays
 using StructArrays: components
 using LinearAlgebra
 using ZigZagBoomerang: SPriorityQueue, enqueue!, lastiterate
 
-
+Random.seed!(1)
 # implementation of factorised samplers
 using DataStructures
 using Statistics
@@ -65,14 +65,14 @@ function circle_hit!(i, x, v, ϵ; α =nothing)
         v .= circle_boundary_reflection!(i, x, v, ϵ, d)
     else
         xnew = -x[ii] + 2*x[1:d]
-        disc =  ϕ(x) - ϕ(xnew) # magnitude of the discontinuity
+        disc =  ϕ(x[ii]) - ϕ(xnew) # magnitude of the discontinuity
         if  disc < 0.0 || rand() > 1 - exp(-disc) # teleport
             # jump on the other side drawing a line passing through the center of the ball
-            # println("...teleporting...")
+            println("...teleporting...")
             x[ii] .= xnew 
             bounce = false
         else    # bounce off 
-            # println("...bouncing...")
+            println("...bouncing...")
             v = circle_boundary_reflection!(i, x, v, ϵ, d)
         end
     end
@@ -81,13 +81,13 @@ end
 
 
 function event(i, t, x, θ, Z::Union{ZigZag,FactBoomerang})
-    t, i, deepcopy(x), θ
+    t, i, deepcopy(x), deepcopy(θ)
 end
 
 function event_NaN(i, t, x, θ, Z::Union{ZigZag,FactBoomerang})
     y = deepcopy(x)
     y[2*i+1:2*(i +1)] .= NaN
-    t, i, y, θ
+    t, i, y, deepcopy(θ)
 end
 
 # function Zig.ab(G, i, x, θ, c, Z::ZigZag, args...)
@@ -126,7 +126,7 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     end
                 end
             else  
-                # push!(Ξ, event_NaN(i, t, x, θ, F)) # break lines when plotting
+                push!(Ξ, event_NaN(i, t, x, θ, F)) # break lines when plotting
                 # push!(Ξ, event(i, t, x, θ, F)) 
             end
             # enqueue new reflection and (true Inf) hitting time
@@ -140,7 +140,7 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     !adapt && error("Tuning parameter `c` too small.")
                     c[i] *= factor
                 end
-                θ = reflect!(i, ∇ϕi, x, θ, F)
+                θ[i] *= -1 
                 for j in neighbours(G, i)
                     a[j], b[j] = ab(G, j, x, θ, c, F)
                     t_old[j] = t
@@ -203,7 +203,7 @@ end
 
 
 
-N = 2
+N = 50
 dim = 2 # particles in a plane
 x = randn((N+1)*dim)
 N
@@ -233,41 +233,19 @@ x0 = deepcopy(x) # initial position
 dd = length(x0)
 t0 = 0.0
 θ0 = rand([1.0,-1.0], dd)
-θ0[1:2] = rand([-0.5,0.5], 2)
-T = 500.0
+# θ0[1:2] = rand([-0.5,0.5], 2)
+T = 10.0
 c = zero(x0) .+ 0.1
 Γ = sparse(I(dd))
 F = ZigZag(Γ, zero(x0))
 α = nothing
 Ξ1, (t, x, θ), (acc, num), c = pdmp(∇ϕi, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, α; adapt=false)
 
-#Plot
-# tt1, xx1 = getindex.(Ξ1,1),  getindex.(Ξ1,3)
-# fig = Figure()
-# ax1 = Axis(fig[1,1])
-# limits!(ax1, -5, 5, -5, 5)
-# lines!(ax1, getindex.(xx1, 1),getindex.(xx1, 2), label = "volume", color = (:red, 0.1) )
-# lines!(ax1, getindex.(xx1, 3),getindex.(xx1, 4),  color = (:blue, 0.5))
 
+# with teleportation
 adapt = false
-x0 = deepcopy(x) # initial position
-dd = length(x0)
-t0 = 0.0
-θ0 = rand([1.0,-1.0], dd)
-# θ0[1:2] = rand([-0.5,0.5], 2)
-c = zero(x0) .+ 0.1
-Γ = sparse(I(dd))
-F = ZigZag(Γ, zero(x0))
 α = 1
 Ξ2, (t, x, θ), (acc, num), c = pdmp(∇ϕi, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, α; adapt=false)
-
-#Plot
-# tt2, xx2 = getindex.(Ξ2,1),  getindex.(Ξ2,3)
-# ax2 = Axis(fig[1,2])
-# limits!(ax2, -5, 5, -5, 5)
-# lines!(ax2, getindex.(xx2, 1),getindex.(xx2, 2), label = "volume", color = (:red, 0.1) )
-# lines!(ax2, getindex.(xx2, 3),getindex.(xx2, 4),  color = (:blue, 0.5))
-# current_figure()
 
 
 
@@ -287,11 +265,58 @@ function check(Ξ2, N)
     end
     true
 end
-println("check standard pdmp succesful: $(check(Ξ2, N))")
+println("check standard pdmp succesful: $(check(Ξ1, N))")
 println("check pdmp with teleportation succesful: $(check(Ξ2, N))")
-error("")
+# error("stop without plotting")
+##### Plotting 
+using GLMakie
+GLMakie.activate!
+odd = 3:2:2*N+1
+even = 4:2:2*N+2
+
+FB = BouncyParticle(Γ, zero(x0), 0.0)
+trace = PDMPTrace(FB, t0, x0, θ0, ones(Bool, length(x0)), [(t, x, θ, nothing) for (t, i, x, θ) in Ξ1])
+trc1 = collect(discretize(trace, 0.01))
+
+xnode = Node(copy(x0))
+xodd = lift(xnode) do x; (x[odd]) end
+xeven = lift(xnode) do x; (x[even]) end
+circ = lift(xnode) do x; Circle(Point2f0(x[1:2]...), ϵ - 0.01) end
+
+fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98),
+resolution = (700, 700),)
+ax1 = Axis(fig[1,1])
+limits!(ax1, -5, 5, -5, 5)
+scatter!(ax1, xodd, xeven,  marker = 'o', markersize = 20, color = :black)
+poly!(circ, color = (:blue,0.6))
+Label(fig[1, 1, Top()], "Configuration hard walls", valign = :bottom,
+    padding = (0, 0, 2, 0))
+nnn = length(trc1)
+record(fig, "bigball_hard_wall.mp4", 1:nnn; framerate = 120) do i
+        xnode[] = trc1[i][2]
+end
 
 
+FB = BouncyParticle(Γ, zero(x0), 0.0)
+trace2 = PDMPTrace(FB, t0, x0, θ0, ones(Bool, length(x0)), [(t, x, θ, nothing) for (t, i, x, θ) in Ξ2])
+trc2 = collect(discretize(trace2, 0.01))
 
 
+xnode = Node(copy(x0))
+xodd = lift(xnode) do x; (x[odd]) end
+xeven = lift(xnode) do x; (x[even]) end
+circ = lift(xnode) do x; Circle(Point2f0(x[1:2]...), ϵ-0.01) end
 
+
+fig = Figure(backgroundcolor = RGBf0(0.98, 0.98, 0.98),
+resolution = (700, 700),)
+ax1 = Axis(fig[1,1])
+limits!(ax1, -5, 5, -5, 5)
+scatter!(ax1, xodd, xeven,  marker = 'o', markersize = 20, color = :black)
+poly!(circ, color = (:blue,0.6))
+Label(fig[1, 1, Top()], "Configuration teleportation", valign = :bottom,
+    padding = (0, 0, 2, 0))
+nnn = length(trc2)
+record(fig, "bigball_teleportation.mp4", 1:nnn; framerate = 120) do i
+        xnode[] = trc2[i][2]
+end
