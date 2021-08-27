@@ -30,7 +30,7 @@ end
 # joint reflection at the boundary for the Zig-Zag sampler
 function circle_boundary_reflection!(i, x, v, ϵ, d)
     ii = d*i+1:d*(i+1)
-    # v[1:d] .*= -1
+    v[1:d] .*= -1
     v[ii] .*= -1
     v
 end
@@ -70,11 +70,10 @@ function circle_hit!(i, x, v, ϵ; α =nothing)
             # jump on the other side drawing a line passing through the center of the ball
             # println("...teleporting...")
             x[ii] .= xnew 
-            v[ii] .= vnew 
             bounce = false
         else    # bounce off 
             # println("...bouncing...")
-            v .= circle_boundary_reflection!(i, x, v, ϵ, d)
+            v = circle_boundary_reflection!(i, x, v, ϵ, d)
         end
     end
     return x, v, bounce
@@ -97,29 +96,8 @@ end
 #     a, b
 # end
 
-
-"""
-    pdmp_inner!(Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
-        F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
-        = t, x, θ, (acc, num), c, a, b, t_old
-
-Inner loop of the factorised samplers: the factorised Boomerang algorithm and
-the Zig-Zag sampler. Given a dependency graph `G`, gradient `∇ϕ`,
-current position `x`, velocity `θ`, Queue of events `Q`, time `t`, tuning parameter `c`,
-terms of the affine bounds `a`,`b` and time when the upper bounds were computed `t_old`
-
-The sampler 1) extracts from the queue the first event time. 2) moves deterministically
-according to its dynamics until event time. 3) Evaluates whether the event
-time is a accepted reflection or refreshment time or shadow time. 4) If it is a
-reflection time, the velocity reflects according its reflection rule, if it is a
-refreshment time, the sampler updates the velocity from its prior distribution (Gaussian).
-In both cases, updates `Q` according to the dependency graph `G`. The sampler proceeds
-until the next accepted reflection time or refreshment time. `(num, acc)`
-incrementally counts how many event times occour and how many of those are real reflection times.
-"""
 function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num), N,
     F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false)
-
     while true
         (hit, i), t′ = peek(Q)
         if t′ - t < 0
@@ -127,19 +105,20 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
         end
         t, x, θ = move_forward!(t′ - t, t, x, θ, F)
         if hit # is a hitting time
-            if abs(norm(x[1:2] - x[2*i+1:2*i+2])  - ϵ) > 1e-3 # make sure to hit be on the circle
-                error("not at the boundary. distance equal to $(abs(norm(x[1:2] - x[ii])  - ϵ))")
+            if abs(norm(x[1:2] - x[2*i+1:2*i+2]) - ϵ ) > 1e-7 # make sure to hit be on the circle
+                error("not at the boundary. distance equal to $(abs(norm(x[1:2] - x[2*i+1:2*i+2])  - ϵ))")
             end
-            # check if at the boundary, teleport or bounce off
             push!(Ξ, event(i, t, x, θ, F)) # save
+            # teleport or bounce off
             x, θ, bounce = circle_hit!(i, x, θ, ϵ; α)
+            Q[(true, i)] = Inf
+            # update reflections 
+            for j in eachindex(x)
+                a[j], b[j] = ab(G, j, x, θ, c, F)
+                t_old[j] = t
+                Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
+            end
             if bounce
-                # update reflections 
-                for j in eachindex(x)
-                    a[j], b[j] = ab(G, j, x, θ, c, F)
-                    t_old[j] = t
-                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
-                end
                 # update hitting times
                 for j in 1:N
                     if j != i
@@ -147,17 +126,10 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                     end
                 end
             else  
-                push!(Ξ, event_NaN(i, t, x, θ, F)) # break lines when plotting
-                push!(Ξ, event(i, t, x, θ, F)) 
-                # update relfections  
-                for j in eachindex(x)
-                    a[j], b[j] = ab(G, j, x, θ, c, F)
-                    t_old[j] = t
-                    Q[(false, j)] = t + poisson_time(a[j], b[j], rand(rng))
-                end
+                # push!(Ξ, event_NaN(i, t, x, θ, F)) # break lines when plotting
+                # push!(Ξ, event(i, t, x, θ, F)) 
             end
             # enqueue new reflection and (true Inf) hitting time
-            Q[(true, i)] = Inf
         else 
             ∇ϕi = ∇ϕ(x, i, args...)
             l, lb = λ(∇ϕi, i, x, θ, F), pos(a[i] + b[i]*(t - t_old[i]))
@@ -179,8 +151,8 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
                         Q[(true, j)] = t + next_circle_hit(j, x, θ, ϵ)
                     end
                 else
-                    ii = floor(Int, (i-1)/2)
-                    Q[(true, ii)] = t + next_circle_hit(ii, x, θ, ϵ)
+                    i0 = floor(Int, (i-1)/2)
+                    Q[(true, i0)] = t + next_circle_hit(i0, x, θ, ϵ)
                 end
             else
                 # Move a, b, t_old inside the queue as auxiliary variables
@@ -196,27 +168,6 @@ function pdmp_inner!(rng, Ξ, G, ∇ϕ, t, x, θ, Q, c, a, b, t_old, (acc, num),
 end
 
 
-
-"""
-    pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag, FactBoomerang}, args...; factor=1.5, adapt=false) = Ξ, (t, x, θ), (acc, num), c
-
-Outer loop of the factorised samplers, the Factorised Boomerang algorithm
-and the Zig-Zag sampler. Inputs are a function `∇ϕ` giving `i`th element of gradient
-of negative log target density `∇ϕ(x, i, args...)`, starting time and position `t0, x0`,
-velocities `θ0`, and tuning vector `c` for rejection bounds and final clock `T`.
-
-The process moves to time `T` with invariant mesure μ(dx) ∝ exp(-ϕ(x))dx and outputs
-a collection of reflection points which, together with the initial triple `t`, `x`
-`θ` are sufficient for reconstructuing continuously the continuous path.
-It returns a `FactTrace` (see [`Trace`](@ref)) object `Ξ`, which can be collected
-into pairs `t => x` of times and locations and discretized with `discretize`.
-Also returns the `num`ber of total and `acc`epted Poisson events and updated bounds
-`c` (in case of `adapt==true` the bounds are multiplied by `factor` if they turn
-out to be too small.)
-
-This version does not assume that `∇ϕ` has sparse conditional dependencies,
-see [`spdmp`](@ref).
-"""
 
 # true for hitting times, false for random reflections 
 function pdmp(∇ϕ, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, args...;
@@ -252,7 +203,7 @@ end
 
 
 
-N = 20
+N = 2
 dim = 2 # particles in a plane
 x = randn((N+1)*dim)
 N
@@ -263,7 +214,7 @@ function legal(i, x, epsilon)
 end
 
 
-ϵ = 2.0
+ϵ = 0.5
 # initialize particles in a legal region
 for i in 1:N
     while true 
@@ -290,31 +241,57 @@ F = ZigZag(Γ, zero(x0))
 α = nothing
 Ξ1, (t, x, θ), (acc, num), c = pdmp(∇ϕi, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, α; adapt=false)
 
-
-tt1, xx1 = getindex.(Ξ1,1),  getindex.(Ξ1,3)
-fig = Figure()
-ax1 = Axis(fig[1,1])
-limits!(ax1, -5, 5, -5, 5)
-lines!(ax1, getindex.(xx1, 1),getindex.(xx1, 2), label = "volume", color = (:red, 0.1) )
-lines!(ax1, getindex.(xx1, 3),getindex.(xx1, 4),  color = (:blue, 0.5))
+#Plot
+# tt1, xx1 = getindex.(Ξ1,1),  getindex.(Ξ1,3)
+# fig = Figure()
+# ax1 = Axis(fig[1,1])
+# limits!(ax1, -5, 5, -5, 5)
+# lines!(ax1, getindex.(xx1, 1),getindex.(xx1, 2), label = "volume", color = (:red, 0.1) )
+# lines!(ax1, getindex.(xx1, 3),getindex.(xx1, 4),  color = (:blue, 0.5))
 
 adapt = false
 x0 = deepcopy(x) # initial position
 dd = length(x0)
 t0 = 0.0
 θ0 = rand([1.0,-1.0], dd)
-θ0[1:2] = rand([-0.5,0.5], 2)
+# θ0[1:2] = rand([-0.5,0.5], 2)
 c = zero(x0) .+ 0.1
 Γ = sparse(I(dd))
 F = ZigZag(Γ, zero(x0))
 α = 1
 Ξ2, (t, x, θ), (acc, num), c = pdmp(∇ϕi, t0, x0, θ0, T, c, F::Union{ZigZag,FactBoomerang}, α; adapt=false)
 
-tt2, xx2 = getindex.(Ξ2,1),  getindex.(Ξ2,3)
-ax2 = Axis(fig[1,2])
-limits!(ax2, -5, 5, -5, 5)
-lines!(ax2, getindex.(xx2, 1),getindex.(xx2, 2), label = "volume", color = (:red, 0.1) )
-lines!(ax2, getindex.(xx2, 3),getindex.(xx2, 4),  color = (:blue, 0.5))
+#Plot
+# tt2, xx2 = getindex.(Ξ2,1),  getindex.(Ξ2,3)
+# ax2 = Axis(fig[1,2])
+# limits!(ax2, -5, 5, -5, 5)
+# lines!(ax2, getindex.(xx2, 1),getindex.(xx2, 2), label = "volume", color = (:red, 0.1) )
+# lines!(ax2, getindex.(xx2, 3),getindex.(xx2, 4),  color = (:blue, 0.5))
+# current_figure()
 
 
-current_figure()
+
+function check(Ξ2, N)
+    k = 0
+    for event in Ξ2
+        k += 1
+        t, i, x, θ = event
+            for i in 1:N
+                ii = 2*i+1:2*(i+1) 
+                if (ϵ-norm(x[ii] - x[1:2])) > 1e-7
+                    println("at iteration $k, ball $i is inside the ball")
+                    println("with distnace from the boundary equal to $(ϵ - norm(x[ii] - x[1:2]))") 
+                    error("something is wrong")
+                end
+            end
+    end
+    true
+end
+println("check standard pdmp succesful: $(check(Ξ2, N))")
+println("check pdmp with teleportation succesful: $(check(Ξ2, N))")
+error("")
+
+
+
+
+
