@@ -38,6 +38,7 @@ include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
 
 include("ss_fact.jl")
+include("ss_fact_new.jl")
 export sspdmp
 
 include("engine.jl")
