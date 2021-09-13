@@ -48,11 +48,11 @@ Is assumed that ∇ϕ[x, i] is function of x_i
 with i in G[i] or that ∇ϕ takes care of moving .
 """
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, s, ns, (acc, num),
-        F::ZigZag, κ::Number, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ::Float64, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
-        ii, t′ = peek!(Q)
+        ii, t′ = peek(Q)
         refresh = n < ii <= 2n
         i = ii - refresh*n
         refresh && error("refreshment not implemented")
@@ -80,10 +80,10 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, s
             if ns == 0 # no coordinate frozen
                 Q[0] = Inf
             else
-                Q[0] = t′ - log(rand())/(κ[i]*ns)
+                Q[0] = t′ - log(rand())/(κ*ns)
             end
         elseif f[i] # case 1) to be frozen
-            delete!(Q, [i]) 
+            delete!(Q, i) 
             t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             if abs(x[i]) > 1e-8
                 error("x[i] = $(x[i]) !≈ 0")
@@ -94,7 +94,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, s
             f[i] = false
             ns += 1
             s[i] = 1
-            Q[0] = t[i] - log(rand())/(κ[i]*ns) # renew sticky time
+            Q[0] = t′ - log(rand())/(κ*ns) # renew sticky time
             if !strong_upperbounds
                 t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F)
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F)
@@ -141,7 +141,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, s
     return t, x, θ, t′, s, ns, (acc, num), c, b, t_old
 end
 
-        function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; reversible=false,strong_upperbounds = false,
+        function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ::Float64, args...; reversible=false,strong_upperbounds = false,
                 factor=1.5, adapt=false, progress=false, progress_stops = 20)
             n = length(x0)
             t′ = t0
