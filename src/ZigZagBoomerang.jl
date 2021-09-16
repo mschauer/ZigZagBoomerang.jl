@@ -6,6 +6,12 @@ using ProgressMeter
 using RandomNumbers.Xorshifts
 using RandomNumbers: gen_seed
 const Rng = Xoroshiro128Plus 
+using FunctionWranglers
+export FunctionWrangler
+using ConcreteStructs
+
+
+
 Seed() = gen_seed(UInt64, 2)
 
 #using AbstractMCMC
@@ -39,7 +45,14 @@ include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
 
 include("ss_fact.jl")
+include("ss_fact_new.jl")
 export sspdmp
+
+include("engine.jl")
+export simulate, Schedule
+
+include("zigzag.jl")
+export SPDMP
 
 
 include("ss_not_fact.jl")

@@ -59,3 +59,24 @@ Splits a vector of pairs into a pair of vectors.
 """
 splitpairs(x) = first.(x) => last.(x)
 export splitpairs
+
+
+"""
+    lastiterate(itr)
+
+Last iterate of `itr`.
+"""
+function lastiterate(itr) 
+    ϕ  = iterate(itr)
+    if ϕ === nothing
+        error("empty")
+    end
+    x, state = ϕ
+    while true
+        ϕ = iterate(itr, state)
+        if ϕ === nothing 
+            return x
+        end
+        x, state = ϕ
+    end
+end
