@@ -1,7 +1,7 @@
 name = "ZigZagBoomerang"
 uuid = "36347407-b186-4a6a-8c98-4f4567861712"
 authors = ["Sebastiano Grazzi and Moritz Schauer"]
-version = "0.9.2"
+version = "0.10.0"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -17,7 +17,7 @@ Trajectories = "2c80a279-213e-54d7-a557-e9a14725db56"
 [compat]
 DataStructures = "0.17, 0.18"
 ProgressMeter = "1"
-RandomNumbers = "1.4"
+RandomNumbers = "1.4, 1.5"
 Requires = "1.1"
 Trajectories = "0.2"
 julia = "1"
