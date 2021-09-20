@@ -71,7 +71,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
             if abs(x[i]) > 1e-8
                 error("x[i] = $(x[i]) !≈ 0")
             end
-            x[i] = -0*θ[i]
+            SparseArrays.dropstored!(x,i)
             θf[i], θ[i] = θ[i], 0.0 # stop and save speed
             t_old[i] = t[i]
             f[i] = false
