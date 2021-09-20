@@ -1,10 +1,24 @@
-### DEMO SPARSE IMPLEMENTATION 
+
+function new_queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
+    trefl = poisson_time(b[i], rand())
+    tfreeze = freezing_time(x[i], θ[i], Z)
+    if tfreeze <= trefl
+        f[i] = true
+        enqueue!(Q, i => t[i] + tfreeze)
+    else
+        f[i] = false
+        enqueue!(Q, i => t[i] + trefl)
+    end
+    return Q
+end
+
+
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64}, θ, Q, c, b, t_old, f, θf, s, ns, (acc, num),
         F::ZigZag, κ::Float64, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
-        ii, t′ = peek(Q)
+        ii, t′ = dequeue_pair!(Q)
         # println("time is : $(t′)")
         refresh = n < ii <= 2n
         i = ii - refresh*n
@@ -44,13 +58,15 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
             ns -= 1 # one coordinate less frozen at 0
             @assert ns >= 0
             if ns == 0 # no coordinate frozen
-                Q[0] = Inf
+                enqueue!(Q, 0 => Inf)
+                # Q[0] = Inf
             else
-                Q[0] = t′ - log(rand())/(κ*ns)
+                enqueue!(Q, 0 => t′ - log(rand())/(κ*ns))
+                # Q[0] = t′ - log(rand())/(κ*ns)
             end
         elseif f[i] # case 1) to be frozen
             # println("new particle to be frozen")
-            delete!(Q, i) 
+            # delete!(Q, i) 
             t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             if abs(x[i]) > 1e-8
                 error("x[i] = $(x[i]) !≈ 0")
@@ -91,7 +107,11 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
                 θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G1, i)
-                    if θ[j] != 0
+                    if j == i
+                        b[j] = ab(G, j, x, θ, c, F, args...)
+                        t_old[j] = t[j]
+                        new_queue_time!(Q, t, x, θ, j, b, f, F)
+                    elseif θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
                         queue_time!(Q, t, x, θ, j, b, f, F)
@@ -100,7 +120,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
             else # was an event time from upperbound -> nothing happens
                 b[i] = ab(G1, i, x, θ, c, F, args...)
                 t_old[i] = t[i]
-                queue_time!(Q, t, x, θ, i, b, f, F)
+                new_queue_time!(Q, t, x, θ, i, b, f, F)
                 continue
             end
         end
