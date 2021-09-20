@@ -1,7 +1,7 @@
 using Pkg
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
-#using Revise
+using Revise
 using ZigZagBoomerang
 using DataStructures
 using LinearAlgebra
@@ -11,7 +11,6 @@ using Test
 using FileIO
 using Statistics
 # using Makie, AbstractPlotting
-
 function gridlaplacian(T, m, n)
     S = sparse(T(0.0)I, n*m, n*m)
     linear = LinearIndices((1:m, 1:n))
@@ -31,7 +30,6 @@ function gridlaplacian(T, m, n)
     S
 end
 
-Random.seed!(1)
 
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
@@ -51,7 +49,7 @@ end
 # ϕ(x, Γ, y) = 0.5*x'*Γ*x  + dot(x - y, x - y)/(2*σ2) # not used by the program
 
 # Define ∇ϕ(x, i, Γ) giving the partial derivative of ϕ(x) with respect to x[i]
-∇ϕ(x, i, Γ, y) = ZigZagBoomerang.idot(Γ, i, x)  + (x[i]-y[i])/σ2 # more efficient that dot(Γ[:, i], x)
+∇ϕ(x, i, (Γ, y)) = ZigZagBoomerang.idot(Γ, i, x)  + (x[i]-y[i])/σ2 # more efficient that dot(Γ[:, i], x)
 
 
 # Random initial values
@@ -78,12 +76,12 @@ Z = ZigZag(Γpost, μpost)
 #Z = FactBoomerang(Γ, x0*0, 0.1)
 κ2 = 0.4
 # Run sparse ZigZag for T time units and collect trajectory
-T = 100.0
+T = 0.5
 su = false
 adapt = false
-trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θ0, θf0, T, c, Z, κ2, nothing, Γ, μ;
-                                                strong_upperbounds = su ,
-                                                adapt = adapt)
 
-@time traj = collect(discretize(trace, 0.2))
+trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θ0, θf0, T, c, nothing, Z, κ2, (Γ, μ))
 error("")
+                                              
+@time traj = collect(discretize(trace, 0.2))
+

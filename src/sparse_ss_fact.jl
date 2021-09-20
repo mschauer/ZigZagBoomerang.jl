@@ -2,29 +2,42 @@
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64}, θ, Q, c, b, t_old, f, θf, s, ns, (acc, num),
         F::ZigZag, κ::Float64, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
-    error("Done until here")
     # f[i] is true if the next event will be a freeze
     while true
         ii, t′ = peek(Q)
+        # println("time is : $(t′)")
         refresh = n < ii <= 2n
         i = ii - refresh*n
         refresh && error("refreshment not implemented")
         if i == 0  # unfreezing time
+            # println("unfreezing time")
             i0 = rand(eachindex(s)[s]) # select randomly an index 
-            @assert x[i0] == 0 && θ[i0] == 0 # check that the particle was frozen
+            if !(x[i0] == 0 && θ[i0] == 0 && s[i0]  == 1)
+                println("x[i] = $(x[i]) !≈ 0")
+                dump(x[i0])
+                dump(θ[i0])
+                dump(s[i0])
+                # error("x[i0] = $(x[i0]) and θ[i0] = $(θ[i0]) and s[i0] == $(s[i0])") # check that the particle was frozen
+            end
             t[i0] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i0], θf[i0] = θf[i0], 0.0 # unfreeze, restore speed
             if reversible
                 θ[i0] *= rand((-1,1))
             end
-            t_old[i0] = t[i0]
             t, x, θ = ssmove_forward!(G, i0, t, x, θ, t′, F) # neighbours
             t, x, θ = ssmove_forward!(G2, i0, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
             for j in neighbours(G1, i0)
-                if θ[j] != 0 # only non-frozen, including i # check!
-                    b[j] = ab(G1, j, x, θ, c, F, args...)
-                    t_old[j] = t[j]
-                    Q = queue_time!(Q, t, x, θ, j, b, f, F)
+                if θ[j] != 0 # only non-frozen, without including i # check!
+                    if j == i0 
+                        b[j] = ab(G1, j, x, θ, c, F, args...)
+                        t_old[j] = t[j]
+                        enqueue!(Q, j => t[j] + poisson_time(b[j], rand())) # cannot be hitting time
+                        f[j] = false
+                    else
+                        b[j] = ab(G1, j, x, θ, c, F, args...)
+                        t_old[j] = t[j]
+                        Q = queue_time!(Q, t, x, θ, j, b, f, F)
+                    end
                 end
             end
             s[i0] = 0 # i0 is not stuck anymore
@@ -36,6 +49,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                 Q[0] = t′ - log(rand())/(κ*ns)
             end
         elseif f[i] # case 1) to be frozen
+            # println("new particle to be frozen")
             delete!(Q, i) 
             t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             if abs(x[i]) > 1e-8
@@ -60,6 +74,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                 end
             end
         else # was either a reflection time or an event time from the upper bound
+            # println("proposed reflection time")
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
             # do it here so ∇ϕ is right event without self moving
             ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
@@ -89,23 +104,29 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                 continue
             end
         end
+        if i == 0
+            push!(Ξ, event(i0, t, x, θ, F))
+        else
+            push!(Ξ, event(i, t, x, θ, F))
+        end 
+        return t, x, θ, t′, s, ns, (acc, num), c, b, t_old
     end
-    push!(Ξ, event(i, t, x, θ, F))
-    return t, x, θ, t′, s, ns, (acc, num), c, b, t_old
 end
 
 function sspdmp(∇ϕ, t0, x0::SparseVector{Float64, Int64}, θ0, θf, T, c, G, F::ZigZag, κ::Float64, args...; reversible=false,strong_upperbounds = false,
             factor=1.5, adapt=false, progress=false, progress_stops = 20)
     n = length(x0)
+
     [@assert θ0[i] == 0.0  for i in findall(iszero, x0)]
     [@assert θf[i] != 0.0 for i in eachindex(x0)]
     t′ = t0
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
     f = zeros(Bool, n) # to be frozen
-    s = ones(Bool,  n) # 
-    [s[i] == 0  for i in findall(!iszero, x0)]
-    ns = 0
+    s = ones(Bool,  n) # s[i] == 1 if x[i] == 0 θ[i] == 0 (stuck at 0)
+    [s[i] = 0  for i in rowvals(x0)]
+    [@assert s[i] == 0 for i in rowvals(x0)]
+    ns = sum(s)
     Γ = sparse(F.Γ)
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
     if G === nothing
@@ -117,17 +138,20 @@ function sspdmp(∇ϕ, t0, x0::SparseVector{Float64, Int64}, θ0, θf, T, c, G, 
     num = acc = 0
     Q = PriorityQueue{Int,Float64}()
     b = [ab(G1, i, x, θ, c, F, args...) for i in eachindex(θ)]
-    for i in rowvals(A)
-        trefl = poisson_time(b[i], rand())
-        tfreez = freezing_time(x[i], θ[i], F)
-        if trefl > tfreez
-            f[i] = true
-            enqueue!(Q, i => t0 + tfreez)
-        else
-            f[i] = false
-            enqueue!(Q, i => t0 + trefl)
+    for i in eachindex(θ)
+        if s[i] == 0
+            trefl = poisson_time(b[i], rand())
+            tfreez = freezing_time(x[i], θ[i], F)
+            if trefl > tfreez
+                f[i] = true
+                enqueue!(Q, i => t0 + tfreez)
+            else
+                f[i] = false
+                enqueue!(Q, i => t0 + trefl)
+            end
         end
     end
+    enqueue!(Q, 0 => t0 - log(rand())/(κ*ns) )
     if hasrefresh(F)
         for i in eachindex(θ)
             enqueue!(Q, (n + i) => waiting_time_ref(F))
@@ -156,4 +180,3 @@ function sspdmp(∇ϕ, t0, x0::SparseVector{Float64, Int64}, θ0, θf, T, c, G, 
     Ξ, (t, x, θ), (acc, num), c
 end
 
-sspdmp(∇ϕ, t0, x0, θ0, θf0, T, c, F, κ, args...; kwargs...) = sspdmp(∇ϕ, t0, x0, θ0, θf0, T, c, nothing, F, κ, args...;  kwargs...)
