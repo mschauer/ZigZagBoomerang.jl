@@ -6,9 +6,13 @@ using ProgressMeter
 using RandomNumbers.Xorshifts
 using RandomNumbers: gen_seed
 const Rng = Xoroshiro128Plus 
-Seed() = gen_seed(UInt64, 2)
+using FunctionWranglers
+export FunctionWrangler
+using ConcreteStructs
 
-#using AbstractMCMC
+
+
+Seed() = gen_seed(UInt64, 2)
 
 # ZigZag1d and Boomerang1d reference implementation
 include("types.jl")
@@ -17,36 +21,38 @@ include("dynamics.jl")
 export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
 const LocalZigZag = ZigZag
 export LocalZigZag, BouncyParticle, Boomerang
-#include("laplace.jl")
 
 include("poissontime.jl")
 export poisson_time
-include("jointflow.jl")
+
 include("fact_samplers.jl")
 include("not_fact_samplers.jl")
 
 include("priorityqueue.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
-include("local.jl")
-
 include("parallel.jl")
 include("sfactiter.jl")
-include("notfactiter.jl")
-
 
 include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
 
 include("ss_fact.jl")
+# include("ss_fact_new.jl")
+include("sparse_ss_fact.jl")
 export sspdmp
+
+include("engine.jl")
+export simulate, Schedule
+
+include("zigzag.jl")
+export SPDMP
 
 
 include("ss_not_fact.jl")
 export sticky_pdmp
 
 include("trace.jl")
-include("condition.jl")
 include("discretise.jl")
 const discretise = discretize 
 export discretise, discretize, sdiscretize, subtrace
