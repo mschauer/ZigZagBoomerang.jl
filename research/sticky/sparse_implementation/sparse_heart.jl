@@ -1,7 +1,7 @@
 using Pkg
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
-using Revise
+#using Revise
 using ZigZagBoomerang
 using DataStructures
 using LinearAlgebra
@@ -11,6 +11,7 @@ using Test
 using FileIO
 using Statistics
 using Makie, AbstractPlotting
+
 function gridlaplacian(T, m, n)
     S = sparse(T(0.0)I, n*m, n*m)
     linear = LinearIndices((1:m, 1:n))
@@ -30,9 +31,12 @@ function gridlaplacian(T, m, n)
     S
 end
 
+Random.seed!(1)
+
+
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 #n = 100
-n = 100
+n = 300
 const σ2 = 0.5
 Γ0 = 2gridlaplacian(Float64, n, n)
 Γ = 0.1I + Γ0
@@ -54,7 +58,7 @@ end
 t0 = 0.0
 h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2
 sz = 3.0
-heart = [max.(1 - h(x, y), 0) for x in range(-1.5-sz,1.5+sz, length=n), y in range(-1.1-sz,1.9+sz, length=n)]
+heart = [ max.(1 - h(x, y), 0) for x in range(-1.5-sz,1.5+sz, length=n), y   in range(-1.1-sz,1.9+sz, length=n)]
 image(heart)
 μ0 = 5.0*vec(heart)
 y = μ = μ0 + randn(n*n)
@@ -63,23 +67,99 @@ y = μ = μ0 + randn(n*n)
 
 
 x0 = μpost
+θ0 = rand([-1.0,1.0], n*n)
 xs0 = [abs(xi)<=0.5 ?  0.0 : xi for xi in x0]  
 xs0 = sparse(xs0)
-θf0 = rand([-1.0,1.0], n*n)
-θ0 = [iszero(xs0[i]) ? 0.0 : θf0[i] for i in eachindex(θf0)]
+θf0 = copy(θ0)
+θs0 = [iszero(xs0[i]) ? 0.0 : θf0[i] for i in eachindex(θf0)]
+
 # Rejection bounds
 c = [norm(Γpost[:, i], 2) for i in 1:n*n]
+
 # Define ZigZag
 Z = ZigZag(Γpost, μpost)
 # or try the FactBoomerang
 #Z = FactBoomerang(Γ, x0*0, 0.1)
-κ2 = 0.4
+
+κ1 = 0.4*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
 T = 10.0
+# @time trace0, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; adapt = false)
+# @time traj0 = collect(discretize(trace0, 0.2))
+
 su = false
 adapt = false
-trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θ0, θf0, T, c, nothing, Z, κ2, Γ, μ)                                   
+# trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ1, Γ, μ;
+#                                                 strong_upperbounds = su ,
+#                                                 adapt = adapt)
+println("non-sparse implementation")
+trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ1, Γ, μ;
+                                                strong_upperbounds = su ,
+                                                adapt = adapt)
+# sparse implementation
+println("sparse implementation")
+κ2 = 0.4
+trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θs0, θf0, T, c, nothing, Z, κ2, Γ, μ;
+                                            strong_upperbounds = su ,
+                                                        adapt = adapt)    
+# trace, (t, x, θ), (acc, num), c=  @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, z, κ2, args...;  kwargs...)
+error("")
 @time traj = collect(discretize(trace, 0.2))
 
+#display(scene)
+
+#scene1, _ = heatmap(abs.([mat(mean(last.(traj0[end÷2:end]))) mat(mean(last.(traj[end÷2:end]))) ]))
 scene2a, _ = heatmap(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
 scene2b, _ = heatmap(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
+
+error("stop")
+if false
+
+# Prepare surface plot
+    M = Node(mat0(traj[end].second))
+    scene = Scene()
+    surface!(scene, M; shading=false, show_axis=false, colormap = :oleron, colorrange = (-3,3))
+    Makie.scale!(scene, 1.0, 1.0, 2.0)
+    zlims!(scene, -5.0, 5.0)
+    # Movie frames
+    mkpath(joinpath(@__DIR__, "output"))
+    for i in eachindex(traj)
+        M[] = mat0(traj[i].second)
+        FileIO.save(joinpath(@__DIR__, "output", "surfs$i.png"), scene)
+    end
+
+    # Make video
+    dir = joinpath(@__DIR__, "output")
+    run(`ffmpeg -y -r 40 -f image2 -i $dir/surfs%d.png -vcodec libx264 -crf 25  -pix_fmt yuv420p $(typeof(Z).name)field.mp4`)
+end
+
+# Save hearts
+save("hearttrue.png", image(mat(μ0)))
+save("heart.png", image(mat(y)))
+save("hearthat.png", image(mat(yhat)))
+save("heartpostmeana.png", image(mat(mean(last.(traj0[end÷2:end])))))
+save("heartpostmeanb.png", image(mat(mean(last.(traj[end÷2:end])))))
+save("hearterrora.png", scene2a)
+save("hearterrorb.png", scene2b)
+
+mean((mat(μ0 - mean(last.(traj0[end÷2:end])))).^2)
+mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
+
+@show mean(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
+@show mean(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
+@show extrema(μ0)
+
+
+@show  extrema(y)
+
+
+@show extrema(yhat)
+
+
+@show extrema((mat(mean(last.(traj0[end÷2:end])))))
+@show extrema((mat(mean(last.(traj[end÷2:end])))))
+
+
+@show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
+
+@show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
