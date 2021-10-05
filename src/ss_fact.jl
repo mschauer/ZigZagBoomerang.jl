@@ -77,7 +77,7 @@ Is assumed that ∇ϕ[x, i] is function of x_i
 with i in G[i] or that ∇ϕ takes care of moving .
 """
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ::Vector{Float64}, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
@@ -215,4 +215,4 @@ function sspdmp(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; reversible=
     Ξ, (t, x, θ), (acc, num), c
 end
 
-sspdmp(∇ϕ, t0, x0, θ0, T, c, F, κ, args...; kwargs...) = sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, F, κ, args...;  kwargs...)
+# sspdmp(∇ϕ, t0, x0, θ0, T, c, F, κ, args...; kwargs...) = sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, F, κ, args...;  kwargs...)
