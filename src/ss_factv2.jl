@@ -1,7 +1,7 @@
 
 
 function sspdmp_inner2!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
-        F::ZigZag, κ::Vector{Float64}, args...; mode= :sticky, strong_upperbounds = false, factor=1.5, adapt=false)
+        F::ZigZag, κ::Vector{Float64}, mode, args...; strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
     # f[i] is true if the next event will be a freeze
     while true
@@ -33,12 +33,14 @@ function sspdmp_inner2!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, 
         elseif x[i] == 0 && θ[i] == 0 # case 2) was frozen
             t[i] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i], θf[i] = θf[i], 0.0 # unfreeze, restore speed
-            if mode == :sticky
+            if mode[i] == :restore
+                continue
+            elseif mode[i] == :refresh
                 θ[i] *= rand((-1,1))
-            elseif mode == :reflect
+            elseif mode[i] == :reflect
                 θ[i] *= -1.0
             else
-                error("the mode = $(mode) selected is not implemented")
+                error("the mode = $(mode[i]) selected is not implemented")
             end
             t_old[i] = t[i]
             t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, F) # neighbours
@@ -85,7 +87,7 @@ function sspdmp_inner2!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, 
     end
 end
 
-function sspdmp2(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; mode= :sticky,strong_upperbounds = false,
+function sspdmp2(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, mode, args...;strong_upperbounds = false,
         factor=1.5, adapt=false, progress=false, progress_stops = 20)
     n = length(x0)
     t′ = t0
@@ -130,7 +132,7 @@ function sspdmp2(∇ϕ, t0, x0, θ0, T, c, G, F::ZigZag, κ, args...; mode= :sti
     tstop = T/stops
     while t′ < T
         t, x, θ, t′, (acc, num), c,  b, t_old = sspdmp_inner2!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, f, θf, (acc, num), F, κ, args...; mode=mode,
+                    c, b, t_old, f, θf, (acc, num), F, κ, mode, args...; 
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
         if t′ > tstop
