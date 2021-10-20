@@ -36,7 +36,7 @@ Random.seed!(1)
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 #n = 100
-n = 300
+n = 50
 const σ2 = 0.5
 Γ0 = 2gridlaplacian(Float64, n, n)
 Γ = 0.1I + Γ0
@@ -57,9 +57,9 @@ end
 # Random initial values
 t0 = 0.0
 h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2
-sz = 3.0
+sz = 5.0
 heart = [ max.(1 - h(x, y), 0) for x in range(-1.5-sz,1.5+sz, length=n), y   in range(-1.1-sz,1.9+sz, length=n)]
-image(heart)
+# image(heart)
 μ0 = 5.0*vec(heart)
 y = μ = μ0 + randn(n*n)
 μpost = yhat = (I + Γ)\y
@@ -69,9 +69,7 @@ y = μ = μ0 + randn(n*n)
 x0 = μpost
 θ0 = rand([-1.0,1.0], n*n)
 xs0 = [abs(xi)<=0.5 ?  0.0 : xi for xi in x0]  
-xs0 = sparse(xs0)
-θf0 = copy(θ0)
-θs0 = [iszero(xs0[i]) ? 0.0 : θf0[i] for i in eachindex(θf0)]
+# xs0 = sparse(xs0)
 
 # Rejection bounds
 c = [norm(Γpost[:, i], 2) for i in 1:n*n]
@@ -83,7 +81,7 @@ Z = ZigZag(Γpost, μpost)
 
 κ1 = 0.4*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
-T = 10.0
+T = 100.0
 # @time trace0, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; adapt = false)
 # @time traj0 = collect(discretize(trace0, 0.2))
 
@@ -92,20 +90,59 @@ adapt = false
 # trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ1, Γ, μ;
 #                                                 strong_upperbounds = su ,
 #                                                 adapt = adapt)
+println("experiment 1)")
 println("non-sparse implementation")
-trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ1, Γ, μ;
+println("sspdmp")
+using Profile, ProfileView
+Profile.init()
+trace1, (t, x, θ), (acc, num), c = @time @profile ZigZagBoomerang.sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ1, Γ, μ;
                                                 strong_upperbounds = su ,
                                                 adapt = adapt)
+
+println("computing the trace")                            
+@time traj1 = collect(discretize(trace1, 0.2))
+
+error("")
 # sparse implementation
+println("experiment 2)")
 println("sparse implementation")
 κ2 = 0.4
-trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θs0, θf0, T, c, nothing, Z, κ2, Γ, μ;
-                                            strong_upperbounds = su ,
-                                                        adapt = adapt)    
-# trace, (t, x, θ), (acc, num), c=  @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, z, κ2, args...;  kwargs...)
-error("")
-@time traj = collect(discretize(trace, 0.2))
+x0 = μpost
+θ0 = rand([-1.0,1.0], n*n)
+θf0 = copy(θ0)
+θs0 = [iszero(xs0[i]) ? 0.0 : θf0[i] for i in eachindex(θf0)]
 
+trace2, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, xs0, θs0, θf0, T, c, nothing, Z, κ2, Γ, μ;
+                                            strong_upperbounds = su ,
+                                                        adapt = adapt)      
+# trace, (t, x, θ), (acc, num), c=  @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, z, κ2, args...;  kwargs...)
+println("computing the trace")
+@time traj2 = collect(discretize(trace2, 0.2)) 
+
+println("experiment 3)")
+println("sparse implementation using sparse array x")
+
+κ2 = 0.4
+x0 = μpost
+θ0 = rand([-1.0,1.0], n*n)
+xs0 = [abs(xi)<=0.5 ?  0.0 : xi for xi in x0]  
+θf0 = copy(θ0)
+θs0 = [iszero(xs0[i]) ? 0.0 : θf0[i] for i in eachindex(θf0)]
+xs0 = sparse(xs0)
+
+trace2, (t, x, θ), (acc, num), c = @time sparse_sspdmp(∇ϕ, t0, xs0, θs0, θf0, T, c, nothing, Z, κ2, Γ, μ;
+                                            strong_upperbounds = su ,
+                                                        adapt = adapt)      
+# trace, (t, x, θ), (acc, num), c=  @time sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, z, κ2, args...;  kwargs...)
+println("computing the trace")
+@time traj2 = collect(discretize(trace2, 0.2)) 
+
+
+
+
+error("")
+trace1.events
+trace2.events
 #display(scene)
 
 #scene1, _ = heatmap(abs.([mat(mean(last.(traj0[end÷2:end]))) mat(mean(last.(traj[end÷2:end]))) ]))
@@ -163,3 +200,4 @@ mean((mat(μ0 - mean(last.(traj[end÷2:end])))).^2)
 @show extrema(abs.(mat(μ0 - mean(last.(traj0[end÷2:end])))))
 
 @show extrema(abs.(mat(μ0 - mean(last.(traj[end÷2:end])))))
+
