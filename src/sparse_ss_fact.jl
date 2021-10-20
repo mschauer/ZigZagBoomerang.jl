@@ -1,38 +1,18 @@
 
-function new_queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
-    trefl = poisson_time(b[i], rand())
-    tfreeze = freezing_time(x[i], θ[i], Z)
-    if tfreeze <= trefl
-        f[i] = true
-        enqueue!(Q, i => t[i] + tfreeze)
-    else
-        f[i] = false
-        enqueue!(Q, i => t[i] + trefl)
-    end
-    return Q
-end
-
-
-function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64}, θ, Q, c, b, t_old, f, θf, s, ns, (acc, num),
-        F::ZigZag, κ::Float64, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
-    n = length(x)
+function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, #=x::SparseVector{Float64, Int64}=# x, θ, Q, c, b, t_old, f, θf, s, ns, (acc, num),
+        F::ZigZag, κ::Float64, iii, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
+    n = iii[end]
     # f[i] is true if the next event will be a freeze
     while true
-        ii, t′ = dequeue_pair!(Q)
+        # ii, t′ = dequeue_pair!(Q)
+        ii, t′ = peek(Q) # return the lowest priority key without removing it
         # println("time is : $(t′)")
         refresh = n < ii <= 2n
         i = ii - refresh*n
         refresh && error("refreshment not implemented")
         if i == 0  # unfreezing time
             # println("unfreezing time")
-            i0 = rand(eachindex(s)[s]) # select randomly an index 
-            if !(x[i0] == 0 && θ[i0] == 0 && s[i0]  == 1)
-                println("x[i] = $(x[i]) !≈ 0")
-                dump(x[i0])
-                dump(θ[i0])
-                dump(s[i0])
-                # error("x[i0] = $(x[i0]) and θ[i0] = $(θ[i0]) and s[i0] == $(s[i0])") # check that the particle was frozen
-            end
+            i0 = rand(@view iii[s]) # select randomly an index 
             t[i0] = t′ # equivalent to t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             θ[i0], θf[i0] = θf[i0], 0.0 # unfreeze, restore speed
             if reversible
@@ -46,6 +26,7 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                         b[j] = ab(G1, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
                         enqueue!(Q, j => t[j] + poisson_time(b[j], rand())) # cannot be hitting time
+                        # Q[j] => t[j] + poisson_time(b[j], rand())
                         f[j] = false
                     else
                         b[j] = ab(G1, j, x, θ, c, F, args...)
@@ -56,22 +37,23 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
             end
             s[i0] = 0 # i0 is not stuck anymore
             ns -= 1 # one coordinate less frozen at 0
-            @assert ns >= 0
+            # @assert ns >= 0
             if ns == 0 # no coordinate frozen
-                enqueue!(Q, 0 => Inf)
-                # Q[0] = Inf
+                # enqueue!(Q, 0 => Inf)
+                Q[0] = Inf
             else
-                enqueue!(Q, 0 => t′ - log(rand())/(κ*ns))
-                # Q[0] = t′ - log(rand())/(κ*ns)
+                # enqueue!(Q, 0 => t′ - log(rand())/(κ*ns))
+                Q[0] = t′ - log(rand())/(κ*ns)
             end
         elseif f[i] # case 1) to be frozen
             # println("new particle to be frozen")
-            # delete!(Q, i) 
+            delete!(Q, i) 
             t, x, θ = smove_forward!(i, t, x, θ, t′, F) # move only coordinate i
             if abs(x[i]) > 1e-8
                 error("x[i] = $(x[i]) !≈ 0")
             end
-            SparseArrays.dropstored!(x,i)
+            # SparseArrays.dropstored!(x,i)
+            x[i] = 0.0
             θf[i], θ[i] = θ[i], 0.0 # stop and save speed
             t_old[i] = t[i]
             f[i] = false
@@ -107,20 +89,17 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
                 t, x, θ = ssmove_forward!(G2, i, t, x, θ, t′, F) # neighbours of neightbours \ neighbours
                 θ = reflect!(i, ∇ϕi, x, θ, F)
                 for j in neighbours(G1, i)
-                    if j == i
+                    if θ[j] != 0
                         b[j] = ab(G, j, x, θ, c, F, args...)
                         t_old[j] = t[j]
-                        new_queue_time!(Q, t, x, θ, j, b, f, F)
-                    elseif θ[j] != 0
-                        b[j] = ab(G, j, x, θ, c, F, args...)
-                        t_old[j] = t[j]
-                        queue_time!(Q, t, x, θ, j, b, f, F)
+                        # new_queue_time!(Q, t, x, θ, j, b, f, F)
+                        Q = queue_time!(Q, t, x, θ, j, b, f, F)
                     end
                 end
             else # was an event time from upperbound -> nothing happens
                 b[i] = ab(G1, i, x, θ, c, F, args...)
                 t_old[i] = t[i]
-                new_queue_time!(Q, t, x, θ, i, b, f, F)
+                Q = queue_time!(Q, t, x, θ, i, b, f, F)
                 continue
             end
         end
@@ -133,19 +112,22 @@ function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x::SparseVector{Float64, Int64},
     end
 end
 
-function sspdmp(∇ϕ, t0, x0::SparseVector{Float64, Int64}, θ0, θf, T, c, G, F::ZigZag, κ::Float64, args...; reversible=false,strong_upperbounds = false,
+function sspdmp(∇ϕ, t0, x0, θ0, θf, T, c, G, F::ZigZag, κ::Float64, args...; reversible=false,strong_upperbounds = false,
             factor=1.5, adapt=false, progress=false, progress_stops = 20)
     n = length(x0)
-
+    iii = collect(1:n)
     [@assert θ0[i] == 0.0  for i in findall(iszero, x0)]
     [@assert θf[i] != 0.0 for i in eachindex(x0)]
     t′ = t0
     t = fill(t′, size(θ0)...)
     t_old = copy(t)
     f = zeros(Bool, n) # to be frozen
-    s = ones(Bool,  n) # s[i] == 1 if x[i] == 0 θ[i] == 0 (stuck at 0)
-    [s[i] = 0  for i in rowvals(x0)]
-    [@assert s[i] == 0 for i in rowvals(x0)]
+    s = zeros(Bool,  n) # s[i] == 1 if x[i] == 0 θ[i] == 0 (stuck at 0)
+    for i in findall(iszero, x0)
+        s[i] = 1
+    end
+    # [s[i] = 0  for i in rowvals(x0)]
+    # [@assert s[i] == 0 for i in finall(iszero, x0))]
     ns = sum(s)
     Γ = sparse(F.Γ)
     G1 = [i => rowvals(F.Γ)[nzrange(F.Γ, i)] for i in eachindex(θ0)]
@@ -187,7 +169,7 @@ function sspdmp(∇ϕ, t0, x0::SparseVector{Float64, Int64}, θ0, θf, T, c, G, 
     tstop = T/stops
     while t′ < T
         t, x, θ, t′, s, ns, (acc, num), c,  b, t_old = sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q,
-                    c, b, t_old, f, θf, s, ns, (acc, num), F, κ, args...; reversible=reversible,
+                    c, b, t_old, f, θf, s, ns, (acc, num), F, κ, iii, args...; reversible=reversible,
                     strong_upperbounds = strong_upperbounds , factor=factor,
                     adapt=adapt)
         if t′ > tstop
