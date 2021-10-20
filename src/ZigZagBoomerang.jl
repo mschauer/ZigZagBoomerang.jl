@@ -38,9 +38,11 @@ include("zigzagboom1d.jl")
 export pdmp, spdmp, eventtime, eventposition
 
 include("ss_fact.jl")
+include("ss_factv2.jl")
 # include("ss_fact_new.jl")
 include("sparse_ss_fact.jl")
-export sspdmp
+include("sparse_ss_fact_copy.jl")
+export sspdmp, sspdmp2, sparse_sspdmp
 
 include("engine.jl")
 export simulate, Schedule
