@@ -31,7 +31,7 @@ const Γ = S*S'
     tm = @elapsed @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ)
     al = @allocated @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ)
 
-    @test tm < 0.2
+    @test tm < 0.4 # 0.2
     @test al < 50_000_000
 
     dt = 0.5
@@ -51,7 +51,7 @@ end
     u0 = ZZB.stickystate(x0)
     target = ZZB.StructuredTarget(Γ, ∇ϕ)
     barriers = [ZZB.StickyBarriers((0.0,0.0),(:sticky, :sticky),(κ, κ)) for i in 1:d]
-    flow = ZZB.StickyFlow()
+    flow = ZZB.StickyFlow(ZigZag(0.9Γ, x0*0))
     strong = false
 
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]
@@ -61,5 +61,9 @@ end
     T = 2000.0
     upper_bounds = ZZB.StickyUpperBounds(target.G, 0.9Γ, strong, adapt, c, factor)
     end_time = ZZB.EndTime(T)
-    ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    Ξ = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    u0 = ZZB.stickystate(x0)
+    Ξ = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+
+    typeof(Ξ)
 end
