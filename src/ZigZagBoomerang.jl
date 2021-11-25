@@ -41,6 +41,8 @@ export pdmp, spdmp, eventtime, eventposition
 include("ss_fact.jl")
 export sspdmp
 
+include("stickyzz.jl")
+export stickyzz
 
 include("ss_not_fact.jl")
 export sticky_pdmp

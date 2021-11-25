@@ -75,7 +75,7 @@ bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (nei
 
 Is assumed that ∇ϕ[x, i] is function of x_i
 with i in G[i] or that ∇ϕ takes care of moving .
-"""
+""" 
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)
