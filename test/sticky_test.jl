@@ -18,7 +18,7 @@ const Γ = S*S'
     d = size(Γ, 1)   
     ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation   
     t0 = 0.0
-    x0 = rand(d)
+    x0 = randn(d)
     κ = 10.0*ones(d) # dont stop, actually
     θ0 = rand([-1.0,1.0], d)
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]
@@ -58,10 +58,12 @@ end
     G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     upper_bounds = ZZB.StickyUpperBounds(G1, G2, 0.9Γ, strong, adapt, c, factor)
     end_time = ZZB.EndTime(T)
-    Ξ = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    trace = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     u0 = ZZB.stickystate(x0)
-    trace = ProfileView.@profview @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
-
+    #ProfileView.@profview 
+    @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    dt = 0.5
+    global ts2, xs2 = sep(collect(discretize(trace, dt)))
 end
 
 
