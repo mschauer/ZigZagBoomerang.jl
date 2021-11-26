@@ -119,7 +119,7 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     # priority queue
     Q = SPriorityQueue{Int,Float64}()
     # Skeleton
-    Ξ = Trace(t′, x0, v0, flow.old) # TODO use trace
+    Ξ = Trace(t′, u0[2], u0[3], flow.old) # TODO use trace
     # Diagnostics
     acc = AcceptanceDiagnostics(0, 0)
     ## create bounds ab
