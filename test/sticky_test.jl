@@ -68,3 +68,27 @@ end
 end
 
 
+@testset "New Sticky ZigZag reflect" begin
+    global Γ
+    d = size(Γ, 1)
+    κ = 100.000
+    ∇ϕ(x, i) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
+    x0 = randn(d)
+    u0 = ZZB.stickystate(x0)
+    target = ZZB.StructuredTarget(Γ, ∇ϕ)
+    barriers = [ZZB.StickyBarriers((-1.0,.5),(:reflect, :reflect),(κ, κ)) for i in 1:d]
+    flow = ZZB.StickyFlow(ZigZag(0.9Γ, x0*0))
+    strong = false
+    c = .8*[norm(Γ[:, i], 2) for i in 1:d]
+    adapt = false
+    factor = 1.5
+    T = 2000.0
+    G = G1 = target.G
+    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
+    upper_bounds = ZZB.StickyUpperBounds(G1, G2, 0.9Γ, strong, adapt, c, factor)
+    end_time = ZZB.EndTime(T)
+    trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    println("acc ", acc.acc/acc.num)
+    dt = 0.5
+    global ts3, xs3 = sep(collect(discretize(trace, dt)))
+end

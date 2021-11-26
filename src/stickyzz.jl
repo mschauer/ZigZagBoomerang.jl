@@ -77,13 +77,13 @@ end
 finished(end_time::EndTime, t) = t < end_time.T
 endtime(end_time::EndTime) = end_time.T
 
-dir(ui) = dir = ui[3] > 0 ? 1 : 2
+dir(ui) = ui[3] > 0 ? 2 : 1
 geti(u, i) = (u[1][i], u[2][i], u[3][i]) 
 
 function freezing_time(barrier, ui)
     t,x,v = ui
     di = dir(ui)
-    if  v*(x-barrier.x[di]) >= 0 # sic!
+    if  v*(x - barrier.x[di]) >= 0 # sic!
         return Inf
     else
         return -(x - barrier.x[di])/v
@@ -158,12 +158,13 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
         G = target.G
         G1 =  upper_bounds.G1
         G2 =  upper_bounds.G2
-        if f[i] # case 1) to be frozen
-            x[i] = -0*v[i] # a bit dangarous
+        if f[i] # case 1) to be frozen or to reflect
+            di = dir(geti(u, i))
+            x[i] = barriers[i].x[di] # a bit dangarous
             t_old[i] = t[i] = t′
             v_old[i], v[i] = v[i], 0.0 # stop and save speed
             f[i] = false
-            di = dir(geti(u, i))
+
             Q[i] = t′ - log(rand(rng))/barriers[i].κ[di]
             if upper_bounds.strong == false
                 t, x, v = ssmove_forward!(G, i, t, x, v, t′, flow.old) 
@@ -178,9 +179,15 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
             end
             push!(Ξ, event(i, t, x, v, flow.old))
             return i, t′
-        elseif x[i] == 0 && v[i] == 0 # case 2) was frozen
+        elseif v[i] == 0 && v_old[i] != 0# case 2) was frozen
             t_old[i] = t[i] = t′ # particle does not move, only time
             v[i], v_old[i] = v_old[i], 0.0 # unfreeze, restore speed
+            di = dir(geti(u, i))
+            if barriers[i].rule[di] == :reversible
+                v[i] *= rand((-1,1))
+            elseif barriers[i].rule[di] == :reflect
+                v[i] = -v[i]
+            end
             t, x, v = ssmove_forward!(G, i, t, x, v, t′, flow.old) 
             t, x, v = ssmove_forward!(G2, i, t, x, v, t′, flow.old)
             for j in neighbours(G1, i)
