@@ -51,7 +51,7 @@ end
     x0 = randn(d)
     u0 = ZZB.stickystate(x0)
     target = ZZB.StructuredTarget(Γ, ∇ϕ)
-    barriers = [ZZB.StickyBarriers((0.0,0.0),(:sticky, :sticky),(κ, κ)) for i in 1:d]
+    barriers = [ZZB.StickyBarriers((0.0, 0.0), (:sticky, :sticky), (κ, κ)) for i in 1:d]
     flow = ZZB.StickyFlow(ZigZag(0.9Γ, x0*0))
     strong = false
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]
@@ -83,7 +83,7 @@ end
     x0 = randn(d)
     u0 = ZZB.stickystate(x0)
     target = ZZB.StructuredTarget(Γ, ∇ϕ)
-    barriers = [ZZB.StickyBarriers((-1.0,.5),(:reflect, :reflect),(κ, κ)) for i in 1:d]
+    barriers = [ZZB.StickyBarriers((-1.0, 0.5), (:reflect, :reflect), (κ, κ)) for i in 1:d]
     flow = ZZB.StickyFlow(ZigZag(0.9Γ, x0*0))
     strong = false
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]

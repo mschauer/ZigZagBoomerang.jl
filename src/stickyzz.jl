@@ -100,7 +100,7 @@ end
 function queue_time!(rng, Q, u, i, b, f, barriers::Vector, flow::StickyFlow)
     t, x, v = u
     trefl = poisson_time(b[i], rand(rng))
-    tfreeze = freezing_time(barriers[i], geti(u,i), flow)
+    tfreeze = freezing_time(barriers[i], geti(u, i), flow)
     if tfreeze <= trefl
         f[i] = true
         Q[i] = t[i] + tfreeze
@@ -129,7 +129,7 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     for i in eachindex(v0)
         trefl = poisson_time(b[i], rand(rng)) #TODO
         tfreez = freezing_time(barriers[i], geti(u, i), flow) #TODO
-        if tfreez < trefl
+        if tfreez <= trefl
             f[i] = true
             enqueue!(Q, i => t0[i] + tfreez)
         else
