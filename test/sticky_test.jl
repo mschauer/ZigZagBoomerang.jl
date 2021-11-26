@@ -8,6 +8,8 @@ using Statistics
 using LinearAlgebra
 using ZigZagBoomerang: sep
 using ProfileView
+using Random
+Random.seed!(1)
 d = 20
 S = 1.3I + 0.5sprandn(d, d, 0.1)
 const Γ = S*S'
@@ -29,13 +31,15 @@ const Γ = S*S'
     tm = @elapsed @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ)
     al = @allocated @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ, Γ)
 
-    @test tm < 0.4 # 0.2
+    @test tm < 1.0 # 0.2
     @test al < 60_000_000
 
     dt = 0.5
-    global ts, xs = sep(collect(discretize(trace, dt)))
+    ts, xs = sep(collect(discretize(trace, dt)))
 
     @test mean(abs.(mean(xs))) < d/sqrt(T)
+    global ts1, xs1 = sep(collect(trace))
+
 
 end
 
@@ -60,11 +64,14 @@ end
     end_time = ZZB.EndTime(T)
     trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)
-    u0 = ZZB.stickystate(x0)
-    #ProfileView.@profview 
+
+    tm = @elapsed ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    al = @allocated ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    @test tm < 1.0 # 0.2
+    @test al < 10_000_000
     @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     dt = 0.5
-    global ts2, xs2 = sep(collect(discretize(trace, dt)))
+    global ts2, xs2 = sep(collect(trace))
 end
 
 
@@ -90,5 +97,5 @@ end
     trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)
     dt = 0.5
-    global ts3, xs3 = sep(collect(discretize(trace, dt)))
+    global ts3, xs3 = sep(collect(trace))
 end

@@ -42,6 +42,7 @@ struct StructuredTarget{TG,T∇ϕ}
     #selfmoving ? 
 end
 
+(target::StructuredTarget)(t′, u, i, F) = target.∇ϕ(u[2], i)
 
 StructuredTarget(Γ::SparseMatrixCSC, ∇ϕ) = StructuredTarget([i => rowvals(Γ)[nzrange(Γ, i)] for i in axes(Γ, 1)], ∇ϕ)
 
@@ -54,6 +55,7 @@ mutable struct AcceptanceDiagnostics
     acc::Int
     num::Int
 end
+
 function accept!(acc::AcceptanceDiagnostics, args...) 
     acc.acc += 1
     acc.num += 1
@@ -63,26 +65,31 @@ function not_accept!(acc::AcceptanceDiagnostics, args...)
     acc.num += 1
     acc
 end
-
+function reset!(acc::AcceptanceDiagnostics)
+    acc.num = acc.acc = 0
+    acc
+end
 function stickystate(rng, x0)
     d = length(x0)
     v0 = rand(rng, (-1.0, 1.0), d)
     t0 = zeros(d)
-    u0 = (t0, x0, v0) 
+    (t0, x0, v0) 
 end
 stickystate(x0) = stickystate(Random.GLOBAL_RNG, x0)
+
 struct EndTime
     T::Float64
 end
 finished(end_time::EndTime, t) = t < end_time.T
 endtime(end_time::EndTime) = end_time.T
 
-dir(ui) = ui[3] > 0 ? 2 : 1
+dir(ui) = ui[3] > 0 ? 2 : (ui[3] < 0 ? 1 : 0)
+
 geti(u, i) = (u[1][i], u[2][i], u[3][i]) 
 
-function freezing_time(barrier, ui)
+function freezing_time(barrier, ui, flow)
     t,x,v = ui
-    di = dir(ui)
+    di = dir(ui) # fix me: if above a reflecting barrier, reflect
     if  v*(x - barrier.x[di]) >= 0 # sic!
         return Inf
     else
@@ -90,7 +97,19 @@ function freezing_time(barrier, ui)
     end
 end
 
-
+function queue_time!(rng, Q, u, i, b, f, barriers::Vector, flow::StickyFlow)
+    t, x, v = u
+    trefl = poisson_time(b[i], rand(rng))
+    tfreeze = freezing_time(barriers[i], geti(u,i), flow)
+    if tfreeze <= trefl
+        f[i] = true
+        Q[i] = t[i] + tfreeze
+    else
+        f[i] = false
+        Q[i] = t[i] + trefl
+    end
+    return Q
+end
 function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::StickyUpperBounds, barriers::Vector{<:StickyBarriers}, end_condition;  progress=false, progress_stops = 20, rng=Rng(Seed()))
     u = deepcopy(u0)
     # Initialize
@@ -109,8 +128,8 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     # fill priorityqueue
     for i in eachindex(v0)
         trefl = poisson_time(b[i], rand(rng)) #TODO
-        tfreez = freezing_time(barriers[i], geti(u, i)) #TODO
-        if trefl > tfreez
+        tfreez = freezing_time(barriers[i], geti(u, i), flow) #TODO
+        if tfreez < trefl
             f[i] = true
             enqueue!(Q, i => t0[i] + tfreez)
         else
@@ -160,7 +179,7 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
         G2 =  upper_bounds.G2
         if f[i] # case 1) to be frozen or to reflect
             di = dir(geti(u, i))
-            x[i] = barriers[i].x[di] # a bit dangarous
+            x[i] = barriers[i].x[di] # a bit dangerous
             t_old[i] = t[i] = t′
             v_old[i], v[i] = v[i], 0.0 # stop and save speed
             f[i] = false
@@ -173,11 +192,10 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
                     if v[j] != 0 # only non-frozen, especially not i
                         b[j] = ab(upper_bounds, flow, j, u)
                         t_old[j] = t[j]
-                        Q = queue_time!(rng, Q, u..., j, b, f, flow.old)
+                        Q = queue_time!(rng, Q, u, j, b, f, barriers, flow)
                     end
                 end
             end
-            push!(Ξ, event(i, t, x, v, flow.old))
             return i, t′
         elseif v[i] == 0 && v_old[i] != 0# case 2) was frozen
             t_old[i] = t[i] = t′ # particle does not move, only time
@@ -194,24 +212,21 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
                 if v[j] != 0 # only non-frozen, including i # check!
                     b[j] = ab(upper_bounds, flow, j, u)
                     t_old[j] = t[j]
-                    Q = queue_time!(rng, Q, u..., j, b, f, flow.old)
+                    Q = queue_time!(rng, Q, u, j, b, f, barriers, flow)
                 end
             end
-            push!(Ξ, event(i, t, x, v, flow.old))
             return i, t′ 
         else    # was either a reflection 
                 #time or an event time from the upper bound  
             t, x, v = ssmove_forward!(G, i, t, x, v, t′, flow.old) 
-            # ∇ϕi = ∇ϕ_(∇ϕ, t, x, θ, i, t′, F, args...)
-            ∇ϕi = target.∇ϕ(x, i) # To change, why Γ is on upperbounds?            
-            # l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
+            ∇ϕi = target(t′, u, i, flow)           
             l, lb = sλ(∇ϕi, i, x, v, flow.old), sλ̄(b[i], t[i] - t_old[i])
             
             if rand(rng)*lb < l # was a reflection time
                 accept!(acc, lb, l)
                 if l > lb
                     !adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
-                    acc = num = 0
+                    reset!(acc)
                     adapt!(c, i, factor)
                 end
                 v = reflect!(i, ∇ϕi, x, v, flow.old) # reflect!
@@ -220,16 +235,15 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
                     if v[j] != 0
                         b[j] = ab(upper_bounds, flow, j, u)
                         t_old[j] = t[j]
-                        queue_time!(rng, Q, u..., j, b, f, flow.old)
+                        queue_time!(rng, Q, u, j, b, f, barriers, flow)
                     end
                 end
-                push!(Ξ, event(i, t, x, v, flow.old))
                 return i, t′ 
             else # was an event time from upperbound -> nothing happens
                 not_accept!(acc, lb, l)
                 b[i] = ab(upper_bounds, flow, i, u)
                 t_old[i] = t[i]
-                queue_time!(rng, Q, u..., i, b, f, flow.old)
+                queue_time!(rng, Q, u, i, b, f, barriers, flow)
                 # don't save
                 continue
             end               
