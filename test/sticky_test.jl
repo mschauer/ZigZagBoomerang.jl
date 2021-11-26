@@ -58,7 +58,8 @@ end
     G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
     upper_bounds = ZZB.StickyUpperBounds(G1, G2, 0.9Γ, strong, adapt, c, factor)
     end_time = ZZB.EndTime(T)
-    trace = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    println("acc ", acc.acc/acc.num)
     u0 = ZZB.stickystate(x0)
     #ProfileView.@profview 
     @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)

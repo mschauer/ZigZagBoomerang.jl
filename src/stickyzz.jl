@@ -50,9 +50,18 @@ function ab(su::StickyUpperBounds, flow, i, u)
     ab(su.G1, i, x, v, su.c, flow.old) #TODO
 end
 
-struct AcceptanceDiagnostics
+mutable struct AcceptanceDiagnostics
     acc::Int
     num::Int
+end
+function accept!(acc::AcceptanceDiagnostics, args...) 
+    acc.acc += 1
+    acc.num += 1
+    acc
+end
+function not_accept!(acc::AcceptanceDiagnostics, args...) 
+    acc.num += 1
+    acc
 end
 
 function stickystate(rng, x0)
@@ -83,8 +92,9 @@ end
 
 
 function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::StickyUpperBounds, barriers::Vector{<:StickyBarriers}, end_condition;  progress=false, progress_stops = 20, rng=Rng(Seed()))
+    u = deepcopy(u0)
     # Initialize
-    (t0, x0, v0) = u0
+    (t0, x0, v0) = u
     d = length(v0)
     t′ = maximum(t0)
     # priority queue
@@ -94,12 +104,12 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     # Diagnostics
     acc = AcceptanceDiagnostics(0, 0)
     ## create bounds ab
-    b = [ab(upper_bounds, flow, i, u0) for i in eachindex(v0)]
+    b = [ab(upper_bounds, flow, i, u) for i in eachindex(v0)]
     f = zeros(Bool, d)
     # fill priorityqueue
     for i in eachindex(v0)
         trefl = poisson_time(b[i], rand(rng)) #TODO
-        tfreez = freezing_time(barriers[i], geti(u0, i)) #TODO
+        tfreez = freezing_time(barriers[i], geti(u, i)) #TODO
         if trefl > tfreez
             f[i] = true
             enqueue!(Q, i => t0[i] + tfreez)
@@ -116,9 +126,9 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
 
     println("Run main, run total")
 
-    Ξ = @time @inferred sticky_main(rng, prg, Q, Ξ, t′, u0, b, f, target, flow, upper_bounds, barriers, end_condition, acc)
+    t′ = @time @inferred sticky_main(rng, prg, Q, Ξ, t′, u, b, f, target, flow, upper_bounds, barriers, end_condition, acc)
 
-    return Ξ
+    return Ξ, t′, u, acc
 end
 
 function sticky_main(rng, prg, Q::SPriorityQueue, Ξ, t′, u, b, f, target, flow, upper_bounds, barriers, end_condition, acc)
@@ -138,7 +148,7 @@ function sticky_main(rng, prg, Q::SPriorityQueue, Ξ, t′, u, b, f, target, flo
         end  
     end
     ismissing(prg) || ProgressMeter.finish!(prg)
-    return Ξ
+    return t′
 end
 function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_bounds, barriers, acc)
     while true
@@ -189,9 +199,9 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
             ∇ϕi = target.∇ϕ(x, i) # To change, why Γ is on upperbounds?            
             # l, lb = sλ(∇ϕi, i, x, θ, F), sλ̄(b[i], t[i] - t_old[i])
             l, lb = sλ(∇ϕi, i, x, v, flow.old), sλ̄(b[i], t[i] - t_old[i])
-            # acc.num +=1        
+            
             if rand(rng)*lb < l # was a reflection time
-                # acc.acc += 1
+                accept!(acc, lb, l)
                 if l > lb
                     !adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
                     acc = num = 0
@@ -209,6 +219,7 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
                 push!(Ξ, event(i, t, x, v, flow.old))
                 return i, t′ 
             else # was an event time from upperbound -> nothing happens
+                not_accept!(acc, lb, l)
                 b[i] = ab(upper_bounds, flow, i, u)
                 t_old[i] = t[i]
                 queue_time!(rng, Q, u..., i, b, f, flow.old)
