@@ -225,9 +225,9 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, f, target, flow, upper_b
             if rand(rng)*lb < l # was a reflection time
                 accept!(acc, lb, l)
                 if l > lb
-                    !adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
+                    !upper_bounds.adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
                     reset!(acc)
-                    adapt!(c, i, factor)
+                    adapt!(upper_bounds.c, i, upper_bounds.factor)
                 end
                 v = reflect!(i, ∇ϕi, x, v, flow.old) # reflect!
                 t, x, v = ssmove_forward!(G2, i, t, x, v, t′, flow.old)  # neighbours of neightbours \ neighbours
