@@ -22,6 +22,8 @@ struct StickyBarriers{Tx,Trule,Tκ}
     κ::Tκ 
 end    
 
+StickyBarriers() = StickyBarriers((-Inf, Inf), (:reflect, :reflect), (Inf, Inf))
+
 struct StickyFlow{T}
     old::T
 end
