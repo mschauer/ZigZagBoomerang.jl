@@ -56,11 +56,10 @@ end
     strong = false
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]
     adapt = false
-    factor = 1.5
+    multiplier = 1.5
     T = 2000.0
     G = G1 = target.G
-    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
-    upper_bounds = ZZB.StickyUpperBounds(G1, G2, 0.9Γ, strong, adapt, c, factor)
+    upper_bounds = ZZB.StickyUpperBounds(G, G1, 0.9Γ, c; adapt=adapt, strong=strong, multiplier= multiplier)
     end_time = ZZB.EndTime(T)
     trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)
@@ -88,11 +87,10 @@ end
     strong = false
     c = .8*[norm(Γ[:, i], 2) for i in 1:d]
     adapt = false
-    factor = 1.5
+    multiplier = 1.5
     T = 2000.0
     G = G1 = target.G
-    G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
-    upper_bounds = ZZB.StickyUpperBounds(G1, G2, 0.9Γ, strong, adapt, c, factor)
+    upper_bounds = ZZB.StickyUpperBounds(G, G1, 0.9Γ, c; adapt=adapt, strong=strong, multiplier= multiplier)
     end_time = ZZB.EndTime(T)
     trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)

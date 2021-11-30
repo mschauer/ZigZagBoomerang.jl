@@ -36,7 +36,7 @@ end_time = ZZB.EndTime(T)
 
 
 # Target 
-G = [i=>collect(1:d) for i in 1:d] # Sparsity target
+G = [i=>collect(1:d) for i in 1:d] # Sparsity target (full)
 target = ZZB.StructuredTarget(G, negpartiali(g, d))
 
 # Barriers
@@ -50,17 +50,16 @@ barriers = [ZZB.StickyBarriers(), # No barrier
 strong = false
 c = 20*[1.0 for i in 1:d]
 adapt = true # adapt bounds
-factor = 1.5
-G1 = [i => [i] for i in 1:d] # Sparsity pattern bounds
-G2 = [i => setdiff(union((G1[j].second for j in G1[i].second)...), G[i].second) for i in eachindex(G1)]
-upper_bounds = ZZB.StickyUpperBounds(G1, G2, 1.0sparse(I(d)), strong, adapt, c, factor)
-
+multiplier = 1.5
+G1 = [i => [i] for i in 1:d] # Sparsity pattern bounds (diagonal)
+upper_bounds = ZZB.StickyUpperBounds(G, G1, 1.0sparse(I(d)), c; adapt=adapt, strong=strong, multiplier= multiplier)
+  
 # Sample
 trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
 println("acc ", acc.acc/acc.num)
 
 # Discretize on dynamic grid for plotting
-global ts1, xs1 = ZZB.sep(collect(trace))
+@time ts1, xs1 = ZZB.sep(collect(trace))
 
 # Discretize on fixed grid for means
 dt = 0.5
