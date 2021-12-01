@@ -184,7 +184,7 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
 
     println("Run main, run total")
 
-    t′ = @time @inferred sticky_main(rng, prg, Q, Ξ, t′, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
+    t′ = sticky_main(rng, prg, Q, Ξ, t′, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
 
     return Ξ, t′, u, acc
 end
@@ -287,4 +287,23 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
             end               
         end
     end
+end
+
+
+function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds = false, adapt = false, factor = 1.5)
+    ∇ϕ(x, i) = ∇ϕ2(x, i, args...)
+    Γ = Z.Γ
+    d = length(x0)
+    t0 = fill(t, d)
+    u0 = (t0, x0, v0) 
+    target = StructuredTarget(Z.Γ, ∇ϕ)
+    barriers = [StickyBarriers((0.0, 0.0), (:sticky, :sticky), (κ[i], κ[i])) for i in 1:d]
+    flow = StickyFlow(Z)
+    multiplier = factor
+    G = G1 = target.G
+    upper_bounds = StickyUpperBounds(G, G1, Γ, c; adapt=adapt, strong = strong_upperbounds, multiplier= multiplier)
+    end_time = EndTime(T)
+    trace, _, _, acc = @time stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    println("acc ", acc.acc/acc.num)
+    return 
 end
