@@ -73,7 +73,7 @@ x0 = μpost
 
 
 # Rejection bounds
-c = [norm(Γpost[:, i], 2) for i in 1:n*n]
+c = fill(0.01, n*n)
 
 # Define ZigZag
 Z = ZigZag(Γpost, μpost)
