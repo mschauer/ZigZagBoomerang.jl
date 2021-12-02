@@ -3,7 +3,8 @@ using Pkg
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
 using LinearAlgebra, ZigZagBoomerang
-using Distributions
+using Distributions, GLMakie, Random
+Random.seed!(1)
 include("./gibbs.jl")
 d = 100
 n = 300
@@ -75,19 +76,35 @@ function benchmark_1(A, Atr, y, T, N)
     gibbs_linear(y, A, w, N, x0, Z1, σ2, c0)
     println("sticky Zig-Zag")
     # timer inside sspdmp2
+    x0 = fill(10.0, d)
     trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γpost, μpost)
+    subiter = 1
     println("Gibbs sampler")
-    ββ, ZZ = @time gibbs_linear(y, A, w, N, x0, Z1, σ2, c0)
-    return trace, ββ
+    x0 = fill(10.0, d)
+    ββ, ZZ = @time gibbs_linear(y, A, w, N, x0, Z1, σ2, c0, subiter)
+    return trace, ββ, ZZ
 end
-T = 1000.0
+T = 2000.0
 N = 50
-trace, tracegibs  = benchmark_1(A, Atr, y, T, N)
+trace, ββ, ZZ   = benchmark_1(A, Atr, y, T, N)
 ts2, xs2 = ZigZagBoomerang.sep(collect(trace))
+trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
+trace2
 
 produce_plots = true
+
 if produce_plots
+    using GLMakie, Colors, ColorSchemes
+    f = Figure(backgroundcolor = RGB(0.98, 0.98, 0.98),
+            resolution = (1000, 500))
+    ax = [Axis(f[1, j]) for j in 1:2]
+    lines!(ax[1], ts2, getindex.(xs2, 7)) 
+    scatter!(ax[2], eachindex(trace2), getindex.(trace2, 7)) 
+    hlines!(ax[1], [xtrue[7]])
+    hlines!(ax[2], [xtrue[7]])
 end
+
+error("")
 
 
 function benchmark_2(dd, nn, rep)
