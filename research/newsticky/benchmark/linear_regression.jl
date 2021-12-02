@@ -40,7 +40,8 @@ Chl = cholesky(Symmetric(Γnull2))
 Atr = Chl.U \ randn(d, n) 
 A = Atr'
 # Choleski
-xtrue = [ i < 0.2*d ? 1.0 : 0.0 for i in 1:d]
+
+xtrue = [ iseven(i) ? 1.0 : 0.0 for i in 1:d]
 # xtrue = randn(d)*sqrt(σ0) 
 const σ2 = 1.0
 const σ0 = 20.0
@@ -123,8 +124,8 @@ if produce_heatmap
     fig1 = Figure()
     ax = [Axis(fig1[1, j]) for j in 1:2]
 
-    heatmap!(ax[1], trace2b[100:end,:])
-    heatmap!(ax[2], traceb[100:end,:])
+    heatmap!(ax[1], trace2b[10:end,:])
+    heatmap!(ax[2], traceb[10:end,:])
 end
 fig1
 produce_plots = true
