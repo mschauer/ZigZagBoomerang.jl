@@ -296,7 +296,7 @@ function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_uppe
     d = length(x0)
     t0 = fill(t, d)
     u0 = (t0, x0, v0) 
-    target = StructuredTarget(Z.Γ, ∇ϕ)
+    target = StructuredTarget(Γ, ∇ϕ)
     barriers = [StickyBarriers((0.0, 0.0), (:sticky, :sticky), (κ[i], κ[i])) for i in 1:d]
     flow = StickyFlow(Z)
     multiplier = factor
@@ -305,5 +305,5 @@ function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_uppe
     end_time = EndTime(T)
     trace, _, _, acc = @time stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)
-    return 
+    return trace, acc
 end
