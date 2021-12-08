@@ -1,22 +1,22 @@
 
 # Y = X \beta + epsilon_i epsilon_i ∼ normal(0, σ2), prior slab = normal(0, c*σ2)
 
-function gibbs_gauss(Γ, μ, w, iter, x, Z, subiter = 10)
+function gibbs_gauss(Γ, μ, w, iter, x, z, subiter = 10)
     xx = Vector{Float64}[]
-    ZZ = Vector{Float64}[]
+    zz = Vector{Float64}[]
     push!(xx, copy(x))
-    push!(ZZ, copy(Z))
+    push!(zz, copy(z))
     for k in 1:iter
         # println("number of active coordinate: $(sum(Z))")
-        Z =  update_Z!(Γ, μ, w, Z, x)
+        z =  update_Z!(Γ, μ, w, z, x)
         # Update β
-        β = update_x!(Γ, μ, w, Z, x) 
+        x = update_x!(Γ, μ, w, z, x) 
         if k%subiter == 0
             push!(xx, copy(x))
             push!(zz, copy(z))
         end
     end
-    return ββ, ZZ
+    return xx, zz
 end
 
 
@@ -60,7 +60,7 @@ function update_x!(Γ, μ, w, Z, x) # OK
         return x
     end 
     Γz = view(Γ, Z, Z)
-    Cz = cholesky(Symmetric(Γz))
+    Cz = cholesky(Symmetric(Γz) + I./1.0)
     μz = view(μ, Z)
     xz = Cz.U \ randn(length(μz)) + μz # check if this is correct
     x[Z] .= xz
@@ -71,7 +71,7 @@ end
 
 try_gauss = true
 if try_gauss
-    d = 10
+    d = 100
     X = randn(50,d)
     # Γ = X'*X
     Γ = Matrix(I(d))
