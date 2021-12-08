@@ -67,7 +67,7 @@ if produce_heatmap
     ax = [Axis(fig1[1, j]) for j in 1:3]
     heatmap!(ax[1], traceh[burn:end,:])
     i = 5
-    lines!(ax[2], getindex.(xs, i)[burn:end],getindex.(xs, i+1)[burn:end])
+    lines!(ax[2], getindex.(xs, i)[burn:end],getindex.(xs, i+1)[burn:end], linewidth=2.0, color=(:blue, 0.1))
 
     lines!(ax[3], ts[burn:end], getindex.(xs, i)[burn:end])
     lines!(ax[3], ts[burn:end], getindex.(xs, i+1)[burn:end])
