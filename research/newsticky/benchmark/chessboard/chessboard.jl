@@ -86,9 +86,22 @@ end
 
 run_gibbs = true
 if run_gibbs
-    include("../research\\newsticky\\benchmark\\gibbs_gauss.jl")
+    include("../gibbs_gauss.jl")
     w = 0.2
     N = 100
     Z = ones(Bool, d)
     ββ, ZZ = gibbs_gauss(Γ, μ, w, N, x, Z, σa, 1)
+    trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
+    trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
 end
+
+produce_heatmap = true
+if produce_heatmap
+    using GLMakie, Colors, ColorSchemes
+    fig1 = Figure()
+    ax = [Axis(fig1[1, j]) for j in 1:1]
+    heatmap!(ax[1], trace2b[10:end,:])
+    # heatmap!(ax[2], traceb[10:end,:])
+    fig1
+end
+
