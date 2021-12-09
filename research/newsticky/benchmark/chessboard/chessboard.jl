@@ -86,10 +86,12 @@ end
 
 run_gibbs = true
 if run_gibbs
-    include("../gibbs_gauss.jl")
-    w = 0.2
+    include("./gibbs_gauss2.jl")
+    w = wi
     N = 100
-    Z = ones(Bool, d)
+    Z = rand(Bool, d)
+    # Γℓ = R'*R/σb^2
+    # μℓ = -Γℓ \ (R'*(ones(d-1).*ci)./σb^2)
     ββ, ZZ = gibbs_gauss(Γ, μ, w, N, x, Z, σa, 1)
     trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
     trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
@@ -104,4 +106,5 @@ if produce_heatmap
     # heatmap!(ax[2], traceb[10:end,:])
     fig1
 end
-
+fig1
+trace2b
