@@ -45,12 +45,12 @@ function compute_L(Γ, μ, i, w, Z, σ0, x) #ok
     end
     Γ0 = view(Γ, Z, Z)
     Σ0 = inv(Symmetric(Γ0))
-    μ0 = Σ0*(Γ0 - I./σ0)*view(μ, Z)
+    μ0 = Σ0*(Γ0 - I./σ0^2)*view(μ, Z)
     x0 = view(x, Z)
     Z[i] = 1
     Γ1 = view(Γ, Z, Z)
     Σ1 = inv(Symmetric(Γ1))
-    μ1 = Σ1*(Γ1 - I./σ0)*view(μ, Z)
+    μ1 = Σ1*(Γ1 - I./σ0^2)*view(μ, Z)
     x1 = view(x, Z)
     L = (2π)^(-1/2)*exp(0.5*(-logdet(Σ1) + logdet(Σ0) - (x1 - μ1)'*Γ1*(x1 - μ1) + (x0 - μ0)'*Γ0*(x0 - μ0)))
     return L
@@ -64,7 +64,7 @@ function update_x!(Γ, μ, w, Z, σ0, x) # OK
     # println(Γ) 
     Γz = Symmetric(Matrix(view(Γ, Z, Z)))
     Cz = cholesky(Γz)
-    μz = Cz \ (Γz - I/σ0)*view(μ, Z)
+    μz = Cz \ (Γz - I/σ0^2)*view(μ, Z)
     xz = Cz.U \ randn(length(μz)) + μz # check if this is correct
     x[Z] .= xz
     return x
