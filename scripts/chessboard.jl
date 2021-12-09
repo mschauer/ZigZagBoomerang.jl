@@ -1,8 +1,13 @@
+
 using LinearAlgebra
 using Test
 using ZigZagBoomerang
 using SparseArrays
-d = 10
+using Pkg
+Pkg.activate(@__DIR__)
+cd(@__DIR__)
+
+d = 100
 x = randn(d)
 ∇x = randn(d)
 const σa = 2.0
@@ -46,21 +51,25 @@ x0 = rand(d)
 c = fill(0.001, d)
 θ0 = rand([-0.1,0.1], d)
 t0 = 0.0
-println("run once to trigger precompilation")
-ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
 
-println("sticky Zig-Zag")
-# timer inside sspdmp2
-x0 = fill(5.0, d)
-trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
-ts, xs = ZigZagBoomerang.sep(collect(trace))
-tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, 1.0)))
-traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
+run_zigzag = false
+if run_zigzag
+    println("run once to trigger precompilation")
+    ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
+
+    println("sticky Zig-Zag")
+    # timer inside sspdmp2
+    x0 = fill(5.0, d)
+    trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
+    ts, xs = ZigZagBoomerang.sep(collect(trace))
+    tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, 1.0)))
+    traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
+end
 
 
 
 using GLMakie
-produce_heatmap = true
+produce_heatmap = false
 if produce_heatmap
     burn = 100
     fig1 = Figure()
@@ -74,3 +83,12 @@ if produce_heatmap
     fig1
 end
 
+
+run_gibbs = true
+if run_gibbs
+    include("../research\\newsticky\\benchmark\\gibbs_gauss.jl")
+    w = 0.2
+    N = 100
+    Z = ones(Bool, d)
+    ββ, ZZ = gibbs_gauss(Γ, μ, w, N, x, Z, σa, 1)
+end
