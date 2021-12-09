@@ -62,7 +62,7 @@ if run_zigzag
     x0 = fill(5.0, d)
     trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
     ts, xs = ZigZagBoomerang.sep(collect(trace))
-    tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, T/1000)))
+    tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, T/2000)))
     traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
 end
 
@@ -74,7 +74,7 @@ if produce_heatmap
     burn = 50
     fig1 = Figure()
     ax = [Axis(fig1[1, j]) for j in 1:3]
-    heatmap!(ax[1], traceh[burn:end,:], colorrange=(-8,8))
+    heatmap!( ax[1], tsh[burn]:T/2000:T, 1:3, traceh[burn:end, :], colorrange=(-8,8))
     i = 2d÷5
     lines!(ax[2], getindex.(xs, i)[burn:end],getindex.(xs, i+1)[burn:end], linewidth=2.0, color=(:blue, 0.1))
 
