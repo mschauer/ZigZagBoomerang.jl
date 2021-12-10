@@ -41,6 +41,12 @@ Z = rand(Bool, d)
 Z2 = rand(Bool, d)
 μZ = μ[Z] - Γ[Z,Z]\(Γ[Z,.~Z]*(-μ[.~Z]))
 
+
+μ = [zeros(d); μ; zeros(d)]
+d *= 3
+Γ = [Γ 0I 0I; 0I Γ 0I; 0I 0I Γ]
+
+
 #μC = zeros(d)
 #μC[Z] = μZ 
 #ΣC = zeros(d,d)
@@ -57,7 +63,8 @@ function logevidence2(Z)
     (μZ'*ΓZ*μZ - μ'*Γ*μ - logdet(ΓZ) + logdet(Γ) + 0*(sum(Z)-d)*log(2pi))/2 
 end
 
-logevidence(Z)-logevidence(Z2), logevidence2(Z)-logevidence2(Z2)
+
+#logevidence(Z)-logevidence(Z2), logevidence2(Z)-logevidence2(Z2)
 
 sΓ = sparse(Γ)
 T = 500000.0
@@ -82,13 +89,14 @@ if run_zigzag
     # timer inside sspdmp2
     x0 = fill(5.0, d)
     trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, Γ, μ)
-    ts, xs = ZigZagBoomerang.sep(collect(trace))
+ #   ts, xs = ZigZagBoomerang.sep(collect(trace))
     tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, T/2000)))
     traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
 end
 
 
 
+Γ_ = Matrix(Γ)
 
 
 run_gibbs = true
@@ -96,18 +104,19 @@ if run_gibbs
     include("./reversiblejump.jl")
     x = copy(x0)
     w = wi
-    N = 100000
+    N = 10000
     Z = [abs(d÷2 - i) > 2 for i in eachindex(x)]
     # Γℓ = R'*R/σb^2
     # μℓ = -Γℓ \ (R'*(ones(d-1).*ci)./σb^2)
-    ββ, ZZ = @time gibbs_gauss(Γ, μ, w, N, x, Z, σa,  N÷2000)
-    trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
+    ββ, ZZ = @time reversible_jump(sparse(Γ), μ, w, N, x, Z, σa,  N÷2000)
+    #trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
     trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
+    ββ = ZZ = nothing
 end
 
     produce_heatmap = true
     if produce_heatmap
-        using GLMakie
+        using GLMakie, ColorSchemes
 
         burn = 3
         fig1 = Figure()
@@ -123,7 +132,7 @@ end
     
         jjj = round.(Int, range(length(tsh)÷burn, length(tsh), length=200))
         for k in eachindex(jjj)
-            c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
+            local c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
         
             lines!(ax[5], 1:d, traceh[jjj[k],:], color=(c, 0.1))
         end
@@ -147,7 +156,7 @@ end
         jjj = round.(Int, range(size(trace2b,1)÷burn, size(trace2b,1), length=200))
 
         for k in eachindex(jjj)
-            c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
+            local c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
             lines!(ax[5], 1:d, trace2b[jjj[k],:], color=(c, 0.1))
         end
         

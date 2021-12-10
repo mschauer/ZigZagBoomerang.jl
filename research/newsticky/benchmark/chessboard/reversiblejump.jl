@@ -44,7 +44,23 @@ function update_Z!(Γ, μ, w, Z, σa, x)
     end
     return
 end
-
+function cond(Γ::Matrix, Z, μ)
+    C0 = cholesky!(Γ[Z,Z])
+    μ0 = μ[Z] - C0\(@view(Γ[Z,.~Z])*(-μ[.~Z]))
+    C0, μ0
+end
+function cond(Γ, Z, μ)
+    C0 = cholesky!(Matrix(Γ[Z,Z]))
+    μZ = μ[Z] 
+    μ[Z] .= 0
+    μ0 = zeros(sum(Z))
+    for (i,z) in enumerate(findall(Z))
+        μ0[i] = -ZigZagBoomerang.idot(Γ, z, μ)
+    end
+    μ[Z] = μZ
+    μ0 = μ[Z] - C0\μ0
+    C0, μ0
+end
 
 """
 Compute Bayes factor
@@ -56,12 +72,10 @@ function BF(Γ, μ, i, w, Z, σa, x) #ok
     if γ == 0 
         return 0.0
     end
-    C0 = cholesky!(Γ[Z,Z])
-    μ0 = μ[Z] - C0\(@view(Γ[Z,.~Z])*(-μ[.~Z]))
+    C0, μ0 = cond(Γ, Z, μ)
     
     Z[i] = 1
-    C1 = cholesky!(Γ[Z,Z])
-    μ1 = μ[Z] - C1\(@view(Γ[Z,.~Z])*(-μ[.~Z]))
+    C1, μ1 = cond(Γ, Z, μ)
     Z[i] = zi
     return exp((norm(C1.U*μ1)^2 - logdet(C1) + log(2pi))/2 - (norm(C0.U*μ0)^2 - logdet(C0))/2 )
 end
@@ -72,9 +86,7 @@ function update_x!(Γ, μ, w, Z, σa, x) # OK
         return
     end 
 
-    Cz = cholesky!(Γ[Z,Z])
-    μz = μ[Z] - Cz\(@view(Γ[Z,.~Z])*(-μ[.~Z]))
-
+    Cz, μz = cond(Γ, Z, μ)
     xz = Cz.U\randn(length(μz)) + μz # check if this is correct
     x[Z] .= xz
     return
