@@ -9,6 +9,7 @@ using LinearAlgebra
 using ZigZagBoomerang: sep
 using ProfileView
 using Random
+using Dictionaries
 Random.seed!(1)
 d = 20
 S = 1.3I + 0.5sprandn(d, d, 0.1)
@@ -72,6 +73,8 @@ end
     dt = 0.5
     global ts2, xs2 = sep(collect(trace))
 end
+
+
 
 
 @testset "New Sticky ZigZag reflect" begin
