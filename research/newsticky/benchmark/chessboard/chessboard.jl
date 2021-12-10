@@ -74,7 +74,7 @@ Z = ZigZag(sΓ, μ)
 wi = 0.35
 ki = 1/(sqrt(2*π*σa^2))/(1/wi - 1)
 println("k equal to $(ki)")
-x0 = rand(d)
+x0 = 0rand(d)
 κ = ki*ones(length(x0))
 c = fill(0.001, d)
 θ0 = rand([-0.1,0.1], d)
@@ -161,4 +161,5 @@ end
         end
         
     end
+    save("gibbsvszig.png", fig1)
     fig1
