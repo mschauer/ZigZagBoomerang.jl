@@ -89,21 +89,6 @@ end
 
 
 
-using GLMakie
-produce_heatmap = true
-if produce_heatmap
-    burn = 3
-    fig1 = Figure()
-    ax = [Axis(fig1[1, j]) for j in 1:3]
-    heatmap!( ax[1], tsh[end÷burn]:T/2000:T, 1:3, traceh[burn:end, :], colorrange=(-8,8))
-    i = 2d÷5
-#    lines!(ax[2], getindex.(xs, i)[end÷burn:end],getindex.(xs, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.1))
-    scatter!(ax[2], getindex.(xsh, i)[end÷burn:end],getindex.(xsh, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.2), markersize=4)
-
-    lines!(ax[3], tsh[end÷burn:end], getindex.(xsh, i)[end÷burn:end])
-    lines!(ax[3], tsh[end÷burn:end], getindex.(xsh, i+1)[end÷burn:end])
-    fig1
-end
 
 
 run_gibbs = true
@@ -111,7 +96,7 @@ if run_gibbs
     include("./reversiblejump.jl")
     x = copy(x0)
     w = wi
-    N = 50000
+    N = 100000
     Z = [abs(d÷2 - i) > 2 for i in eachindex(x)]
     # Γℓ = R'*R/σb^2
     # μℓ = -Γℓ \ (R'*(ones(d-1).*ci)./σb^2)
@@ -122,10 +107,33 @@ end
 
 produce_heatmap = true
 if produce_heatmap
+    using GLMakie
+
+    burn = 3
+    fig1 = Figure()
+    ax = [Axis(fig1[1, j]) for j in 1:4]
+    heatmap!( ax[1], tsh[end÷burn]:T/2000:T, 1:3, traceh[burn:end, :], colorrange=(-8,8))
+    i = 2d÷5
+#    lines!(ax[2], getindex.(xs, i)[end÷burn:end],getindex.(xs, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.1))
+    scatter!(ax[2], getindex.(xsh, i)[end÷burn:end],getindex.(xsh, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.2), markersize=4)
+
+    lines!(ax[3], tsh[end÷burn:end], getindex.(xsh, i)[end÷burn:end])
+    lines!(ax[3], tsh[end÷burn:end], getindex.(xsh, i+1)[end÷burn:end])
+ 
+    jjj = round.(Int, range(length(tsh)÷burn, length(tsh), length=200))
+    for k in eachindex(jjj)
+        c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
+    
+        lines!(ax[4], 1:d, traceh[jjj[k],:], color=(c, 0.1))
+    end
+
+end
+produce_heatmap = true
+if produce_heatmap
     using GLMakie, Colors
     #fig2 = Figure()
     #ax = [Axis(fig2[1, j]) for j in 1:1]
-    ax = [Axis(fig1[2, j]) for j in 1:3]
+    ax = [Axis(fig1[2, j]) for j in 1:4]
     jj = axes(trace2b, 1)[end÷burn:end]
     heatmap!(ax[1], trace2b[jj,:],  colorrange=(-8,8))
     i = 2d÷5
@@ -133,6 +141,12 @@ if produce_heatmap
 
     scatter!(ax[3], jj, trace2b[jj, i], markersize=4)
     scatter!(ax[3], jj, trace2b[jj, i+1], markersize=4)
-  
+    jjj = round.(Int, range(size(trace2b,1)÷burn, size(trace2b,1), length=200))
+
+    for k in eachindex(jjj)
+        c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
+        lines!(ax[4], 1:d, trace2b[jjj[k],:], color=(c, 0.1))
+    end
+    
 end
 fig1
