@@ -14,7 +14,7 @@ Random.seed!(1)
 
 
 @testset "New Sparse Sticky ZigZag" begin
-    d = 10_000_000
+    d = 100_000
     
 
     global xs = Float64[1, 2, 1, 0, 0, 1]
@@ -25,12 +25,12 @@ Random.seed!(1)
     
 
     d = size(Γ, 1)
-    κ = 20/d
-    global ∇ϕ(u, i) = ZigZagBoomerang.midot(Γ, i, u) # sparse computation
+    κ = 2000/d
+    global ∇ϕ(u, i) = ZigZagBoomerang.idot(Γ, i, u) # sparse computation
     x0 = sprandn(d, 0.0)
     global u0 = ZZB.sparsestickystate(x0)
     @test nnz(u0) == nnz(x0)
-    @test ZZB.stickystate(u0)[2] == x0
+    #@test ZZB.stickystate(u0)[2] == x0
 
     for i in 1:3
         @test u0[i][2] == x0[i]
@@ -46,12 +46,12 @@ Random.seed!(1)
     c = 10.0
     adapt = false
     multiplier = 1.5
-    T = 5000.0
+    T = 500.0
 
     upper_bounds = ZZB.SparseStickyUpperBounds(c; adapt=adapt, multiplier= multiplier)
     
     end_time = ZZB.EndTime(T)
-    global trace, _, _, acc = @time ZZB.sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=true)
+    global trace, _, uT, acc = @time ZZB.sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=true)
     println("acc ", acc.acc/acc.num)
     global ts1, xs1 = sep(collect(ZZB.subtrace(trace, trace.events[1][2]:trace.events[1][2]+10)))
 

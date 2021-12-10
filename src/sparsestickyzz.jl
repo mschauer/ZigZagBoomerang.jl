@@ -27,20 +27,28 @@ function Base.setindex!(u::SparseState, ui, i::Int)
 end
 function Base.insert!(u::SparseState, i, ui)
     insert!(u.u, i, ui)
-    sortkeys!(u.u)
+    #sortkeys!(u.u)
     if u.t′ < ui[1]
         u.t′ = ui[1]
     end
     return ui
 end
-
+function idot(A::SparseMatrixCSC, j, u::SparseState)
+    rows = rowvals(A)
+    vals = nonzeros(A)
+    s = 0.0
+    @inbounds for i in nzrange(A, j)
+        s += vals[i]'*u[rows[i]][2]
+    end
+    s
+end
 function midot(A::SparseMatrixCSC, j, u::SparseState)
     rows = rowvals(A)
     vals = nonzeros(A)
     s = 0.0
     U = pairs(sortkeys(u.u))
    # @assert issorted(keys(u.u))
-   # U = pairs(u.u)
+    U = pairs(u.u)
     ϕ = iterate(U)
     ϕ === nothing && return s
     (k, uk), state = ϕ
@@ -66,6 +74,8 @@ end
 
 Dictionaries.gettoken(u, i) = gettoken(u.u, i)
 Dictionaries.gettokenvalue(u, ι) = gettokenvalue(u.u, ι)
+Dictionaries.settokenvalue!(u, ι, v) = settokenvalue!(u.u, ι, v)
+
 SparseArrays.nnz(u::SparseState) = length(u.u)
 Base.keys(u::SparseState) = keys(u.u)
 
@@ -129,7 +139,10 @@ function poisson_time(t, b::Tuple, r)
 end
 function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
     t, x, v = ui = u[i]
-    @assert t′ == t
+    if t′ != t
+        display(u.u)
+        error("$i: $t ≠ $t′")
+    end
     trefl = poisson_time(t, b, rand(rng))
     thit = hitting_time(barriers, ui, flow)
     if thit <= trefl
@@ -145,7 +158,10 @@ end
 
 function enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
     t, x, v = ui = u[i]
-    @assert t′ == t
+    if t′ != t
+        display(u.u)
+        error("$i: $t ≠ $t′")
+    end
     trefl = poisson_time(t, b, rand(rng))
     thit = hitting_time(barriers, ui, flow)
     if thit <= trefl
@@ -189,7 +205,7 @@ function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::Sti
     d = u.d
     t′ = u.t′
 
-    sortkeys!(u.u)
+    #sortkeys!(u.u)
 #    insert!(clocks, unfreeze) # add clock
 
     # priority queue
@@ -241,12 +257,16 @@ function sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper
     return t′
 end
 
-function move_forward!(G, i, u, t′, ::StickyFlow)
-    ti, xi, θi = u[i]
-    ti, xi = t′, xi + θi*(t′ - ti)
-    u[i] = ti, xi, θi
-    if u.t′ < ti
-        u.t′ = ti
+function move_forward!(G, j, u, t′, ::StickyFlow)
+    for i in neighbours(G, j)
+        has, ι = gettoken(u, i)
+        has || continue
+        ti, xi, θi = gettokenvalue(u, ι)
+        ti, xi = t′, xi + θi*(t′ - ti)
+        settokenvalue!(u, ι, (ti, xi, θi))
+    end
+    if u.t′ < t′
+        u.t′ = t′
     end
     return
 end
