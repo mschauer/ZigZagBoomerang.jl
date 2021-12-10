@@ -154,7 +154,8 @@ end
 @enum Action begin
     hit
     reflect
-    unfreeze    
+    unfreeze
+    renew  
 end
 function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::StickyUpperBounds, barriers::Vector{<:StickyBarriers}, end_condition;  progress=false, progress_stops = 20, rng=Rng(Seed()))
     u = deepcopy(u0)

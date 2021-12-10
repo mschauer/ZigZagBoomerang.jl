@@ -43,7 +43,7 @@ Random.seed!(1)
     target = ZZB.StructuredTarget(Γ, ∇ϕ)
     flow = ZZB.StickyFlow(ZigZag(I(d), nothing))
 
-    c = 10.0
+    c = 2.5
     adapt = false
     multiplier = 1.5
     T = 500.0

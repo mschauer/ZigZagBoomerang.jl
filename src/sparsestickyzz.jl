@@ -128,10 +128,10 @@ function ab(su::SparseStickyUpperBounds, i, u, ∇ϕi, flow)
     ti, xi, θi = u[i]
     a = su.c + ∇ϕi'*θi
     b = 0.0
-    ti, a, b, Inf #2.0/C.c[i]/abs(θ[i])
+    ti, a, b, ti + 1/su.c 
 end
 function poisson_time(t, b::Tuple, r)
-    @assert t < b[end] # check bound validity 
+    @assert t <= b[end] # check bound validity 
     Δt = t - b[1]
     a = b[2] + Δt*b[3]
     b = b[3]
@@ -143,14 +143,17 @@ function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
         display(u.u)
         error("$i: $t ≠ $t′")
     end
+    trefresh = b[end]
     trefl = poisson_time(t, b, rand(rng))
     thit = hitting_time(barriers, ui, flow)
-    if thit <= trefl
+    τ = min(trefresh, trefl, thit)
+    Q[i] = τ
+    if thit == τ
         action = hit
-        Q[i] = thit
-    else
+    elseif trefl == τ
         action = reflect
-        Q[i] = trefl
+    else
+        action = renew
     end
     clocks[i] = (action, b)
     return Q
@@ -162,27 +165,21 @@ function enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow
         display(u.u)
         error("$i: $t ≠ $t′")
     end
+    trefresh = b[end]
     trefl = poisson_time(t, b, rand(rng))
     thit = hitting_time(barriers, ui, flow)
-    if thit <= trefl
+    τ = min(trefresh, trefl, thit)
+    enqueue!(Q, i => τ)
+    if thit == τ
         action = hit
-        enqueue!(Q, i => thit)
-    else
+    elseif trefl == τ
         action = reflect
-        enqueue!(Q, i => trefl)
+    else
+        action = renew
     end
     set!(clocks, i, (action, b))
     return Q
 end
-#=
-
-
-@enum Action begin
-    hit
-    reflect
-    unfreeze    
-end
-=#
 
 @enum StickClock begin
     thaw = 0
@@ -300,7 +297,13 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
             b = ab(upper_bounds, i, u, ∇ϕi, flow)
             enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
             Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))  
-            return i, t′ 
+            return i, t′
+        elseif clocks[i][1] == renew
+            move_forward!(G, i, u, t′, flow) 
+            ∇ϕi = target(t′, u, i, flow)
+            b = ab(upper_bounds, i, u, ∇ϕi, flow)
+            queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
+            continue # don't save
         elseif clocks[i][1] == hit # case 1) to be frozen or to reflect from boundary
             move_forward!(G, i, u, t′, flow) 
             ti, xi, vi = geti(u, i)
