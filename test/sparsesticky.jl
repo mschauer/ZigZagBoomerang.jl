@@ -14,7 +14,7 @@ Random.seed!(1)
 
 
 @testset "New Sparse Sticky ZigZag" begin
-    d = 100_000
+    d = 10_000_000
     
 
     global xs = Float64[1, 2, 1, 0, 0, 1]
@@ -53,7 +53,8 @@ Random.seed!(1)
     end_time = ZZB.EndTime(T)
     global trace, _, uT, acc = @time ZZB.sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=true)
     println("acc ", acc.acc/acc.num)
-    global ts1, xs1 = sep(collect(ZZB.subtrace(trace, trace.events[1][2]:trace.events[1][2]+10)))
+    k = min(trace.events[1][2], d-100+1)
+    global ts1, xs1 = sep(collect(ZZB.subtrace(trace, k:k+100-1)))
 
 
 end
