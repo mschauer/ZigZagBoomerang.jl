@@ -111,7 +111,7 @@ if run_gibbs
     include("./reversiblejump.jl")
     x = copy(x0)
     w = wi
-    N = 500000
+    N = 50000
     Z = [abs(d÷2 - i) > 2 for i in eachindex(x)]
     # Γℓ = R'*R/σb^2
     # μℓ = -Γℓ \ (R'*(ones(d-1).*ci)./σb^2)
