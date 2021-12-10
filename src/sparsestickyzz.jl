@@ -135,7 +135,7 @@ function poisson_time(t, b::Tuple, r)
     Δt = t - b[1]
     a = b[2] + Δt*b[3]
     b = b[3]
-    t + poisson_time(a, b, r)
+    t + poisson_time((a, b, 0.01), r) # guarantee minimum rate
 end
 function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
     t, x, v = ui = u[i]
