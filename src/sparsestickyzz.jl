@@ -237,7 +237,6 @@ function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::Sti
 end
 
 function sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, end_condition, acc)
-    display(u.u)
     T = endtime(end_condition)
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = t′ + (T-t′)/stops
@@ -279,7 +278,7 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
     while true
         told = t′
         i, t′ = peek(Q)
-        @assert t′ > told
+        @assert t′ >= told
         if i != 0 && !haskey(u.u, i)
             display(u.u)
         end
@@ -344,5 +343,26 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
             end               
         end
     end
+end
+
+
+
+function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds = false, adapt = false, factor = 1.5, progress=true)
+    ∇ϕ(x, i) = ∇ϕ2(x, i, args...)
+    Γ = Z.Γ
+    d = length(u0)
+    target = StructuredTarget(Γ, ∇ϕ)
+    barrier = StickyBarriers(0.0, :reversible, κ)
+    flow = StickyFlow(ZigZag(I(d), nothing))
+
+    multiplier = factor
+    upper_bounds = SparseStickyUpperBounds(c; adapt=adapt, multiplier= multiplier)
+  
+    end_time = EndTime(T)
+    trace, _, uT, acc = @time sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=progress)
+ 
+    println("acc ", acc.acc/acc.num)
+    return trace, acc
+
 end
 

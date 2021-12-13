@@ -67,7 +67,7 @@ end
     θ0 = rand([-1.0,-0.5,0.5,1.0], d)
 
 
-    c = .7*[norm(Γ[:, i], 2) for i in 1:d]
+    c = .8*[norm(Γ[:, i], 2) for i in 1:d]
 
     Z = ZigZag(0.9Γ, x0*0)
     T = 1000.0
@@ -212,5 +212,5 @@ end
     m = mean(last.(collect(trace)))
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
-    @test mean(xs)[1] < 2.5/sqrt(T)
+    @test mean(xs)[1] < 5/sqrt(T)
 end

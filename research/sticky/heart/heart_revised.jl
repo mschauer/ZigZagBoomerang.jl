@@ -42,7 +42,7 @@ const σ2  = 0.5
 Γ0 = gridlaplacian(Float64, n, n)
 c₁ = 2.0
 c₂ = 0.1
-Γ = c₁*Γ0^2 +  c₁*I # Γ = c1*2Γ + c2*I 
+Γ = c₁*Γ0^2 +  c₂*I
 mat(x) = reshape(x, (n, n)) # vector to matrix
 function mat0(y)
     mat(y  .- 0.1)
@@ -68,7 +68,7 @@ y = μ = μ0 + randn(n*n)
 μpost = yhat1 = (Γ + I/σ2)\y/σ2 # ok
 
 Γpost = (Γ + I/σ2)
-x0 = μpost
+x0 = copy(μpost)
 θ0 = rand([-1.0,1.0], n*n)
 
 
@@ -77,20 +77,16 @@ c = fill(0.01, n*n)
 
 # Define ZigZag
 Z = ZigZag(Γpost, μpost)
-# or try the FactBoomerang
-#Z = FactBoomerang(Γ, x0*0, 0.1)
+
 
 κ1 = 0.4*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
 T = 100.0
-# @time trace0, (tT, xT, θT), (acc, num) = spdmp(∇ϕ, t0, x0, θ0, T, c, Z, Γ, μ; adapt = false)
-# @time traj0 = collect(discretize(trace0, 0.2))
+
 
 su = false
 adapt = false
-# trace, (t, x, θ), (acc, num), c = @time sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ1, Γ, μ;
-#                                                 strong_upperbounds = su ,
-#                                                 adapt = adapt)
+
 sspdmp(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ1, Γ, μ; strong_upperbounds = su ,
     adapt = adapt) 
 println("Old implementation")

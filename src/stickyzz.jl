@@ -291,7 +291,8 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
 end
 
 
-function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds = false, adapt = false, factor = 1.5)
+export sspdmp2
+function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds = false, progress=false, adapt = false, factor = 1.5)
     ∇ϕ(x, i) = ∇ϕ2(x, i, args...)
     Γ = Z.Γ
     d = length(x0)
@@ -304,7 +305,7 @@ function sspdmp2(∇ϕ2, t, x0, v0, T, c, ::Nothing, Z, κ, args...; strong_uppe
     G = G1 = target.G
     upper_bounds = StickyUpperBounds(G, G1, Γ, c; adapt=adapt, strong = strong_upperbounds, multiplier= multiplier)
     end_time = EndTime(T)
-    trace, _, _, acc = @time stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    trace, _, _, acc = @time stickyzz(u0, target, flow, upper_bounds, barriers, end_time; progress=progress)
     println("acc ", acc.acc/acc.num)
     return trace, acc
 end

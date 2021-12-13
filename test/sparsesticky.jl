@@ -14,7 +14,7 @@ Random.seed!(1)
 
 
 @testset "New Sparse Sticky ZigZag" begin
-    d = 10_000_000
+    d = 1_000
     
 
     global xs = Float64[1, 2, 1, 0, 0, 1]

@@ -2,12 +2,9 @@ using ZigZagBoomerang
 const ZZB = ZigZagBoomerang
 using Test
 using SparseArrays
-using Revise
-using SparseArrays
 using Statistics
 using LinearAlgebra
 using ZigZagBoomerang: sep
-using ProfileView
 using Random
 using Dictionaries
 Random.seed!(1)
