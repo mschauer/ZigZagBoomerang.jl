@@ -163,6 +163,10 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     (t0, x0, v0) = u
     d = length(v0)
     t′ = maximum(t0)
+    v0_old = copy(v0)
+
+    u_old = (copy(t0), x0, v0_old)
+
     # priority queue
     Q = SPriorityQueue{Int,Float64}()
     # Skeleton
@@ -172,30 +176,37 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     ## create bounds ab
     b = [ab(upper_bounds, flow, i, u) for i in eachindex(v0)]
     action = fill(Action(0), d)
-
+   
     # fill priorityqueue
     for i in eachindex(v0)
-        enqueue_time!(rng, Q, u, i, b, action, barriers, flow)
+        di = dir(geti(u, i))
+        if x0[i] != barriers[i].x[di]
+            enqueue_time!(rng, Q, u, i, b, action, barriers, flow)
+        else
+            v0_old[i], v0[i] = v0[i], 0.0 # stop and save speed
+            action[i] = unfreeze
+            enqueue!(Q, i => t′ - log(rand(rng))/barriers[i].κ[di])
+        end
     end
     if progress
         prg = Progress(progress_stops, 1)
     else
         prg = missing
     end
-
+    
     println("Run main, run total")
 
-    t′ = sticky_main(rng, prg, Q, Ξ, t′, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
+    t′ = sticky_main(rng, prg, Q, Ξ, t′, u_old, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
 
     return Ξ, t′, u, acc
 end
 
-function sticky_main(rng, prg, Q::SPriorityQueue, Ξ, t′, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
+function sticky_main(rng, prg, Q::SPriorityQueue, Ξ, t′, u_old, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
     (t, x, v) = u
     T = endtime(end_condition)
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = t′ + (T-t′)/stops
-    u_old = (copy(t), x, copy(v))
+    
     while finished(end_condition, t′) 
         t, x, v = u
         i, t′ = stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, upper_bounds, barriers, acc)

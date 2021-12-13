@@ -254,8 +254,8 @@ function subtrace(tr, J)
     @assert issorted(J)
     F = tr.F  
     t0 = tr.t0
-    x0 = tr.x0[J]
-    θ0 = tr.θ0[J]
+    x0 = collect(tr.x0[j] for j in J)
+    θ0 = collect(tr.θ0[j] for j in J)
 
     str = Trace(t0, x0, θ0, F)
     events = str.events
