@@ -10,6 +10,11 @@ nz(u::SparseState) = u.d - nnz(u)
 function sparsestickystate(xs)
     SparseState(length(xs), dictionary(i=> (0.0, x, rand((-1.0,1.0))) for (i,x) in enumerate(xs) if x ≠ 0), 0.0)
 end
+function sparsestickystate(xs::SparseVector)
+    SparseState(length(xs), dictionary(i=> (0.0, x, rand((-1.0,1.0))) for (i,x) in zip(SparseArrays.nonzeroinds(xs), nonzeros(xs)) if x ≠ 0), 0.0)
+end
+
+
 geti(u::SparseState, i::Int) = u[i]
 function Base.getindex(u::SparseState, i::Int)
     has, ι = gettoken(u.u, i)
@@ -42,6 +47,7 @@ function idot(A::SparseMatrixCSC, j, u::SparseState)
     end
     s
 end
+
 function midot(A::SparseMatrixCSC, j, u::SparseState)
     rows = rowvals(A)
     vals = nonzeros(A)
@@ -80,9 +86,10 @@ SparseArrays.nnz(u::SparseState) = length(u.u)
 Base.keys(u::SparseState) = keys(u.u)
 
 function stickystate(u::SparseState)
-    t = fill(u.t′, u.d)
-    x = zeros(u.d)
-    v = zeros(u.d)
+    @assert u.t′ == 0
+    t = spzeros(u.d)
+    x = spzeros(u.d)
+    v = spzeros(u.d)
 
     for (i, u) in pairs(u.u)
         t[i] = u[1]
@@ -253,7 +260,7 @@ function sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper
     return t′
 end
 
-function move_forward!(G, j, u, t′, ::StickyFlow)
+function move_forward!(G, j, u, t′, ::StickyFlow) # check inferred
     for i in neighbours(G, j)
         has, ι = gettoken(u, i)
         has || continue
@@ -353,7 +360,7 @@ function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds
     d = length(u0)
     target = StructuredTarget(Γ, ∇ϕ)
     barrier = StickyBarriers(0.0, :reversible, κ)
-    flow = StickyFlow(ZigZag(I(d), nothing))
+    flow = StickyFlow(ZigZag(nothing, nothing, nothing))
 
     multiplier = factor
     upper_bounds = SparseStickyUpperBounds(c; adapt=adapt, multiplier= multiplier)
@@ -365,4 +372,3 @@ function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds
     return trace, acc
 
 end
-
