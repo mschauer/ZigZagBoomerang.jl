@@ -2,10 +2,10 @@ using Pkg
 Pkg.activate(@__DIR__)
 cd(@__DIR__)
 using LinearAlgebra
-using Test
+using Test, Revise
 using ZigZagBoomerang
 using SparseArrays
-
+using CSV, DataFrames, Tables
 d = 40
 const σa = 6.0
 const σb = 0.6
@@ -34,21 +34,67 @@ function postprecision(Γ, ℓ)
     Γpost
 end
 
+include("./benchmark_tools.jl")
 include("./reversiblejump.jl")
-function benchmark(μ, Γ, ℓℓ)
+function logrun!(df, μ, Γ, ℓ, wi, T0 = 200_000_000.0)
+    μpost = postmean(μ, ℓ)
+    Γpost = postprecision(Γ, ℓ)
+    d = length(μpost)
+    T = T0/sqrt(sqrt(d)) # assune sub-linear dependence relative to d 
+    sΓpost = sparse(Γpost)
+    Z = ZigZag(sΓpost, μpost) 
+    ∇ϕ(x, i, Γ, μ) = ZigZagBoomerang.idot(Γ, i, x) -  ZigZagBoomerang.idot(Γ, i, μ)
+    ki = 1/(sqrt(2*π*σa^2))/(1/wi - 1) 
+    x0 = 0rand(d)
+    κ = ki*ones(length(x0))
+    c = fill(0.001, d)
+    θ0 = rand([-0.1,0.1], d)
+    t0 = 0.0
+    N = 1_000_000
+    trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, sΓpost, μpost)
+    tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, T/N)))
+    traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
+    pℓ = [marginal_sticky(i, traceh[10:end,:]) for i in 1:d]
+    mℓ = sum(traceh[10:end,:], dims = 1)/size(traceh[10:end,:], 1)
+    mℓ = Vector(mℓ[:])
+    for i in 1:d
+        push!(df, (exp  = 0, index = i, ell = ℓ, stat = 1, val = mℓ[i], sampler = "SZZ"))
+        push!(df, (exp  = 0, index = i, ell = ℓ, stat = 2, val = pℓ[i], sampler = "SZZ"))
+    end
+    return df
+end
+
+const ℓℓ = [3, 5, 7]
+const wi = [0.33, 0.20, 0.15] #WARNING
+
+FileName ="benchmark.csv" 
+if !isfile(FileName)
+    df = DataFrame(exp = Int[], index = Int[], ell = Int[], stat = Int[], val = Float64[], sampler = String[])
+    for (i,ℓ) in enumerate(ℓℓ)
+        global df
+        df = logrun!(df, μ, Γ, ℓ, wi[i]) 
+    end
+    CSV.write(FileName, df)
+end
+
+
+# error("")
+function benchmark!(df, μ, Γ, ℓℓ, wwi, num_exp = 10)
     println("Make sure that, at every iteration, @elapsed for the Gibbs ≈ @lapsed for sticky ZZ")
-    T = fill(5000.0, length(ℓℓ))
-    N = fill(100, length(ℓℓ))
+    T0 = 1_000_000.0
+    N0 = 13_500_000
         for (ii,ℓ) in enumerate(ℓℓ)
         println("Iteration $(ii), ℓ = $(ℓ)")
         μpost = postmean(μ, ℓ)
         Γpost = postprecision(Γ, ℓ)
         d = length(μpost)
+        T = T0/(sqrt(sqrt(d)))
+        N = N0 ÷ d^2
         sΓpost = sparse(Γpost)
         Z = ZigZag(sΓpost, μpost) 
         ∇ϕ(x, i, Γ, μ) = ZigZagBoomerang.idot(Γ, i, x) -  ZigZagBoomerang.idot(Γ, i, μ)
         # prior w = 0.5
-        wi = 0.35
+        wi = wwi[ii]
         ki = 1/(sqrt(2*π*σa^2))/(1/wi - 1)
         x0 = 0rand(d)
         κ = ki*ones(length(x0))
@@ -57,23 +103,43 @@ function benchmark(μ, Γ, ℓℓ)
         t0 = 0.0
         if ii == 1
             println("Precompile gibbs and zz")
-            ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T[ii], c, nothing, Z, κ, sΓpost, μpost)
+            ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, sΓpost, μpost)
             z = [abs(d÷2 - i) > 2 for i in eachindex(x0)]  
             reversible_jump(sΓpost, μpost, wi, N[ii], x0, z, σa,  N[ii]÷10)
             println("End precompilation")
             println("")
         end
-        println("sticky Zig-Zag:")
-        trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T[ii], c, nothing, Z, κ, sΓpost, μpost)
-        println("Gibbs")
-        x0 = 0rand(d)
-        z = [abs(d÷2 - i) > 2 for i in eachindex(x0)]  
-        @time ββ, ZZ = reversible_jump(sΓpost, μpost, wi, N[ii], x0, z, σa,  N[ii]÷10)
-        #trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
-        # trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
-        println("")
+        for jj in 1:num_exp
+            println("sticky Zig-Zag:")
+            trace, acc = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, sΓpost, μpost)
+            tsh, xsh = ZigZagBoomerang.sep(collect(discretize(trace, 1.0)))
+            traceh = [xsh[i][j] for i in 1:length(xsh), j in 1:d]
+            for i in 1:d
+                pℓ = marginal_sticky(i, traceh[10:end,:])
+                mℓ = sum(traceh[10:end,i])/size(traceh[10:end,:], 1)
+                push!(df, (exp  = jj, index = i, ell = ℓ, stat = 1, val = mℓ, sampler = "SZZ"))
+                push!(df, (exp  = jj, index = i, ell = ℓ, stat = 2, val = pℓ, sampler = "SZZ"))
+            end
+
+            println("Gibbs")
+            x0 = 0rand(d)
+            z = [abs(d÷2 - i) > 2 for i in eachindex(x0)]  
+            @time ββ, ZZ = reversible_jump(sΓpost, μpost, wi, N, x0, z, σa,  10)
+            trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
+            for i in 1:d
+                pℓ = marginal_sticky(i, trace2b[10:end,:])
+                mℓ = sum(trace2b[10:end,i])/size(trace2b[10:end,:], 1)
+                push!(df, (exp  = jj, index = i, ell = ℓ, stat = 1, val = mℓ, sampler = "GIBBS"))
+                push!(df, (exp  = jj, index = i, ell = ℓ, stat = 2, val = pℓ, sampler = "GIBBS"))
+            end
+            println("")
+        end
     end
 end
 
-ℓℓ = [3,5]
-benchmark(μ, Γ, ℓℓ)
+FileName ="benchmark1.csv" 
+if !isfile(FileName)
+    df1 = DataFrame(exp = Int[], index = Int[], ell = Int[], stat = Int[], val = Float64[], sampler = String[])
+    benchmark!(df1, μ, Γ, ℓℓ, wi)
+    CSV.write(FileName, df1)
+end
