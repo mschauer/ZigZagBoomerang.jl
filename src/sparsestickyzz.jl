@@ -131,11 +131,12 @@ function λ(i, u, ∇ϕi, clocks, ::StickyFlow)
     pos(∇ϕi'*θi), pos(abc[2] + abc[3]*(ti - abc[1]))
 end
 
-function ab(su::SparseStickyUpperBounds, i, u, ∇ϕi, flow)
+function ab(rng, su::SparseStickyUpperBounds, i, u, ∇ϕi, flow)
     ti, xi, θi = u[i]
     a = su.c + ∇ϕi'*θi
     b = 0.0
-    ti, a, b, ti + 1/su.c 
+    s = su.adapt ? (1.0 - rand(rng)^2) : 1.0
+    ti, a, b, ti + s/su.c 
 end
 function poisson_time(t, b::Tuple, r)
     @assert t <= b[end] # check bound validity 
@@ -202,7 +203,7 @@ end
 (target::StructuredTarget)(t′, u::SparseState, i, F) = target.∇ϕ(u, i)
 
 
-function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::StickyBarriers, end_condition;  progress=false, progress_stops = 20, rng=Rng(Seed()))
+function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::StickyBarriers, end_condition;  progress=false, progress_stops = 20, clusterα = 1.0, rng=Rng(Seed()))
     @assert barriers.rule == :reversible
     u0 = stickystate(u)
     # Initialize
@@ -227,7 +228,7 @@ function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::Sti
     # fill priorityqueue
     for i in keys(clocks)
         ∇ϕi = target(t′, u, i, flow)     
-        b = ab(upper_bounds, i, u, ∇ϕi, flow)
+        b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
         enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
     end
     if progress
@@ -236,24 +237,22 @@ function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::Sti
         prg = missing
     end
 
-    println("Run main, run total")
-
-    t′ = sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, end_condition, acc)
+    t′ = sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, end_condition, acc, clusterα)
 
     return Ξ, t′, u, acc
 end
 
-function sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, end_condition, acc)
+function sparsesticky_main(rng, prg, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, end_condition, acc, clusterα)
     T = endtime(end_condition)
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = t′ + (T-t′)/stops
     while finished(end_condition, t′) 
-        i, t′ = sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u,  target, flow, upper_bounds, barriers, acc)
+        i, t′ = sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u,  target, flow, upper_bounds, barriers, acc, clusterα, T/3)
         @assert u.t′ == t′
         push!(Ξ, event(i, u, flow))
         if t′ > tstop
             tstop += T/stops
-            next!(prg) 
+            next!(prg, showvalues = ()-> [(:active, round(nnz(u)/length(u), digits=3)), (:bound, upper_bounds.c), (:acc, round(acc.acc/acc.num,digits=3))]) 
         end  
     end
     ismissing(prg) || ProgressMeter.finish!(prg)
@@ -281,7 +280,7 @@ end
 
 
 
-function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, acc)
+function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_bounds, barriers, acc, clusterα, Tα)
     while true
         told = t′
         i, t′ = peek(Q)
@@ -297,17 +296,37 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
                 i = rand(1:length(u))
                 !haskey(u.u, i) && break
             end
-            insert!(u, i, (t′, barriers.x, rand((-1.0, 1.0))))
+            if clusterα < 1 && t′ > Tα
+                cost = 0
+                for j in neighbours(G, i)
+                    j == i && continue
+                    cost += !haskey(u.u, j)
+                end
+                accepted = rand(rng) < clusterα^cost  
+            else 
+                accepted = true  
+            end
 
-            ∇ϕi = target(t′, u, i, flow)    
-            b = ab(upper_bounds, i, u, ∇ϕi, flow)
-            enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
-            Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))  
-            return i, t′
+            if accepted
+                insert!(u, i, (t′, barriers.x, rand((-1.0, 1.0))))
+
+                ∇ϕi = target(t′, u, i, flow)    
+                b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
+                enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
+                Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))  
+                return i, t′
+            else continue # don't save
+            end
         elseif clocks[i][1] == renew
             move_forward!(G, i, u, t′, flow) 
             ∇ϕi = target(t′, u, i, flow)
-            b = ab(upper_bounds, i, u, ∇ϕi, flow)
+            l, lb = λ(i, u, ∇ϕi, clocks, flow)    # check boundary validity at expiry
+            if l > lb
+                !upper_bounds.adapt && error("Tuning parameter `c` too small. l/lb = $(l/lb)")
+                reset!(acc)
+                upper_bounds.c *= upper_bounds.multiplier
+            end
+            b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
             queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
             continue # don't save
         elseif clocks[i][1] == hit # case 1) to be frozen or to reflect from boundary
@@ -317,17 +336,33 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
             if !≈(xi, barriers.x, atol=1e-7)
                 error("$i $xi")
             end
-            delete!(u.u, i)
-            delete!(clocks, i)
-            delete!(Q, i)
-            Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))
-            return i, t′
+            if clusterα < 1 && t′ > Tα 
+                cost = 0
+                for j in neighbours(G, i)
+                    j == i && continue
+                    cost += haskey(u.u, j)
+                end
+                accepted = rand(rng) < clusterα^cost  
+            else 
+                accepted = true  
+            end
+            if accepted
+                delete!(u.u, i)
+                delete!(clocks, i)
+                delete!(Q, i)
+                Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))
+                return i, t′
+            else
+                ∇ϕi = target(t′, u, i, flow)    
+                b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
+                queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
+                Q[Int(thaw)] = t′ + randexp(rng)/(barriers.κ*(nz(u)))  
+                return i, t′
+            end
         else    # was either a reflection 
                 #time or an event time from the upper bound  
             move_forward!(G, i, u, t′, flow) 
-            ∇ϕi = target(t′, u, i, flow)      
-            #@show u.u
-            #@show ∇ϕi      
+            ∇ϕi = target(t′, u, i, flow)        
             l, lb = λ(i, u, ∇ϕi, clocks, flow)
             
             if rand(rng)*lb < l # was a reflection time
@@ -339,12 +374,12 @@ function sparsestickyzz_inner!(rng, clocks, Q, Ξ, t′, u, target, flow, upper_
                 end
                 reflect!(i, u, ∇ϕi, flow) 
                 ∇ϕi = target(t′, u, i, flow)
-                b = ab(upper_bounds, i, u, ∇ϕi, flow)
+                b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
                 queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
                 return i, t′ 
             else # was an event time from upperbound -> nothing happens
                 not_accept!(acc, lb, l)
-                b = ab(upper_bounds, i, u, ∇ϕi, flow)
+                b = ab(rng, upper_bounds, i, u, ∇ϕi, flow)
                 queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow)
                 continue # don't save
             end               
@@ -354,7 +389,7 @@ end
 
 
 
-function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds = false, adapt = false, factor = 1.5, progress=true)
+function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; adapt = false, factor = 1.5, progress=true, progress_stops = 20, clusterα=1.0)
     ∇ϕ(x, i) = ∇ϕ2(x, i, args...)
     Γ = Z.Γ
     d = length(u0)
@@ -366,9 +401,9 @@ function sspdmp3(∇ϕ2, u0, T, c, ::Nothing, Z, κ, args...; strong_upperbounds
     upper_bounds = SparseStickyUpperBounds(c; adapt=adapt, multiplier= multiplier)
   
     end_time = EndTime(T)
-    trace, _, uT, acc = @time sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=progress)
+    trace, _, uT, acc = @time sparsestickyzz(u0, target, flow, upper_bounds, barrier, end_time; progress=progress, progress_stops = progress_stops, clusterα=clusterα)
  
     println("acc ", acc.acc/acc.num)
-    return trace, acc
+    return trace, acc, uT
 
 end
