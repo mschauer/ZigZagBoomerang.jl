@@ -93,6 +93,7 @@ end
     upper_bounds = ZZB.StickyUpperBounds(G, G1, 0.9Γ, c; adapt=adapt, strong=strong, multiplier= multiplier)
     end_time = ZZB.EndTime(T)
     trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
+    trace, _, _, acc = @time ZZB.stickyzz(u0, target, flow, upper_bounds, barriers, end_time)
     println("acc ", acc.acc/acc.num)
     dt = 0.5
     global ts3, xs3 = sep(collect(trace))

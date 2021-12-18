@@ -73,10 +73,7 @@ end
 (target::StructuredTarget2nd)(t′, u, i, F) = target.derivs(u[2], i)
 
 
-function ab(su::StickyUpperBounds, flow, i, u)
-    (t, x, v) = u
-    ab(su.G1, i, x, v, su.c, flow.old) #TODO
-end
+
 
 mutable struct AcceptanceDiagnostics
     acc::Int
@@ -124,33 +121,47 @@ function hitting_time(barrier, ui, flow)
     end
 end
 
-function queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow)
+function λ(i, u::Tuple, ∇ϕi, b, ::StickyFlow) 
+    t, x, θ = u
+    ti, xi, θi = t[i], x[i], θ[i]
+    abc = b[i]
+    @assert ti <= abc[4]
+    pos(∇ϕi'*θi), pos(abc[2] + abc[3]*(ti - abc[1]))
+end
+
+
+function ab(rng, su::StickyUpperBounds, flow, targetorgrad, t′, u, j)
+    (t, x, v) = u
+    a, b = ab(su.G1, j, x, v, su.c, flow.old) #TODO
+    t[j], a, b, Inf
+end
+
+function queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow; enqueue=false)
     t, x, v = u
-    trefl = poisson_time(b[i], rand(rng))
+    @assert b[i][end] == Inf
+    trefl = poisson_time(t[i], b[i], rand(rng)) - t[i]
     thit = hitting_time(barriers[i], geti(u, i), flow)
     if thit <= trefl
         action[i] = hit
-        Q[i] = t[i] + thit
+        if enqueue
+            enqueue!(Q, i => t[i] + thit)
+        else
+            Q[i] = t[i] + thit
+        end     
     else
         action[i] = reflect
-        Q[i] = t[i] + trefl
+        if enqueue 
+            enqueue!(Q, i => t[i] + trefl)
+        else
+            Q[i] = t[i] + trefl
+        end
     end
     return Q
 end
 
-function enqueue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow)
-    t, x, v = u
-    trefl = poisson_time(b[i], rand(rng))
-    thit = hitting_time(barriers[i], geti(u, i), flow)
-    if thit <= trefl
-        action[i] = hit
-        enqueue!(Q, i => t[i] + thit)
-    else
-        action[i] = reflect
-        enqueue!(Q, i => t[i] + trefl)
-    end
-end
-
+enqueue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow) = 
+    queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow, enqueue=true)
+   
 @enum Action begin
     hit
     reflect
@@ -173,12 +184,14 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     Ξ = Trace(t′, u0[2], u0[3], flow.old) # TODO use trace
     # Diagnostics
     acc = AcceptanceDiagnostics(0, 0)
-    ## create bounds ab
-    b = [ab(upper_bounds, flow, i, u) for i in eachindex(v0)]
+    ## create bounds ab 
+    b = [ab(rng, upper_bounds, flow, target, t′, u, 1)][1:0]
+
     action = fill(Action(0), d)
-   
+    
     # fill priorityqueue
-    for i in eachindex(v0)
+    for i in eachindex(v0)          
+        push!(b, ab(rng, upper_bounds, flow, target, t′, u, i))
         di = dir(geti(u, i))
         if x0[i] != barriers[i].x[di]
             enqueue_time!(rng, Q, u, i, b, action, barriers, flow)
@@ -194,8 +207,6 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
         prg = missing
     end
     
-    println("Run main, run total")
-
     t′ = sticky_main(rng, prg, Q, Ξ, t′, u_old, u, b, action, target, flow, upper_bounds, barriers, end_condition, acc)
 
     return Ξ, t′, u, acc
@@ -240,7 +251,7 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
                 t, x, v = ssmove_forward!(G2, i, t, x, v, t′, flow.old)
                 for j in neighbours(G1, i)
                     if v[j] != 0 # only non-frozen, especially not i
-                        b[j] = ab(upper_bounds, flow, j, u)
+                        b[j] = ab(rng, upper_bounds, flow, target, t′, u, j)
                         t_old[j] = t[j]
                         Q = queue_time!(rng, Q, u, j, b, action, barriers, flow)
                     end
@@ -259,8 +270,8 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
             t, x, v = ssmove_forward!(G, i, t, x, v, t′, flow.old) 
             t, x, v = ssmove_forward!(G2, i, t, x, v, t′, flow.old)
             for j in neighbours(G1, i)
-                if v[j] != 0 # only non-frozen, including i # check!
-                    b[j] = ab(upper_bounds, flow, j, u)
+                if v[j] != 0 # only non-frozen, including i # check!   
+                    b[j] = ab(rng, upper_bounds, flow, target, t′, u, j)
                     t_old[j] = t[j]
                     Q = queue_time!(rng, Q, u, j, b, action, barriers, flow)
                 end
@@ -269,8 +280,9 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
         else    # was either a reflection 
                 #time or an event time from the upper bound  
             t, x, v = ssmove_forward!(G, i, t, x, v, t′, flow.old) 
-            ∇ϕi = target(t′, u, i, flow)           
-            l, lb = sλ(∇ϕi, i, x, v, flow.old), sλ̄(b[i], t[i] - t_old[i])
+            ∇ϕi = target(t′, u, i, flow) 
+            l, lb = λ(i, u, ∇ϕi, b, flow)           
+            #l, lb = sλ(∇ϕi, i, x, v, flow.old), sλ̄(b[i], t[i] - t_old[i])
             
             if rand(rng)*lb < l # was a reflection time
                 accept!(acc, lb, l)
@@ -283,7 +295,7 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
                 t, x, v = ssmove_forward!(G2, i, t, x, v, t′, flow.old)  # neighbours of neightbours \ neighbours
                 for j in neighbours(G1, i)
                     if v[j] != 0
-                        b[j] = ab(upper_bounds, flow, j, u)
+                        b[j] = ab(rng, upper_bounds, flow, target, t′, u, j) 
                         t_old[j] = t[j]
                         queue_time!(rng, Q, u, j, b, action, barriers, flow)
                     end
@@ -291,7 +303,7 @@ function stickyzz_inner!(rng, Q, Ξ, t′, u, u_old, b, action, target, flow, up
                 return i, t′ 
             else # was an event time from upperbound -> nothing happens
                 not_accept!(acc, lb, l)
-                b[i] = ab(upper_bounds, flow, i, u)
+                b[i] = ab(rng, upper_bounds, flow, ∇ϕi, t′, u, i) 
                 t_old[i] = t[i]
                 queue_time!(rng, Q, u, i, b, action, barriers, flow)
                 # don't save

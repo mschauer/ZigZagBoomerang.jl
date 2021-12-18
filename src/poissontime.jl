@@ -82,3 +82,11 @@ function poisson_time(a)
 end
 
 poisson_time((a, b)::Tuple, u=randn()) = poisson_time(a, b, u)
+
+function poisson_time(t, b::Tuple, r)
+    @assert t <= b[end] # check bound validity 
+    Δt = t - b[1]
+    a = b[2] + Δt*b[3]
+    b = b[3]
+    t + poisson_time((a, b, 0.01), r) # guarantee minimum rate
+end

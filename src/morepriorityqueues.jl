@@ -1,3 +1,6 @@
+using DataStructures
+using Graphs
+
 function rcat(r1::AbstractUnitRange, r2::AbstractUnitRange)
     r1[end] + 1 == r2[1] || throw(ArgumentError("Arguments not contiguous"))
     return r1[1]:r2[end]
@@ -45,4 +48,67 @@ end
 function Base.setindex!(q::PriorityQueues, value, key)
     key in keys(q.head) && return q.head[key] = value
     return q.tail[key] = value
+end
+
+
+struct PartialQueue{U,T,S,R}
+    G::U
+    vals::T
+    ripes::S
+    minima::R
+end
+function PartialQueue(G, vals)
+    ripes = falses(length(vals))
+    for i in eachindex(vals)
+        ripe = true
+        val = vals[i]
+        for j in neighbors(G, i)
+            i == j && continue
+            ripe = ripe && val <= vals[j]
+        end
+        ripes[i] = ripe
+    end            
+    minima = [i=>t for (i, t) in zip(findall(ripes), vals[ripes])]
+    PartialQueue(G, vals, ripes, minima)
+end
+function check(q::PartialQueue)
+    vals = q.vals
+    ripes = falses(length(vals))
+    for i in eachindex(vals)
+        ripe = true
+        val = vals[i]
+        for j in neighbors(q.G, i)
+            i == j && continue
+            ripe = ripe && val <= vals[j]
+        end
+        ripes[i] = ripe
+    end
+    ripes == q.ripes || error("Internal error")
+end
+
+
+
+Base.peek(q::PartialQueue) = q.minima
+Base.getindex(q::PartialQueue, key) = q.vals[key]
+function Base.setindex!(q::PartialQueue, value, key) 
+    q.vals[key] < value || throw(ArgumentError("Can't decrease key"))
+    q.vals[key] = value
+    for i in Base.Iterators.flatten((key, neighbors(G, key)))
+        ripe = true
+        val = q.vals[i]
+        for j in neighbors(q.G, i)
+            i == j && continue
+            ripe = ripe && val <= vals[j]
+        end
+        if !q.ripes[i] &&  ripe
+            q.ripes[i] = ripe
+            push!(q.minima, i => q.vals[i])
+        elseif q.ripes[i] && !ripe
+            i != key && error("lost minimum")
+            q.ripes[i] = ripe
+            # remove minima
+        end
+    end
+    check(q)
+    value
 end

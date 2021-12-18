@@ -140,14 +140,8 @@ function ab(rng, su::SparseStickyUpperBounds, i, u, ∇ϕi, flow)
     s = su.adapt ? (1.0 - rand(rng)^2) : 1.0
     ti, a, b, ti + s/su.c 
 end
-function poisson_time(t, b::Tuple, r)
-    @assert t <= b[end] # check bound validity 
-    Δt = t - b[1]
-    a = b[2] + Δt*b[3]
-    b = b[3]
-    t + poisson_time((a, b, 0.01), r) # guarantee minimum rate
-end
-function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
+
+function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow; enqueue=false)
     t, x, v = ui = u[i]
     if t′ != t
         display(u.u)
@@ -157,7 +151,11 @@ function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
     trefl = poisson_time(t, b, rand(rng))
     thit = hitting_time(barriers, ui, flow)
     τ = min(trefresh, trefl, thit)
-    Q[i] = τ
+    if enqueue
+        enqueue!(Q, i => τ)
+    else
+        Q[i] = τ
+    end
     if thit == τ
         action = hit
     elseif trefl == τ
@@ -165,31 +163,17 @@ function queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
     else
         action = renew
     end
-    clocks[i] = (action, b)
+    if enqueue
+        set!(clocks, i, (action, b))
+    else
+        clocks[i] = (action, b)
+    end
     return Q
 end
 
-function enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow)
-    t, x, v = ui = u[i]
-    if t′ != t
-        display(u.u)
-        error("$i: $t ≠ $t′")
-    end
-    trefresh = b[end]
-    trefl = poisson_time(t, b, rand(rng))
-    thit = hitting_time(barriers, ui, flow)
-    τ = min(trefresh, trefl, thit)
-    enqueue!(Q, i => τ)
-    if thit == τ
-        action = hit
-    elseif trefl == τ
-        action = reflect
-    else
-        action = renew
-    end
-    set!(clocks, i, (action, b))
-    return Q
-end
+enqueue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow) = 
+    queue_time!(rng, Q, i, u, t′, b, clocks, barriers, flow::StickyFlow, enqueue=true)
+#
 
 @enum StickClock begin
     thaw = 0
@@ -299,21 +283,12 @@ function sparsestickyzz_inner!(rng, clocks, Qs, Ξ, t′, u, target, flow, upper
     while true
         told = t′
         i, t′ = peek(Qs)
-        #=
-        i1, t1′ = peek(Q0)    
-        i, t′ = peek(Q)
-        if t1′ < t′
-            @assert i == i1 == 0
-            @assert t1′ == t′ 
-            i = i1
-            t′ = t1′
-        end=#
 
         @assert t′ >= told
         if i != 0 && !haskey(u.u, i)
             display(u.u)
         end
-        #@show i, t′
+    
         G = target.G
         if i == Int(thaw)
             @assert nz(u) > 0
