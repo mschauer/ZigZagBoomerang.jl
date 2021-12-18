@@ -132,3 +132,4 @@ function Base.iterate(pq::SPriorityQueue, ordered::Bool=true)
 end
 
 Base.iterate(pq::SPriorityQueue, i) = _iterate(pq, iterate(pq.index, i))
+

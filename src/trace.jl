@@ -154,6 +154,26 @@ function Base.collect(D::Discretize{<:PDMPTrace})
     collect(t=>copy(x) for (t, x) in D)
 end
 
+export inclusion_prob
+
+function inclusion_prob(trace::ZigZagBoomerang.Trace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    T = trace.events[end][1]
+    t2 = trace.t0
+    t = fill(t2, length(x))
+    k = 1
+    while k <= length(trace.events)
+        t2, i, xi, θi = trace.events[k]
+        k += 1
+        y[i] += (x[i] ≠ 0 | xi ≠ 0)*(t2-t[i])/T
+        t[i] = t2
+        x[i] = xi
+        θ[i] = θi
+    end
+    y
+end
 
 
 

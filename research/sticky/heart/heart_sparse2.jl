@@ -30,8 +30,8 @@ Random.seed!(1)
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 
+#n = 500
 #n = 1000
-n = 100
 const σ2  = 0.5
 
 const c₁ = 2.0
@@ -54,7 +54,6 @@ sparsity(Γ) = nnz_(Γ)/length(Γ)
 # Random initial values
 t0 = 0.0
 h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2
-sz = 5.0
 const ℂ = CartesianIndices((n,n))
 const 𝕃 = LinearIndices(ℂ)
 
@@ -81,20 +80,23 @@ println("Sparse implementation")
 x0 = sparse(FillArrays.Zeros(n*n))
 
 
-cluster = true
+cluster = false
 if cluster
     clusterα = 0.5
     κ1 = 0.03
     T = 1000. 
 else
     clusterα = 1.0
-    κ1 = 0.05
-    T = 1000.
+    #κ1 = 0.05
+    κ1 = 0.15
+
+    T = 500.
 end
 
 adapt = false
 
-c1 = 5.0
+c1 = 4.26
+@assert c1 - (c₂ + c₁*(4 + 4) + 1/σ2)/c1 > 0
 
 
 Z = ZigZag(γ, 0.0, 1.0)
@@ -121,25 +123,76 @@ function RandomNumbers.Xorshifts.init_seed(seed, ::Type{UInt64}, _::Val{2})
 end
 
 using Profile
-trace2, acc2, uT = ZigZagBoomerang.sspdmp3(∇ϕsp, ZigZagBoomerang.sparsestickystate(x0), T, c1, nothing, Z, κ1[1], γ;
-                                                adapt = adapt, progress=true, progress_stops = 50, clusterα=clusterα)
+timeel = @elapsed trace2, acc2, uT = ZigZagBoomerang.sspdmp3(∇ϕsp, ZigZagBoomerang.sparsestickystate(x0), T, c1, nothing, Z, κ1[1], γ;
+                                                adapt = adapt, progress=true, progress_stops = 500, rule=:sticky, clusterα=clusterα)
 
-@show length(trace2.events)
-                                            
+@show nevent = length(trace2.events)
+
+Delta = h.(1:n^2) - mean(trace2)
+@show err = [norm(Delta, 1), norm(Delta, 2), norm(Delta, Inf)]
+
+
 
 @show sparsity(uT)
+if false
 
 ss = 1
-sub = vec(LinearIndices(ℂ)[ℂ[1:ss:end,1:ss:end]])
-@time ŷ2 = mat(mean(subtrace(trace2, sub)), n÷ss)
-xtrue = mat(h0.(sub), n÷ss)
-#error("stop")                                                
+r = n÷3:ss:2n÷3
+sub = vec(LinearIndices(ℂ)[ℂ[r, r]])
+sub2 = vec(LinearIndices(ℂ)[ℂ[r[end÷2+1:end], r]])
+m = length(r)
+@time x̂ = mat(mean(subtrace(trace2, sub)), m)
+xtrue = mat(h0.(sub), m)
+y = mat(h.(𝕃), n)
+y .-= minimum(y)
+normalize!(y, Inf)
+y[sub2] = normalize!(xtrue[end÷2+1:end, :], Inf)
+xmix = copy(xtrue)
+#xmix[end÷2+1:end,:] = y[end÷2+1:end, :]
+xmix[end÷2+1:end,:] = x̂[end÷2+1:end, :]
+figa = fig = Figure(figure_padding=40, fontsize=25)
+image!(Axis(fig[1,1]), r, r, xmix, interpolate=false)
+lines!(r[[end÷2, end÷2]].+ 0.5,r[[1,end]], color=:orange)
+figb = fig = Figure(figure_padding=40, fontsize=25)
+image!(Axis(fig[1,1]), y, interpolate=false)
+figc = fig = Figure(figure_padding=40, fontsize=25)
+xmix2 = copy(x̂)
+xmix2[end÷2+1:end,:] = abs.((xtrue[end÷2:-1:1, :] - x̂[end÷2:-1:1, :]))
+heatmap!(Axis(fig[1,1]), r, r, xmix2)#, colorrange=(-1,6))
+lines!(r[[end÷2, end÷2]].+ 0.5,r[[1,end]], color=:orange)
+
+figa
+
+r = LinearIndices(ℂ)[CartesianIndex(n÷2, n÷2)]
+st2, sx2 = @time ZigZagBoomerang.sep(collect(ZigZagBoomerang.subtrace(trace2, [n÷10, r-1, r])))
+figd = fig = Figure(figure_padding=40, fontsize=25)
+ax = [Axis(fig[1,1]) for i in 1:1]
+
+lines!(ax[1], st2, getindex.(sx2,3))
+lines!(ax[1], st2, getindex.(sx2,2))
+lines!(ax[1], st2, getindex.(sx2,1))
+fige = fig = Figure(figure_padding=40, fontsize=25)
+ax = [Axis(fig[1,1]) for i in 1:1]
+nd = 200
+
+lines!(ax[1], st2[max(1, end-nd):end], getindex.(sx2[max(1, end-nd):end],3))
+lines!(ax[1], st2[max(1, end-nd):end], getindex.(sx2[max(1, end-nd):end],2))
+lines!(ax[1], st2[max(1, end-nd):end], getindex.(sx2[max(1, end-nd):end],1))
+
+save("figa.png", figa)
+save("figb.png", figb)
+save("figc.png", figc)
+save("figd.png", figd)
+save("fige.png", fige)
+
+error("stop")  
+
 using GLMakie
 fig1 = fig = Figure()
 
 ax = [Axis(fig[1,i], title = ["posterior mean","sqr err"][i]) for i in 1:2]
-heatmap!(ax[1], ŷ2, colorrange=(-1,6))
-heatmap!(ax[2], (xtrue - ŷ2).^2, colorrange=(-1,6))
+heatmap!(ax[1], x̂, colorrange=(-1,6))
+heatmap!(ax[2], (xtrue - x̂).^2, colorrange=(-1,6))
 
 r = LinearIndices(ℂ)[CartesianIndex(n÷2, n÷2)]
 st2, sx2 = ZigZagBoomerang.sep(collect(ZigZagBoomerang.subtrace(trace2, r-5:r+5)))
@@ -150,7 +203,8 @@ lines!(ax[1], st2, getindex.(sx2,1))
 lines!(ax[1], st2, getindex.(sx2,6))
 lines!(ax[1], st2, getindex.(sx2,11))
 
-pic = mat(map(i->((uT[i][2]≠0)⊻(h0(i)≠0)), sub), n÷ss)
+conf(a, b) = a << 1 + b
+pic = mat(map(i->conf(h0(i)≠0, uT[i][2]≠0), sub), m)
 @show sum(pic)
 fp = sum(map(i->((uT[i][2]≠0)&(h0(i)==0)), sub))
 fn = sum(map(i->((uT[i][2]==0)&(h0(i)≠0)), sub))
@@ -189,3 +243,4 @@ sum(pic) = 1847
 1419 fp + 428 fn = 1847 f, 808 tp + 37345 tn
 
 =#
+end
