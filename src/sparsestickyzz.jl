@@ -213,7 +213,7 @@ function sparsestickyzz(u, target, flow::StickyFlow, upper_bounds, barriers::Sti
     # Skeleton
     Ξ = Trace(t′, u0[2], u0[3], flow.old) # TODO use trace
     # Diagnostics
-    acc = AcceptanceDiagnostics(0, 0)
+    acc = AcceptanceDiagnostics()
 
     Q0 = LinearQueue(0:0, [t′ + randexp(rng)/(barriers.κ*(u.d-nnz(u)))])
     #enqueue!(Q, 0 => t′ + randexp(rng)/(barriers.κ*(u.d-nnz(u)))) 

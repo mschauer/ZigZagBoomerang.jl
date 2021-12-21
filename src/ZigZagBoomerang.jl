@@ -43,6 +43,7 @@ include("ss_fact.jl")
 export sspdmp
 
 include("stickyzz.jl")
+include("asynchzz.jl")
 export stickyzz
 include("sparsestickyzz.jl")
 export sparsestickyzz

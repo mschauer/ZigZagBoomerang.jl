@@ -78,7 +78,11 @@ end
 mutable struct AcceptanceDiagnostics
     acc::Int
     num::Int
+    batchsize::Int
+    batches::Int
+    empty::Int
 end
+AcceptanceDiagnostics() = AcceptanceDiagnostics(0,0,0,0,0)
 
 function accept!(acc::AcceptanceDiagnostics, args...) 
     acc.acc += 1
@@ -183,7 +187,7 @@ function stickyzz(u0, target::StructuredTarget, flow::StickyFlow, upper_bounds::
     # Skeleton
     Ξ = Trace(t′, u0[2], u0[3], flow.old) # TODO use trace
     # Diagnostics
-    acc = AcceptanceDiagnostics(0, 0)
+    acc = AcceptanceDiagnostics()
     ## create bounds ab 
     b = [ab(rng, upper_bounds, flow, target, t′, u, 1)][1:0]
 

@@ -59,56 +59,72 @@ struct PartialQueue{U,T,S,R}
 end
 function PartialQueue(G, vals)
     ripes = falses(length(vals))
+    minima = Pair{Int64, Float64}[]
     for i in eachindex(vals)
-        ripe = true
-        val = vals[i]
-        for j in neighbors(G, i)
-            i == j && continue
-            ripe = ripe && val <= vals[j]
-        end
-        ripes[i] = ripe
+        ripes[i] = localmin(G, vals, i)
+        ripes[i] && push!(minima, i=>vals[i])
     end            
-    minima = [i=>t for (i, t) in zip(findall(ripes), vals[ripes])]
     PartialQueue(G, vals, ripes, minima)
+end
+function build!(q::PartialQueue)
+    reset!(q.minima[])
+    for i in eachindex(q.vals)
+        q.ripes[i] = localmin(q, i)
+    end
+    return
 end
 function check(q::PartialQueue)
     vals = q.vals
     ripes = falses(length(vals))
     for i in eachindex(vals)
-        ripe = true
-        val = vals[i]
-        for j in neighbors(q.G, i)
-            i == j && continue
-            ripe = ripe && val <= vals[j]
-        end
-        ripes[i] = ripe
+        ripes[i] = localmin(q, i)
     end
     ripes == q.ripes || error("Internal error")
 end
+function collectmin(q::PartialQueue)
+    isempty(q.minima) || error("Full queue")
+    m = findall(q.ripes)
+    for (i,t) in zip(m, q.vals[m])
+        push!(q.minima, i=>t)
+    end
+    if isempty(q.minima) 
+        #check(q)
+        error("No minimum in queue")
+    end
+    q.minima
+end
 
-
+function localmin(q, i)
+    localmin(q.G, q.vals, i)
+end
+function localmin(G, vals, i)
+    val = vals[i]
+    for j in neighbours(G, i)
+        i == j && continue
+        val > vals[j] && return false
+    end
+    return true
+end
 
 Base.peek(q::PartialQueue) = q.minima
+function DataStructures.dequeue!(q::PartialQueue) 
+    m = copy(q.minima)
+    resize!(q.minima, 0)
+    m
+end
+
 Base.getindex(q::PartialQueue, key) = q.vals[key]
 function Base.setindex!(q::PartialQueue, value, key) 
-    q.vals[key] < value || throw(ArgumentError("Can't decrease key"))
+    q.vals[key] < value || throw(ArgumentError("Can't decrease key $(q.vals[key]) to $value"))
     q.vals[key] = value
-    for i in Base.Iterators.flatten((key, neighbors(G, key)))
-        ripe = true
-        val = q.vals[i]
-        for j in neighbors(q.G, i)
-            i == j && continue
-            ripe = ripe && val <= vals[j]
-        end
-        if !q.ripes[i] &&  ripe
-            q.ripes[i] = ripe
-            push!(q.minima, i => q.vals[i])
-        elseif q.ripes[i] && !ripe
-            i != key && error("lost minimum")
-            q.ripes[i] = ripe
-            # remove minima
-        end
+    (q.ripes[key] = localmin(q, key)) && push!(q.minima, key => value)
+    for i in neighbours(q.G, key)
+        i == key && continue
+        ripe = localmin(q, i)
+        (!q.ripes[i] && ripe) && push!(q.minima, i => q.vals[i])
+        q.ripes[i] = ripe
+        (q.ripes[i] && !ripe) && i != key && error("lost minimum")
     end
-    check(q)
+#    check(q)
     value
 end

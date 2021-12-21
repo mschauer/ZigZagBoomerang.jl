@@ -22,3 +22,13 @@ using ZigZagBoomerang: LinearQueue, PriorityQueues, rcat
     @test Q[3] == 11.0
     @test (Q[3] = 13) == 13
 end
+
+using Test
+@testset "PartialQueue" begin
+    vals = [1.0, 0.1, 1.0, 0.1, 0.3]
+    G = Graph(Edge.(([1=>2, 2=>3, 3=>4, 4=>5])))
+
+    Q = PartialQueue(G, vals)
+
+    Q[2] = 3
+end
