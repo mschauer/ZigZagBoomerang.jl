@@ -1,11 +1,10 @@
-
+using Pkg
+Pkg.activate(@__DIR__)
+cd(@__DIR__)
 using LinearAlgebra
 using Test
 using ZigZagBoomerang
 using SparseArrays
-using Pkg
-Pkg.activate(@__DIR__)
-cd(@__DIR__)
 
 d = 40
 x = randn(d)
@@ -104,10 +103,11 @@ if run_gibbs
     include("./reversiblejump.jl")
     x = copy(x0)
     w = wi
-    N = 10000
+    N = 2000
     Z = [abs(d÷2 - i) > 2 for i in eachindex(x)]
     # Γℓ = R'*R/σb^2
     # μℓ = -Γℓ \ (R'*(ones(d-1).*ci)./σb^2)
+    println("run Gibbs")
     ββ, ZZ = @time reversible_jump(sparse(Γ), μ, w, N, x, Z, σa,  N÷2000)
     #trace2 = [ββ[i].*ZZ[i] for i in 1:length(ZZ)]
     trace2b = [ββ[i][j].*ZZ[i][j] for i in 1:length(ZZ), j in 1:length(ZZ[1])] 
@@ -120,21 +120,20 @@ end
 
         burn = 3
         fig1 = Figure()
-        ax = [Axis(fig1[1, j]) for j in 1:5]
-        heatmap!( ax[1], tsh[end÷burn]:T/2000:T, 1:d, traceh[burn:end, :], colorrange=(-8,8))
-        heatmap!( ax[2], tsh[end÷burn]:T/2000:T, 1:d, sign.(traceh[burn:end, :]), colorrange=(-1,1  ))
+        ax = [Axis(fig1[1, j]) for j in 1:2]
+        # heatmap!( ax[1], tsh[end÷burn]:T/2000:T, 1:d, traceh[burn:end, :], colorrange=(-8,8))
+        # heatmap!( ax[2], tsh[end÷burn]:T/2000:T, 1:d, sign.(traceh[burn:end, :]), colorrange=(-1,1  ))
         i = 2d÷5
     #    lines!(ax[2], getindex.(xs, i)[end÷burn:end],getindex.(xs, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.1))
-        scatter!(ax[3], getindex.(xsh, i)[end÷burn:end],getindex.(xsh, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.2), markersize=4)
+        scatter!(ax[1], getindex.(xsh, i)[end÷burn:end],getindex.(xsh, i+1)[end÷burn:end], linewidth=2.0, color=(:blue, 0.2), markersize=4)
 
-        lines!(ax[4], tsh[end÷burn:end], getindex.(xsh, i)[end÷burn:end])
-        lines!(ax[4], tsh[end÷burn:end], getindex.(xsh, i+1)[end÷burn:end])
+        # lines!(ax[4], tsh[end÷burn:end], getindex.(xsh, i)[end÷burn:end])
+        # lines!(ax[4], tsh[end÷burn:end], getindex.(xsh, i+1)[end÷burn:end])
     
         jjj = round.(Int, range(length(tsh)÷burn, length(tsh), length=200))
         for k in eachindex(jjj)
             local c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
-        
-            lines!(ax[5], 1:d, traceh[jjj[k],:], color=(c, 0.1))
+            lines!(ax[2], 1:d, traceh[jjj[k],:], color=(c, 0.1))
         end
 
     end
@@ -143,23 +142,23 @@ end
         using GLMakie, Colors
         #fig2 = Figure()
         #ax = [Axis(fig2[1, j]) for j in 1:1]
-        ax = [Axis(fig1[2, j]) for j in 1:5]
+        ax = [Axis(fig1[2, j]) for j in 1:2]
         jj = axes(trace2b, 1)[end÷burn:end]
-        heatmap!(ax[1], trace2b[jj,:],  colorrange=(-8,8))
-        heatmap!(ax[2], sign.(trace2b[jj,:]),  colorrange=(-1,1))
+        # heatmap!(ax[1], trace2b[jj,:],  colorrange=(-8,8))
+        # heatmap!(ax[2], sign.(trace2b[jj,:]),  colorrange=(-1,1))
     
         i = 2d÷5
-        scatter!(ax[3], trace2b[jj, i], trace2b[jj, i+1], linewidth=2.0, color=(:blue, 0.2), markersize=4)
+        scatter!(ax[1], trace2b[jj, i], trace2b[jj, i+1], linewidth=2.0, color=(:blue, 0.2), markersize=4)
 
-        scatter!(ax[4], jj, trace2b[jj, i], markersize=4)
-        scatter!(ax[4], jj, trace2b[jj, i+1], markersize=4)
+        # scatter!(ax[4], jj, trace2b[jj, i], markersize=4)
+        # scatter!(ax[4], jj, trace2b[jj, i+1], markersize=4)
         jjj = round.(Int, range(size(trace2b,1)÷burn, size(trace2b,1), length=200))
 
         for k in eachindex(jjj)
             local c = ColorSchemes.viridis[clamp((k*256)÷length(jjj), 1, 256)]
-            lines!(ax[5], 1:d, trace2b[jjj[k],:], color=(c, 0.1))
+            lines!(ax[2], 1:d, trace2b[jjj[k],:], color=(c, 0.1))
         end
         
     end
-    save("gibbsvszig.png", fig1)
+    save("gibbsvszig_new.png", fig1)
     fig1
