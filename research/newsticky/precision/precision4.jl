@@ -191,10 +191,10 @@ function freeze!(args...)
     Zig.freeze!(0.0, args...)
 end
 κ = 0.9
-1/(1 + (γ0/sqrt(2pi))/κ)
+1/(1 + (sqrt(γ0/2pi))/κ)
 
 w = 0.05
-κ = (γ0/sqrt(2π))/(1/w - 1)
+κ = (sqrt(γ0/2π))/(1/w - 1)
 
 
 function next_freezeunfreeze(args...)
