@@ -56,39 +56,57 @@ struct PartialQueue{U,T,S,R}
     vals::T
     ripes::S
     minima::R
+    nregions::Int
 end
-function PartialQueue(G, vals)
+nv_(G) = length(G)
+div1(a,b) = (a-1)÷b + 1
+function PartialQueue(G, vals, nregions=1)
     ripes = falses(length(vals))
-    minima = Pair{Int64, Float64}[]
-    for i in eachindex(vals)
+    minima = [Pair{Int64, Float64}[] for _ in 1:nregions]
+    for i in 1:length(vals)
         ripes[i] = localmin(G, vals, i)
-        ripes[i] && push!(minima, i=>vals[i])
-    end            
-    PartialQueue(G, vals, ripes, minima)
+        ripes[i] && push!(minima[div1(nregions*i, nv_(G))], i=>vals[i])
+    end
+    PartialQueue(G, vals, ripes, minima, nregions)
 end
-function build!(q::PartialQueue)
-    reset!(q.minima[])
+#=function build!(q::PartialQueue)
+    resize!(q.minima)
     for i in eachindex(q.vals)
         q.ripes[i] = localmin(q, i)
     end
     return
-end
+end=#
 function check(q::PartialQueue)
-    vals = q.vals
-    ripes = falses(length(vals))
-    for i in eachindex(vals)
-        ripes[i] = localmin(q, i)
+    for i in eachindex(q.vals)
+        q.ripes[i] == localmin(q, i) || error("Internal error")
     end
-    ripes == q.ripes || error("Internal error")
 end
-function collectmin(q::PartialQueue)
-    isempty(q.minima) || error("Full queue")
-    m = findall(q.ripes)
-    for (i,t) in zip(m, q.vals[m])
-        push!(q.minima, i=>t)
+
+function checkqueue(q::PartialQueue)
+    minima = [Pair{Int64, Float64}[] for _ in 1:q.nregions]
+    for i in 1:length(q.vals)
+        q.ripes[i] == localmin(q, i) || error("Internal error")   
+        q.ripes[i] && push!(minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
     end
-    if isempty(q.minima) 
-        #check(q)
+    for i in 1:q.nregions
+        if Set(first.(q.minima[i])) != Set(first.(minima[i]))
+            println(setdiff(minima[i], q.minima[i]))
+            println(setdiff(q.minima[i], minima[i]))
+            
+            error("corrupted")
+        end
+    end
+end
+
+
+
+
+function collectmin(q::PartialQueue)
+    all(isempty.(q.minima)) || error("Full queue")
+    for i in findall(q.ripes)
+        push!(q.minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
+    end
+    if all(isempty.(q.minima))
         error("No minimum in queue")
     end
     q.minima
@@ -110,6 +128,9 @@ Base.peek(q::PartialQueue) = q.minima
 function DataStructures.dequeue!(q::PartialQueue) 
     m = copy(q.minima)
     resize!(q.minima, 0)
+    for _ in 1:q.nregions
+        push!(q.minima, Pair{Int64, Float64}[])
+    end
     m
 end
 
@@ -117,14 +138,16 @@ Base.getindex(q::PartialQueue, key) = q.vals[key]
 function Base.setindex!(q::PartialQueue, value, key) 
     q.vals[key] < value || throw(ArgumentError("Can't decrease key $(q.vals[key]) to $value"))
     q.vals[key] = value
-    (q.ripes[key] = localmin(q, key)) && push!(q.minima, key => value)
+    rkey = div1(q.nregions*key, nv_(q.G))
+    (q.ripes[key] = localmin(q, key)) && push!(q.minima[rkey], key => value)
     for i in neighbours(q.G, key)
         i == key && continue
         ripe = localmin(q, i)
-        (!q.ripes[i] && ripe) && push!(q.minima, i => q.vals[i])
+        ri = div1(q.nregions*i, nv_(q.G))
+        (!q.ripes[i] && ripe) && push!(q.minima[ri], i => q.vals[i])
         q.ripes[i] = ripe
         (q.ripes[i] && !ripe) && i != key && error("lost minimum")
     end
-#    check(q)
+    #check(q)
     value
 end

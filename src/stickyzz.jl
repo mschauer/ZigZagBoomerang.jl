@@ -24,7 +24,8 @@ end
 
 StickyBarriers() = StickyBarriers((-Inf, Inf), (:reflect, :reflect), (Inf, Inf))
 
-struct StickyFlow{T}
+abstract type NewFlow end
+struct StickyFlow{T} <: NewFlow
     old::T
 end
 
@@ -125,7 +126,7 @@ function hitting_time(barrier, ui, flow)
     end
 end
 
-function λ(i, u::Tuple, ∇ϕi, b, ::StickyFlow) 
+function λ(i, u::Tuple, ∇ϕi, b, ::NewFlow) 
     t, x, θ = u
     ti, xi, θi = t[i], x[i], θ[i]
     abc = b[i]
@@ -163,8 +164,8 @@ function queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow
     return Q
 end
 
-enqueue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow) = 
-    queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::StickyFlow, enqueue=true)
+enqueue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::NewFlow) = 
+    queue_time!(rng, Q, u, i, b, action, barriers::Vector, flow::NewFlow, enqueue=true)
    
 @enum Action begin
     hit

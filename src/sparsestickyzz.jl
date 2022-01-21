@@ -126,7 +126,7 @@ function hitting_time(barrier::StickyBarriers{<:Number}, ui, flow)
 end
 
 
-function λ(i, u, ∇ϕi, clocks, ::StickyFlow) 
+function λ(i, u, ∇ϕi, clocks, ::NewFlow) 
     ti, xi, θi = u[i]
     abc = clocks[i][2]
     @assert ti <= abc[4]
