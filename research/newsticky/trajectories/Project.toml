@@ -1,0 +1,5 @@
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
+ZigZagBoomerang = "36347407-b186-4a6a-8c98-4f4567861712"

@@ -13,6 +13,21 @@ df2 = DataFrame(CSV.File(FileName_df2))
 
 
 
+function std(i, ℓ, stat, df1, df2) 
+    n_exp = 10
+    d = maximum(filter(:ell => l -> l == ℓ, df1).index)
+    y = zeros(n_exp, 2)    
+    samplers = ["SZZ", "GIBBS"]
+    for (j,sampler) in enumerate(samplers)
+        x̂ = filter([:index, :ell, :stat] => (i0, l, s) -> i0 == i && l == ℓ && s == stat  , df1).val
+        xi = filter([:index, :ell, :stat, :sampler] => (i0, l, st, m) -> i0 == i && l == ℓ && st == stat && m == sampler, df2).val
+        x₀ = xi .- x̂
+        y[:, j] = x₀ 
+    end
+    y
+end
+
+
 function std(ℓ, stat, df1, df2) 
     n_exp = 10
     d = maximum(filter(:ell => l -> l == ℓ, df1).index)
@@ -23,14 +38,16 @@ function std(ℓ, stat, df1, df2)
             x̂ = filter([:index, :ell, :stat] => (i0, l, s) -> i0 == i && l == ℓ && s == stat  , df1).val
             xi = filter([:index, :ell, :stat, :sampler] => (i0, l, st, m) -> i0 == i && l == ℓ && st == stat && m == sampler, df2).val
             x₀ = xi .- x̂
-            y[(i-1)*n_exp + 1: i*n_exp, j] = x₀ 
-        end
+            y[(i-1)*n_exp+1: i*n_exp, j] = x₀
+        end 
     end
     y
 end
 
+
 ℓ = 3
 stat = 1
+i = 1
 box1 = std(ℓ, stat, df1, df2) 
 
 ℓ = 5
@@ -38,6 +55,16 @@ box2 = std(ℓ, stat, df1, df2)
 
 ℓ = 7
 box3 = std(ℓ, stat, df1, df2)
+
+
+
+
+sum(box1.^2, dims = 1)./size(box1,1)
+
+sum(box2.^2, dims = 1)./size(box2,1)
+
+sum(box3.^2, dims = 1)./size(box3,1)
+
 
 
 

@@ -105,7 +105,7 @@ function benchmark!(df, μ, Γ, ℓℓ, wwi, num_exp = 10)
             println("Precompile gibbs and zz")
             ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ, sΓpost, μpost)
             z = [abs(d÷2 - i) > 2 for i in eachindex(x0)]  
-            reversible_jump(sΓpost, μpost, wi, N[ii], x0, z, σa,  N[ii]÷10)
+            reversible_jump(sΓpost, μpost, wi, N, x0, z, σa,  N÷10)
             println("End precompilation")
             println("")
         end

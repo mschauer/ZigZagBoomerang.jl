@@ -11,7 +11,7 @@ using SparseArrays
 using LinearAlgebra
 function reversible_jump(Γ, μ, w, iter, x, z, σa, subiter = 10)
     xx = Vector{Float64}[]
-    zz = Vector{Float64}[]
+    zz = Vector{Bool}[]
     push!(xx, copy(x))
     push!(zz, copy(z))
     for k in 1:iter
