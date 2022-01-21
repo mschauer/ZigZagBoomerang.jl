@@ -45,16 +45,16 @@ Random.seed!(1)
 
 # Define precision operator of a Gaussian random field (sparse matrix operating on `vec`s of `n*n` matrices)
 
-n = 200
+n = 100
+ℂ = CartesianIndices((n,n))
+𝕃 = LinearIndices(ℂ)
 const σ2  = 0.5
 Γ0 = gridlaplacian(Float64, n, n)
 c₁ = 2.0
 c₂ = 0.1
 Γ = c₁*Γ0 + c₂*I 
 mat(x) = reshape(x, (n, n)) # vector to matrix
-function mat0(y)
-    mat(y .- 0.1)
-end
+
 # Γ is very sparse
 nnz_(x) = sum(x .!= 0)
 nnz_(x::SparseVector) = nnz(x)
@@ -93,28 +93,43 @@ c2 = fill(5.0, n*n)
 # Define ZigZag
 Z = ZigZag(Γpost, μpost)
 
-κ1 = 10*ones(length(x0))
+κ1 = 1*ones(length(x0))
 # Run sparse ZigZag for T time units and collect trajectory
-T = 100.0
+T = 300.0
+using Graphs
 G = SimpleGraph(Γ)
-C = Coloring(Int, Vector([i%3 + 3*(j%3) for i in 1:n, j in 1:n])
+C = Graphs.Coloring(9, Vector(vec([1 + i%3 + 3*(j%3) for i in 1:n, j in 1:n])))
 
 su = false
 adapt = false
-if !@isdefined trace1
+if (!@isdefined lastn) || lastn != n
+    lastn = n
     println("New implementation")                                                
     @time trace1, acc1 = ZigZagBoomerang.sspdmp2(∇ϕ, t0, x0, θ0, T, c, nothing, Z, κ1, Γ, μ;
                                                     strong_upperbounds = su ,
                                                     adapt = adapt, progress=true)
 end
-println("Asynch implementation")  
-@time trace2, acc2 = ZigZagBoomerang.sspdmp4(∇ϕ, t0, x0, θ0, T, c2, nothing, Z, κ1, Γ, μ;
+println("Async implementation")  
+@time trace2, acc2 = ZigZagBoomerang.sspdmp4(C, ∇ϕ, t0, x0, θ0, T, c2, nothing, Z, κ1, Γ, μ;
                                                 adapt = adapt, progress=true)
-#error("hier")
+#
+
+using Colors
+cols = [rand(RGB) for i in 1:9]
+div1(a,b) = (a-1)÷b + 1
+region(i) = div1(4*i, n*n) 
+error("hier")
+
+using GLMakie
+#image(map(i->cols[region(i[1], i[2])], CartesianIndices((n,n))), interpolate=false)
+image(mat(map(i->cols[region(i)], 1:n^2)), interpolate=false)
+
+error("hier")
 ŷ1 = mat(mean(trace1))
 ŷ2 = mat(mean(trace2))
 
 using GLMakie
+image(map(i->cols[i], mat(C.colors)), interpolate=false)
 fig1 = fig = Figure()
 
 ax = [Axis(fig[1,i], title = "posterior mean $i") for i in 1:2]

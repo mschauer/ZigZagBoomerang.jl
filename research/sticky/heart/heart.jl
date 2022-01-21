@@ -60,7 +60,7 @@ h(x, y) = x^2+(5y/4-sqrt(abs(x)))^2
 heart = [ max.(1 - h(x, y), 0) for x in range(-1.5,1.5, length=n), y   in range(-1.1,1.9, length=n)]
 image(heart)
 μ0 = 5.0*vec(heart)
-y = μ = μ0 + randn(n*n)
+y = μ = μ0 + sqrt(σ2)*randn(n*n)
 μpost = yhat = (I + Γ)\y
 Γpost = (Γ + I)/σ2
 
