@@ -94,10 +94,17 @@ function reflect!(∇ϕx, x, θ, F::Boomerang)
 #    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
     θ
 end
-function reflect!(∇ϕx, x, θ, F::GenBouncyParticle)
+
+"""
+    rreflect!(∇ϕx, θ, F::GenBouncyParticle)
+
+Randomised reflection rule of sampler `F` at reflection time.
+`x`: position, `θ`: velocity
+"""
+function rreflect!(rng, ∇ϕx, x, θ, F::GenBouncyParticle)
     θp = (θ'∇ϕx / normsq(∇ϕx)) .* ∇ϕx
     θ⊥ = F.ρ .* (θ - θp)
-    z = randn!(similar(θ)) .* √(1.0f0 - F.ρ^2)
+    z = randn!(rng, similar(θ)) .* √(1.0f0 - F.ρ^2)
     z -= (z'∇ϕx / normsq(∇ϕx)) .* ∇ϕx
     θ .= -θp + θ⊥ + z
     θ
