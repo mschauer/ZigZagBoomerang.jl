@@ -2,7 +2,7 @@
 # most known not-factorised PDMC)
 using LinearAlgebra
 
-grad_correct!(y, x, F::Union{BouncyParticle, ZigZag}) = y
+grad_correct!(y, x, F::Union{BouncyParticle, ZigZag, GenBouncyParticle}) = y
 function grad_correct!(y, x, F::FactBoomerang)
     @. y -= x - F.μ
     y
@@ -35,7 +35,7 @@ function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
 end
 ab(x, θ, c, Flow) =  ab(x, θ, GlobalBound(c), nothing, nothing, Flow)
 
-function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
+function event(t, x, θ, Z::Union{BouncyParticle,Boomerang,GenBouncyParticle})
     t, copy(x), copy(θ), nothing
 end
 

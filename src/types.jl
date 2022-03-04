@@ -44,6 +44,17 @@ BouncyParticle(Γ, μ, λ; ρ=0.0) = BouncyParticle(Γ, μ, λ, ρ, nothing, (ch
 # simple constructor for first experiments
 BouncyParticle(λ, d) = BouncyParticle(1.0I(d), zeros(d), λ, 0.0, nothing)
 """
+    GenBouncyParticle(ρ) <: ContinuousDynamics
+Input: argument `ρ`, autoregressive coefficient with 0<ρ<1.
+"""
+struct GenBouncyParticle{R} <: ContinuousDynamics
+    #μ::S
+    ρ::R
+    #U::V
+    #L::LT
+end
+GenBouncyParticle(; ρ=0.9) = GenBouncyParticle(ρ)
+"""
     Boomerang(μ, λ) <: ContinuousDynamics
 
 Dynamics preserving the `N(μ, Σ)` measure (Boomerang)

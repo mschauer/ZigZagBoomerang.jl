@@ -16,7 +16,7 @@ include("common.jl")
 include("dynamics.jl")
 export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
 const LocalZigZag = ZigZag
-export LocalZigZag, BouncyParticle, Boomerang
+export LocalZigZag, BouncyParticle, Boomerang, GenBouncyParticle
 #include("laplace.jl")
 
 include("poissontime.jl")

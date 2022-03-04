@@ -8,7 +8,7 @@ dynamics of the Bouncy particle sampler (`BouncyParticle`) and `ZigZag`:
 (x(τ), θ(τ)) = (x(0) + θ(0)*t, θ(0)).
 `x`: current location, `θ`: current velocity, `t`: current time,
 """
-function move_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag})
+function move_forward!(τ, t, x, θ, Z::Union{BouncyParticle, ZigZag, GenBouncyParticle})
     t += τ
     x .+= θ .* τ
     t, x, θ
@@ -80,7 +80,7 @@ function move_forward(τ, t, x, θ, B::Boomerang1d)
 end
 
 """
-    reflect!(∇ϕx, θ, F::BouncyParticle, Boomerang)
+    reflect!(∇ϕx, θ, F::BouncyParticle, Boomerang, GenBouncyParticle)
 
 Reflection rule of sampler `F` at reflection time.
 x`: position, `θ`: velocity
@@ -94,7 +94,14 @@ function reflect!(∇ϕx, x, θ, F::Boomerang)
 #    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
     θ
 end
-
+function reflect!(∇ϕx, x, θ, F::GenBouncyParticle)
+    θp = (θ'∇ϕx / normsq(∇ϕx)) .* ∇ϕx
+    θ⊥ = F.ρ .* (θ - θp)
+    z = randn!(similar(θ)) .* √(1.0f0 - F.ρ^2)
+    z -= (z'∇ϕx / normsq(∇ϕx)) .* ∇ϕx
+    θ .= -θp + θ⊥ + z
+    θ
+end
 
 waiting_time_ref(rng, F) = poisson_time(rng, F.λref)
 waiting_time_ref(F) = poisson_time(F.λref)
