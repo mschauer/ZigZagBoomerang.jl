@@ -1,11 +1,7 @@
 ### Forward model to simulate the data
 using Random
 Random.seed!(1)
-# number of individuals
-N = 50
 
-# infectivity metric 
-d(i,j) = 1 - (abs(i-j)+1)/N
 
 # poisson_time 
 poisson_time(c) = -log(rand())/c
@@ -28,7 +24,7 @@ function beta(j, x, ξ, ϑ, γ)
 end
 
 
-function forward_simulation(x0, ξ, ϑ, γ, δ1, δ2, T)
+function forward_simulation_(x0, ξ, ϑ, γ, δ1, δ2, T)
     x = copy(x0)
     t = 0.0
     S = [(copy(x) => t)]
@@ -74,24 +70,49 @@ function forward_simulation(x0, ξ, ϑ, γ, δ1, δ2, T)
 end
 
 
-# baseline susceptibility 
-ξ = rand(N).*0.5
-# baseline infectivity
-ϑ = rand(N).*0.5
-# reduction after notification 
-γ = 0.1
-# rate of 1 -> 2
-δ1 = 0.1
-# rate of 2 -> 3
-δ2 = 0.1
+function new_input(it, nobs, robs, T)
+    N = length(it) 
+    x0 = [it; nobs; robs; 0.0; T]
+    tag = [fill(1, N); fill(2, N); fill(3, N); 0; 0]
+    ind = [eachindex(it);  eachindex(it);  eachindex(it); 0; 0]
+    x1 = Vector{Float64}()
+    v1 = Vector{Float64}()
+    s1 = Vector{Bool}()
+    tag′ = Vector{Int64}()
+    ind′ = Vector{Int64}()
+    for i in eachindex(x0)
+        if x0[i] >= T 
+            if tag[i] == 1
+                push!(x1, T)
+                push!(v1, 0.0)
+                push!(s1, 1)
+            elseif tag[i] == 0
+                push!(x1, x0[i])
+                push!(v1, 0.0)
+                push!(s1, 0)         
+            else # && tag[i] != 1
+                continue
+            end      
+        elseif x0[i] < T 
+            if tag[i] == 1
+                push!(x1, x0[i])
+                push!(v1, rand([-1.0, 1.0]))
+                push!(s1, 0)
+            else
+                push!(x1, x0[i])
+                push!(v1, 0.0)
+                push!(s1, 0)
+            end
+        end
+        push!(tag′, tag[i])
+        push!(ind′, ind[i])
+    end
+    return x1, v1, s1, tag′, ind′
+end
 
-# Initialize population 
-x = (1:N .== 5)*1
-# Final time
-T = 20.0
-S, it, nobs, robs = forward_simulation(x, ξ, ϑ, γ, δ1, δ2, T)
 
-nobs
-println(" (Unobserved) number of infected: at time $T:   $(sum(it .< T - eps()))")
-println(" (Observed) number of notified at time $T:   $(sum(nobs .< T - eps()))")
-println(" (Observed) number of removed at time $T:   $(sum(robs .< T - eps()))")
+function forward_simulation(x0, ξ, ϑ, γ, δ1, δ2, T)
+    S, it, nobs, robs = forward_simulation_(x0, ξ, ϑ, γ, δ1, δ2, T)
+    x, v, s, tag, ind = new_input(it, nobs, robs, T)
+    return S, it, nobs, robs, (x, v, s, tag, ind)
+end
