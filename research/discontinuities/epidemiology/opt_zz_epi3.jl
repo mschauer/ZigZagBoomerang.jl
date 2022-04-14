@@ -359,7 +359,8 @@ function devent!(Q, t::Float64, i::Int64, u::State, p::Pressure) #swap and bounc
             ss = stuckdependentparticles(i, u, p)
             k = i, f[b[i] - 1], ss...
             for j1 in ss
-                u.s1.λ1[j1] -= p.G0[i,j1] 
+                u.S1.λ1[j1] -= p.G0[i,j1]
+                u.S1.λ2[j1] -= (p.G0[i, j1] + p.G0[j1, i])
             end
         else # it is a active infection time
             # cb = log(λ1[i]) + log(λ1[j])
@@ -439,7 +440,8 @@ function revent!(Q, t::Float64, i::Int64, u::State, p::Pressure)
             k = i, f[b[i] - 1], ss...
             # todo use graph G0 and s to determine particle affected
             for j1 in ss
-                u.s1.λ1[j1] += p.G0[i,j1] 
+                u.S1.λ1[j1] += p.G0[i,j1] 
+                u.S1.λ2[j1] += (p.G0[i, j1] + p.G0[j1, i])
             end
         end
     else
