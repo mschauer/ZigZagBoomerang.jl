@@ -9,13 +9,13 @@ cd(@__DIR__)
 using Random, DataStructures, Revise
 using CSV, Tables
 # number of individuals
-const N = 50
+const N = 1000
 # reduction after notification 
 const γ = 0.1
 # rate of 1 -> 2
 const β = 0.5 # β
-# rate of 2 -> 3 with exponential rate equal to 0.1
-const δ2 = 0.5
+# rate of 2 -> 3 with exponential rate equal to δ2
+const δ2 = 0.1
 # observation time
 const T = 50.0
 # infectivity metric 
@@ -44,7 +44,7 @@ println(" (Unobserved) number of infected: at time $T:   $(sum(it .< T - eps()))
 println(" (Observed) number of notified at time $T:   $(sum(nobs .< T - eps()))")
 println(" (Observed) number of removed at time $T:   $(sum(robs .< T - eps()))")
 ###############################
-plotting = true
+plotting = false
 if plotting
     fig = Figure(resolution = (1800, 1200))
     fig = plot_forard_model!(fig, 1, it, nobs, robs, T, N)
@@ -76,7 +76,7 @@ u0 = State(s1,s2, f0, b0, G0)
 # @assert sum(diff(ordered_state(u)) .<0.0) == 0
 [@assert abs(u.S1.λ1[i] - Lambda(i,u, p)) <= 1.0e-4 for i in 1:N]
 [@assert abs(u.S1.λ2[i] - Gamma(i,u, p)) <= 1.0e-4 for i in 1:N]
-# error("")
+error("")
 if plotting
     fig = plot_trace_zz!(fig, 2, u0, Ξ, N, T)
     display(fig)
