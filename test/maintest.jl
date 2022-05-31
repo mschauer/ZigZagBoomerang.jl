@@ -12,7 +12,7 @@ S = 1.3I + 0.5sprandn(d, d, 0.1)
 
 
 @testset "ZigZag" begin
-    Random.seed!(1)
+
     t0 = 0.0
     x0 = rand(d)
     θ0 = rand([-1.0, 1.0], d)
@@ -35,7 +35,7 @@ end
 
 
 @testset "SZigZag" begin
-    Random.seed!(1)
+
     t0 = 0.0
     x0 = rand(d)
     θ0 = rand([-1.0,-0.5,0.5,1.0], d)
@@ -62,7 +62,6 @@ end
 
 
 @testset "SZigZagSelfMoving" begin
-    Random.seed!(1)
 
     t0 = 0.0
     x0 = rand(d)
@@ -88,7 +87,7 @@ end
 
 
 @testset "FactBoomerang" begin
-    Random.seed!(1)
+
     t0 = 0.0
     x0 = 0.2rand(d)
 
@@ -113,7 +112,7 @@ end
 end
 
 @testset "SFactBoomerang" begin
-    Random.seed!(1)
+
     t0 = 0.0
     x0 = rand(d)
 
@@ -138,7 +137,6 @@ end
 end
 
 @testset "Boomerang" begin
-    Random.seed!(1)
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
@@ -156,7 +154,6 @@ end
 end
 
 @testset "Bouncy Particle Sampler" begin
-    Random.seed!(1)
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
@@ -175,7 +172,7 @@ end
 end
 
 @testset "ZigZag (independent)" begin
-    Random.seed!(1)
+
     t0 = 0.0
     x0 = rand(d)
     θ0 = rand([-1.0, 1.0], d)
@@ -198,13 +195,12 @@ end
 end
 
 @testset "FactBoomerang1" begin
-    Random.seed!(2)
     ϕ(x) = [cos(π*x[1]) + x[1]^2/2] # not needed
     # gradient of ϕ(x)
     ∇ϕ(x) = [-π*sin(π*x[1]) + x[1]]
     ∇ϕ(x, i) = -π*sin(π*x[1]) + x[1] # (REPLACE IT WITH AUTOMATIC DIFFERENTIATION)
     c = [3.5π]
-    λref = 1.0
+    λref = 1.5
     n = 1
     x0 = randn(n)
     θ0 = randn(n)
@@ -218,4 +214,5 @@ end
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(xs)[1] < 5/sqrt(T)
+end
 end
