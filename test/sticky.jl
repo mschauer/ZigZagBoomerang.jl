@@ -12,7 +12,7 @@
     c = 20ones(1)
 
     Z = ZigZag(Γ, x0*0)
-    T = 1000.0
+    T = 2000.0
     
     #sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbounds = false,  factor=1.5, adapt=false)
     κ = [0.7]
@@ -23,13 +23,14 @@
 
     w = sqrt(2π)*σ/(sqrt(2π)*σ + exp(-0.5*μ^2/σ^2)/κ[]) # compute weight
 
-    @test abs(mean(getindex.(xs) .!= 0) - w) < 2.5/sqrt(T) # P(X = 0) = w
-    @test abs(mean(getindex.(xs)) - w*μ) < 2/sqrt(T) # E X = wμ
-    @test abs(mean(getindex.(xs).^2) - w*(σ^2 + μ^2)) < 2.5/sqrt(T) # E X^2 = w(σ^2 + μ^2)
+    @test abs(mean(getindex.(xs) .!= 0) - w) < 3/sqrt(T) # P(X = 0) = w
+    @test abs(mean(getindex.(xs)) - w*μ) < 3/sqrt(T) # E X = wμ
+    @test abs(mean(getindex.(xs).^2) - w*(σ^2 + μ^2)) < 5/sqrt(T) # E X^2 = w(σ^2 + μ^2)
 end
 
 
 @testset "Sticky SZigZag" begin
+    Random.seed!(1)
     global Γ
     d = size(Γ, 1)
     
@@ -57,6 +58,7 @@ end
 end
 
 @testset "Sticky Boomerang" begin
+    Random.seed!(1)
     global Γ
     d = size(Γ, 1)
     

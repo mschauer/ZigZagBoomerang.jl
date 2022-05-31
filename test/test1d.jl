@@ -26,7 +26,7 @@ const σ2 = 1.3
 
 
 x0, θ0 = 1.01, -1.5
-T = 8000.0
+T = 10000.0
 out1, _ = ZigZagBoomerang.pdmp(∇ϕhat, x0, θ0, T, 2.5, ZigZag1d())
 
 @testset "ZigZag1d" begin
@@ -44,8 +44,8 @@ end
 
 
 x0, θ0 = 1.41, +0.1
-B = Boomerang1d(1.0)
-out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.6, B)
+B = Boomerang1d(0.1)
+out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 2.0, B)
 
 
 @testset "Boomerang1d" begin
