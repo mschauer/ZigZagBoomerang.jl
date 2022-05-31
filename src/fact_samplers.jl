@@ -31,7 +31,7 @@ end
 
 
 """
-    λ(∇ϕ, i, x, θ, Z::FactBoomerang)
+    λ(∇ϕi, i, x, θ, Z::FactBoomerang)
 `i`th Poisson rate of the `FactBoomerang` sampler
 """
 function λ(∇ϕi, i, x, θ, B::FactBoomerang)
@@ -68,14 +68,6 @@ function adapt!(c, i, factor)
     c[i] *= factor
     c
 end
-
-"""
-    λ_bar(G, i, x, θ, c, Z)
-
-Computes the bounding rate `λ_bar` at position `x` and velocity `θ`.
-"""
-#λ_bar(G, i, x, θ, c, Z::ZigZag) = pos(ab(G, i, x, θ, c, Z)[1])
-#λ_bar(G, i, x, θ, c, Z::FactBoomerang) = pos(ab(G, i, x, θ, c, Z)[1])
 
 
 function event(i, t, x, θ, Z::Union{ZigZag,FactBoomerang,JointFlow})

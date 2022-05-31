@@ -18,6 +18,7 @@ end
 # This one could work for Boomerang 1d as well
 """
     move_forward!(τ, t, x, θ, B::Boomerang)
+
 Updates the position `x`, velocity `θ` and time `t` of the
 process after a time step equal to `τ` according to the deterministic
 dynamics of the `Boomerang` sampler which are the Hamiltonian
@@ -35,11 +36,12 @@ function move_forward!(τ, t, x, θ, B::Union{Boomerang, FactBoomerang})
 end
 
 """
-        reflect!(i, x, θ, F)
+        reflect!(i, ∇ϕx, x, θ, F)
 
-Reflection rule of sampler `F` at reflection time.
+Reflection rule of sampler `F` at reflection time, `∇ϕx`: inner product
+of `∇ϕ` and `x``. 
 `i`: coordinate which flips sign, `x`: position, `θ`: velocity (position
-not used for the `ZigZag` and `FactBoomerang`.)
+and inner product not used for the `ZigZag` and `FactBoomerang`.)
 """
 function reflect!(i, ∇ϕx::Number, x, θ, F::Union{ZigZag, FactBoomerang})
     θ[i] = -θ[i]
@@ -80,10 +82,10 @@ function move_forward(τ, t, x, θ, B::Boomerang1d)
 end
 
 """
-    reflect!(∇ϕx, θ, F::BouncyParticle, Boomerang)
+    reflect!(∇ϕx, x, θ, F::BouncyParticle, Boomerang)
 
 Reflection rule of sampler `F` at reflection time.
-x`: position, `θ`: velocity
+`x`: position, `θ`: velocity
 """
 function reflect!(∇ϕx, x, θ, F::BouncyParticle)
     θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
