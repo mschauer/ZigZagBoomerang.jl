@@ -56,6 +56,7 @@ end
 @testset "SVector" begin
     Random.seed!(1)
     n = 5
+
     d = 5
     Γ = sparse(SymTridiagonal(1.0ones(d), -0.4ones(d-1)))
     ∇ϕ!(y, x::T,  Γ) where {T} = T(Γ*x)::SVector
@@ -68,7 +69,7 @@ end
     c = 100.0
     σ = [SMatrix{d,d}(1.0I) for i in 1:n]
     BP = BouncyParticle(Γ, x0*0, 0.5, 0., nothing, MMatrix{d,d}(sparse(cholesky(Symmetric(Γ)).L)))
-    T = 800.0
+    T = 1000.0
 
     @time trace, (tT, xT, θT), (acc, num) = pdmp(∇ϕ!, t0, x0, θ0, T, c, BP, Γ)
     @test_broken last.(collect(discretize(trace, 0.01)))

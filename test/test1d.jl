@@ -32,7 +32,6 @@ x0, θ0 = 1.41, +0.5
 B = Boomerang1d(1.0)
 out2, _ = ZigZagBoomerang.pdmp(∇ϕ, x0, θ0, T, 1.6, B)
 
-
 @testset "Boomerang1d" begin
     @test T/10 < length(out2) < T*10
     dt = 0.01
