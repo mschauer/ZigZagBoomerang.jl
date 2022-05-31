@@ -1,6 +1,6 @@
 using DataStructures
 using Graphs
-
+const CHECKPQ = false
 function rcat(r1::AbstractUnitRange, r2::AbstractUnitRange)
     r1[end] + 1 == r2[1] || throw(ArgumentError("Arguments not contiguous"))
     return r1[1]:r2[end]
@@ -60,6 +60,9 @@ struct PartialQueue{U,T,S,R}
 end
 nv_(G) = length(G)
 div1(a,b) = (a-1)÷b + 1
+rkey(q, key) = div1(q.nregions*key, nv_(q.G))
+rkey((nregions, nv)::Tuple, key) = div1(nregions*key, nv)
+
 function PartialQueue(G, vals, nregions=1)
     ripes = falses(length(vals))
     minima = [Pair{Int64, Float64}[] for _ in 1:nregions]
@@ -88,7 +91,7 @@ function checkqueue(q::PartialQueue)
         q.ripes[i] == localmin(q, i) || error("Internal error")   
         q.ripes[i] && push!(minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
     end
-    for i in 1:q.nregions
+    CHECKPQ && for i in 1:q.nregions
         if Set(first.(q.minima[i])) != Set(first.(minima[i]))
             println(setdiff(minima[i], q.minima[i]))
             println(setdiff(q.minima[i], minima[i]))

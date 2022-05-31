@@ -1,10 +1,11 @@
 
+@testset "main" begin
 # Local ZigZag
 Random.seed!(2)
 using SparseArrays
 d = 8
 S = 1.3I + 0.5sprandn(d, d, 0.1)
-const Γ = S*S'
+Γ = S*S'
 
 ∇ϕ(x, i, Γ) = ZigZagBoomerang.idot(Γ, i, x) # sparse computation
 ∇ϕmoving(t, x, θ, i, t′, F, Γ) = ZigZagBoomerang.idot_moving!(Γ, i, t, x, θ, t′, F) # sparse computation
@@ -148,7 +149,7 @@ end
     @show acc[1]/acc[2]
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
-    @test_broken mean(abs.(mean(xs))) < 2/sqrt(T)
+    @test mean(abs.(mean(xs))) < 2/sqrt(T)
     @test_broken mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2.5/sqrt(T)
 end
 
@@ -213,4 +214,5 @@ end
     dt = 0.1
     ts, xs = sep(collect(discretize(trace, dt)))
     @test mean(xs)[1] < 5/sqrt(T)
+end
 end

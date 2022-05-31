@@ -55,7 +55,7 @@ end
 
 @testset "SVector" begin
     Random.seed!(1)
-
+    n = 5
     d = 5
     Γ = sparse(SymTridiagonal(1.0ones(d), -0.4ones(d-1)))
     ∇ϕ!(y, x::T,  Γ) where {T} = T(Γ*x)::SVector

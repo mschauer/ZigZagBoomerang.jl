@@ -125,7 +125,8 @@ function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Un
 end
 
 
-function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<:Union{Boomerang,BouncyParticle}}
+#function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<:Union{Boomerang,BouncyParticle}}
+function Base.iterate(D::Discretize{<:PDMPTrace}, (t, x, θ, f, k))
     dt = D.dt
     FT = D.FT
     while true
@@ -137,7 +138,8 @@ function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<
         else # move not more than to ti to change direction
             Δt = tn - t
             dt = dt - Δt
-            t, x, θ, f_ = FT.events[k]
+            t, xnew, θ, f_ = FT.events[k]
+            x .= xnew
             if !isnothing(f_)
                 f = f_
             end

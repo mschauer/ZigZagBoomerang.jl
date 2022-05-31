@@ -1,8 +1,9 @@
 using Pkg
 Pkg.activate(@__DIR__)
-cd(@__DIR__)
-#using Revise
+#cd(@__DIR__)
+using Revise
 using ZigZagBoomerang
+const ZZB = ZigZagBoomerang
 using DataStructures
 using LinearAlgebra
 using Random
@@ -98,6 +99,8 @@ Z = ZigZag(Γpost, μpost)
 T = 300.0
 using Graphs
 G = SimpleGraph(Γ)
+
+#G2 = ZZB.saturate(G)
 C = Graphs.Coloring(9, Vector(vec([1 + i%3 + 3*(j%3) for i in 1:n, j in 1:n])))
 
 su = false
@@ -122,14 +125,14 @@ error("hier")
 
 using GLMakie
 #image(map(i->cols[region(i[1], i[2])], CartesianIndices((n,n))), interpolate=false)
-image(mat(map(i->cols[region(i)], 1:n^2)), interpolate=false)
+#image(map(i->cols[i], mat(C.colors)), interpolate=false)
+#image(mat(map(i->cols[region(i)], 1:n^2)), interpolate=false)
 
 error("hier")
 ŷ1 = mat(mean(trace1))
 ŷ2 = mat(mean(trace2))
 
 using GLMakie
-image(map(i->cols[i], mat(C.colors)), interpolate=false)
 fig1 = fig = Figure()
 
 ax = [Axis(fig[1,i], title = "posterior mean $i") for i in 1:2]

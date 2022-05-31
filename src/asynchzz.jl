@@ -59,6 +59,23 @@ function ssmove_forward!(G, i, t, x, θ, t′, flow::AsynchronousFlow)
     t, x, θ
 end
 
+function saturate(G, nregions)
+    n = nv(G)
+    G2 = copy(G)
+    for i in 1:n
+        ri = rkey((nregions, n), i)
+        for j in neighbors(G, i)
+            i == j && continue
+            rj = rkey((nregions, n), j)
+            for k in neighbors(G, j)
+                i == j && continue
+                rk = rkey((nregions, n), k)
+                i ≠ j && ri ≠ rk && add_edge!(G2, i, k)
+            end
+        end
+    end
+    G2
+end
 
 function asynchzz(u0, target::StructuredTarget, flow::NewFlow, upper_bounds::StrongUpperBounds, barriers::Vector{<:StickyBarriers}, end_condition;  progress=false, progress_stops = 20, nregions = 4, rngs=[Rng(Seed()) for _ in 1:Threads.nthreads()])
     u = deepcopy(u0)
@@ -71,10 +88,11 @@ function asynchzz(u0, target::StructuredTarget, flow::NewFlow, upper_bounds::Str
     thr = Threads.threadid()
 
     G = target.G
+    G2 = saturate(SimpleGraph(flow.old.Γ), nregions)
    # G1 = upper_bounds.G1
    # G2 = upper_bounds.G2
     # priority queue
-    q = PartialQueue(G, copy(t), nregions)
+    q = PartialQueue(G2, copy(t), nregions)
     dequeue!(q)
     # Skeleton
     Ξ = Trace(t′, u0[2], u0[3], flow.old) 
@@ -123,18 +141,18 @@ function asynchzz_main(rngs, prg, q, Ξ, t′, u, v_old, b, action, target, flow
         t′ = asynchzz_inner!(rngs, q, Ξ, t′, u, v_old, b, action, target, flow, upper_bounds, barriers, acc)     
         if t′ > tstop
             tstop += T/stops
-            next!(prg, showvalues = () -> [(:batches, round(acc.batchsize/acc.batches, digits=3)), (:empty, round(acc.empty/acc.batches, digits=3)), (:acc, round(acc.acc/acc.num,digits=3))]) 
+            next!(prg, showvalues = () -> [(:batches, round(acc.batchsize/acc.batches, digits=5)), (:empty, round(acc.empty/acc.batches, digits=3)), (:acc, round(acc.acc/acc.num,digits=3))]) 
         end  
     end
     ismissing(prg) || ProgressMeter.finish!(prg)
     return t′
 end
 function asynchzz_inner!(rngs, q, Ξ, tmin, u, v_old, b, action, target, flow, upper_bounds, barriers, acc)
-
+    check = true
     t, x, v = u
     #@show length.(q.minima)
-    checkqueue(q)
-    acc.batchsize += minimum(length.(q.minima))
+    check && checkqueue(q)
+    acc.batchsize += round(Int, mean(length.(q.minima)))
     acc.batches += 1
     if all(isempty.(q.minima))
         error("empty")

@@ -4,6 +4,7 @@ using DataStructures
 using Statistics
 using SparseArrays
 using LinearAlgebra
+using Graphs
 
 """
     neighbours(G::Vector{<:Pair}, i) = G[i].second
@@ -12,6 +13,7 @@ Return extended neighbourhood of `i` including `i`.
 `G`: graphs of neightbourhoods
 """
 neighbours(G::Vector{<:Pair}, i) = G[i].second
+neighbours(G::SimpleGraph, i) = neighbors(G, i)
 #need refreshments
 hasrefresh(::FactBoomerang) = true
 hasrefresh(Z::ZigZag) = Z.λref > 0

@@ -1,3 +1,9 @@
+Random.seed!(2)
+using SparseArrays
+d = 8
+S = 1.3I + 0.5sprandn(d, d, 0.1)
+const Γ = S*S'
+
 @testset "Sticky ZigZag 1d" begin
     Random.seed!(1)
     t0 = 0.0
@@ -15,7 +21,7 @@
     T = 1000.0
     
     #sspdmp(∇ϕ, t0, x0, θ0, T, c, F::ZigZag, κ, args...; strong_upperbounds = false,  factor=1.5, adapt=false)
-    κ = [0.7]
+    κ = [1.5]
     trace, _, acc = sspdmp(∇ϕ, t0, x0, θ0, T, c, Z, κ)
     @show acc[1]/acc[2]
     dt = 0.2
@@ -24,12 +30,13 @@
     w = sqrt(2π)*σ/(sqrt(2π)*σ + exp(-0.5*μ^2/σ^2)/κ[]) # compute weight
 
     @test abs(mean(getindex.(xs) .!= 0) - w) < 2.5/sqrt(T) # P(X = 0) = w
-    @test abs(mean(getindex.(xs)) - w*μ) < 2/sqrt(T) # E X = wμ
-    @test abs(mean(getindex.(xs).^2) - w*(σ^2 + μ^2)) < 2.5/sqrt(T) # E X^2 = w(σ^2 + μ^2)
+    @test abs(mean(getindex.(xs)) - w*μ) < 5.0/sqrt(T) # E X = wμ
+    @test abs(mean(getindex.(xs).^2) - w*(σ^2 + μ^2)) < 5.0/sqrt(T) # E X^2 = w(σ^2 + μ^2)
 end
 
 
 @testset "Sticky SZigZag" begin
+    
     global Γ
     d = size(Γ, 1)
     
