@@ -26,6 +26,7 @@ include("fact_samplers.jl")
 include("not_fact_samplers.jl")
 
 include("priorityqueue.jl")
+include("morepriorityqueues.jl")
 #const SPriorityQueue = PriorityQueue
 include("sfact.jl")
 include("local.jl")
@@ -41,6 +42,11 @@ export pdmp, spdmp, eventtime, eventposition
 include("ss_fact.jl")
 export sspdmp
 
+include("stickyzz.jl")
+include("asynchzz.jl")
+export stickyzz
+include("sparsestickyzz.jl")
+export sparsestickyzz
 
 include("ss_not_fact.jl")
 export sticky_pdmp
@@ -50,9 +56,10 @@ include("condition.jl")
 include("discretise.jl")
 const discretise = discretize 
 export discretise, discretize, sdiscretize, subtrace
+include("staticarrays.jl")
 
-function __init__()
-    @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" include("staticarrays.jl")
-end
+#function __init__()
+#    @require StaticArrays = "90137ffa-7385-5640-81b9-e52037218182" include("staticarrays.jl")
+#end
 
 end

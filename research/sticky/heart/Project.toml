@@ -1,6 +1,12 @@
 [deps]
-Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
+ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
+RandomNumbers = "e6cf234a-135c-5ec9-84dd-332b85af5143"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 ZigZagBoomerang = "36347407-b186-4a6a-8c98-4f4567861712"

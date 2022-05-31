@@ -33,12 +33,10 @@ end
 """
     t, x, θ = ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
 
-
 moves forward only the non_frozen particles neighbours of i
 """
 function ssmove_forward!(G, i, t, x, θ, t′, Z::Union{BouncyParticle, ZigZag})
-    nhd = neighbours(G, i)
-    for i in nhd
+    for i in neighbours(G, i)
         if θ[i] != 0.0
             t[i], x[i] = t′, x[i] + θ[i]*(t′ - t[i])
         end
@@ -53,8 +51,8 @@ Computes the (proposed) reflection time and the freezing time of the
 ith coordinate and enqueue the first one. `f[i] = true` if the next
 time is a freezing time.
 """
-function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
-    trefl = poisson_time(b[i], rand())
+function queue_time!(rng, Q, t, x, θ, i, b, f, Z::ZigZag)
+    trefl = poisson_time(b[i], rand(rng))
     tfreeze = freezing_time(x[i], θ[i], Z)
     if tfreeze <= trefl
         f[i] = true
@@ -65,6 +63,7 @@ function queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag)
     end
     return Q
 end
+queue_time!(Q, t, x, θ, i, b, f, Z::ZigZag) = queue_time!(Random.GLOBAL_RNG, Q, t, x, θ, i, b, f, Z::ZigZag)
 
 """
     sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
@@ -75,7 +74,7 @@ bounding rate λbar_i and `G2` are the indices k in A_j for all j : i in Aj (nei
 
 Is assumed that ∇ϕ[x, i] is function of x_i
 with i in G[i] or that ∇ϕ takes care of moving .
-"""
+""" 
 function sspdmp_inner!(Ξ, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, f, θf, (acc, num),
         F::ZigZag, κ, args...; reversible=false, strong_upperbounds = false, factor=1.5, adapt=false)
     n = length(x)

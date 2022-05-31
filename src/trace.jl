@@ -125,7 +125,8 @@ function Base.iterate(D::Discretize{<:FactTrace{T}}, (t, x, θ, k)) where {T<:Un
 end
 
 
-function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<:Union{Boomerang,BouncyParticle}}
+#function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<:Union{Boomerang,BouncyParticle}}
+function Base.iterate(D::Discretize{<:PDMPTrace}, (t, x, θ, f, k))
     dt = D.dt
     FT = D.FT
     while true
@@ -137,7 +138,8 @@ function Base.iterate(D::Discretize{<:PDMPTrace{T}}, (t, x, θ, f, k)) where {T<
         else # move not more than to ti to change direction
             Δt = tn - t
             dt = dt - Δt
-            t, x, θ, f_ = FT.events[k]
+            t, xnew, θ, f_ = FT.events[k]
+            x .= xnew
             if !isnothing(f_)
                 f = f_
             end
@@ -154,6 +156,26 @@ function Base.collect(D::Discretize{<:PDMPTrace})
     collect(t=>copy(x) for (t, x) in D)
 end
 
+export inclusion_prob
+
+function inclusion_prob(trace::ZigZagBoomerang.Trace)
+    x = copy(trace.x0)
+    θ = copy(trace.θ0)
+    y = 0*x
+    T = trace.events[end][1]
+    t2 = trace.t0
+    t = fill(t2, length(x))
+    k = 1
+    while k <= length(trace.events)
+        t2, i, xi, θi = trace.events[k]
+        k += 1
+        y[i] += (x[i] ≠ 0 | xi ≠ 0)*(t2-t[i])/T
+        t[i] = t2
+        x[i] = xi
+        θ[i] = θi
+    end
+    y
+end
 
 
 
@@ -254,8 +276,8 @@ function subtrace(tr, J)
     @assert issorted(J)
     F = tr.F  
     t0 = tr.t0
-    x0 = tr.x0[J]
-    θ0 = tr.θ0[J]
+    x0 = collect(tr.x0[j] for j in J)
+    θ0 = collect(tr.θ0[j] for j in J)
 
     str = Trace(t0, x0, θ0, F)
     events = str.events

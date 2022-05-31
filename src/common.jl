@@ -50,7 +50,9 @@ Squared 2-norm.
 normsq(x::Real) = abs2(x)
 normsq(x) = dot(x,x)
 
-sep(x) = first.(x), last.(x)
+function sep(x)
+    [first(xi) for xi in x], [copy(last(xi)) for xi in x]
+end
 
 """
     splitpairs(tx) = t, x

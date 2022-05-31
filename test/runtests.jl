@@ -16,5 +16,6 @@ include("testparallel.jl")
 include("staticarrays.jl")
 
 include("sticky.jl")
+include("sticky_test.jl")
 
 #include("forwarddiff.jl")
