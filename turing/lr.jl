@@ -98,7 +98,8 @@ c = 50.0 # initial guess for the bound
 Z = BouncyParticle(∅, ∅, # ignored
     10.0, # momentum refreshment rate 
     0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
-    0.0 # ignored
+    0.0, # ignored
+    I # cholesky of momentum precision
 ) 
 
 trace, final, (acc, num), cs = @time pdmp(∇neglogp!, # problem
