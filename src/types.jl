@@ -57,6 +57,7 @@ struct Boomerang{U, T, S, LT} <: ContinuousDynamics
     L::LT
 end
 Boomerang(Γ, μ, λ; ρ=0.0) = Boomerang(Γ, μ, λ, ρ, (cholesky(Symmetric(Γ)).L))
+
 """
     FactBoomerang(Γ, μ, λ) <: ContinuousDynamics
 

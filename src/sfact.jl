@@ -70,25 +70,6 @@ sλ(∇ϕi, i, x, θ, Z::Union{ZigZag,FactBoomerang,JointFlow}) = λ(∇ϕi, i, 
 sλ̄(abc, Δt) = pos(abc[1] + abc[2]*Δt)
 
 
-"""
-    spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
-F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
-
-[Outdated]
-Inner loop of the factorised samplers: the factorised Boomerang algorithm and
-the Zig-Zag sampler. Given a dependency graph `G`, gradient `∇ϕ`,
-current position `x`, velocity `θ`, Queue of events `Q`, time `t`, tuning parameter `c`,
-terms of the affine bounds `a`,`b` and time when the upper bounds were computed `t_old`
-
-The sampler 1) extracts from the queue the first event time. 2) moves deterministically
-according to its dynamics until event time. 3) Evaluates whether the event
-time is a accepted reflection or refreshment time or shadow time. 4) If it is a
-reflection time, the velocity reflects according its reflection rule, if it is a
-refreshment time, the sampler updates the velocity from its prior distribution (Gaussian).
-In both cases, updates `Q` according to the dependency graph `G`. The sampler proceeds
-until the next accepted reflection time or refreshment time. `(num, acc)`
-incrementally counts how many event times occour and how many of those are real reflection times.
-"""
 function spdmp_inner!(rng, G, G1, G2, ∇ϕ, t, x, θ, Q, c, b, t_old, (acc, num),
      F::Union{ZigZag,FactBoomerang}, args...; factor=1.5, adapt=false, adaptscale=false)
     n = length(x)
