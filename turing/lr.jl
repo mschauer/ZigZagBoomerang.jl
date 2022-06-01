@@ -101,8 +101,8 @@ c = 50.0 # initial guess for the bound
 
 # define BouncyParticle sampler (has two relevant parameters) 
 Z = BouncyParticle(∅, ∅, # ignored
-    5.0, # momentum refreshment rate 
-    0.98, # momentum correlation / only gradually change momentum in refreshment/momentum update
+    10.0, # momentum refreshment rate 
+    0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
     0.0, # ignored
     I # cholesky of momentum precision
 ) 
@@ -113,7 +113,7 @@ trace, final, (acc, num), cs = @time pdmp(
         t0, x0, θ0, T, # initial state and duration
         ZZB.LocalBound(c), # use Hessian information 
         Z; # sampler
-        oscn=true, # no orthogonal subspace pCR
+        oscn=false, # no orthogonal subspace pCR
         adapt=true, # adapt bound c
         progress=true, # show progress bar
         subsample=true # keep only samples at refreshment times
