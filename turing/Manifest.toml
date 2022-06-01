@@ -1568,7 +1568,7 @@ version = "1.4.0+3"
 deps = ["DataStructures", "Dictionaries", "Graphs", "LinearAlgebra", "ProgressMeter", "Random", "RandomNumbers", "Requires", "SparseArrays", "StaticArrays", "Statistics", "Test", "Trajectories"]
 path = "/Users/smoritz/.julia/dev/ZigZagBoomerang"
 uuid = "36347407-b186-4a6a-8c98-4f4567861712"
-version = "0.11.0"
+version = "0.11.1"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

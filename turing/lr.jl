@@ -44,7 +44,7 @@ model = lr_nuts(x, y, 100.0)
 
 
 n_samples = 1_000 # Sampling parameter settings
-nuts_chain = @time sample(model, NUTS(0.65), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
+nuts_chain = @time sample(model, NUTS(0.62), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
 # sampling took 383 s (ϵ = 0.1) or 768 s (ϵ = 0.05)
 
 # plot NUTS
