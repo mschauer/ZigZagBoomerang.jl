@@ -2,6 +2,7 @@
 # (The approach taken here is retrieving the likelihood function from Turing and sampling
 # directly with ZigZagBoomerang and not using Turings `AbstractMCMC` )
 
+using Revise
 using Turing
 using ZigZagBoomerang 
 const ZZB = ZigZagBoomerang 
@@ -41,14 +42,15 @@ model = lr_nuts(x, y, 100.0)
 
 # sample First with Turing and Nuts
 
-n_samples = 1_000 # Sampling parameter settings
+#=
+n_samples =100# 1_000 # Sampling parameter settings
 nuts_chain = @time sample(model, NUTS(0.65), n_samples) # (a bit frickle, sometimes adapts wrong)
 # sampling took 383 s 
 
 # plot NUTS
 fig2 = plot_chain(1:n_samples, collect(eachrow(dropdims(nuts_chain[nuts_chain.name_map.parameters].value.data, dims=3)) ))
 save("lrnuts.png", fig2)
-
+=#
 
 # sample with ZigZagBoomerang
 
@@ -75,23 +77,26 @@ function make_gradient_and_dhessian_neglogp(
         logp = Turing.getlogp(new_vi)
         return logp
     end
-
-    return function (y, t, x, θ, args...)
-        x_ = x + Dual{:hSrkahPmmC}(0.0, 1.0)*θ
-        y_ = ForwardDiff.gradient(x->-ℓ(x), x_)
-        y .= value.(y_)
-        y, dot(θ, y_).partials[]
+    f1 = function (t, x, v, args...) # two directional derivatives
+        u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
+        u.value, u.partials[]
     end
+    f2 = function (y, t, x, args...)
+        ForwardDiff.gradient!(y, ℓ, x)
+        y .= -y
+        y
+    end
+    return f1, f2
 end
 
 
-∇neglogp! = make_gradient_and_dhessian_neglogp(model)
+dneglogp, ∇neglogp! = make_gradient_and_dhessian_neglogp(model)
 
 d = 1 + 24 # number of parameters 
 t0 = 0.0
 x0 = zeros(d) # starting point sampler
 θ0 = randn(d) # starting direction sampler
-T = 200. # end time (similar to number of samples in MCMC)
+T = 20 #200. # end time (similar to number of samples in MCMC)
 c = 50.0 # initial guess for the bound
 
 # define BouncyParticle sampler (has two relevant parameters) 
@@ -102,7 +107,9 @@ Z = BouncyParticle(∅, ∅, # ignored
     I # cholesky of momentum precision
 ) 
 
-trace, final, (acc, num), cs = @time pdmp(∇neglogp!, # problem
+trace, final, (acc, num), cs = @time pdmp(
+        dneglogp, # first to directional derivatives of negative target log-likelihood in direction v
+        ∇neglogp!, # gradient of negative target log-likelihood
         t0, x0, θ0, T, # initial state and duration
         ZZB.LocalBound(c), # use Hessian information 
         Z; # sampler
