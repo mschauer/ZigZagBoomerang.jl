@@ -11,8 +11,8 @@ function grad_correct!(y, x, F::Boomerang)
     y .-= (F.L'\(F.L\(x - F.μ)))
     y
 end
-λ(∇ϕx, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
-
+λ(∇ϕx::AbstractVector, θ, F::Union{BouncyParticle, Boomerang}) = pos(dot(∇ϕx, θ))
+λ(θdϕ::Number, F::Union{BouncyParticle, Boomerang}) = pos(θdϕ)
 #=
 function refresh!(rng, θ, F::BouncyParticle)
     ρ̄ = sqrt(1-F.ρ^2)
@@ -26,8 +26,12 @@ end
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::BouncyParticle)
     (C.c + θ'*(B.Γ*(x-B.μ)), θ'*(B.Γ*θ), Inf)
 end
-function ab(x, θ, C::LocalBound, ∇ϕx, v, B::BouncyParticle)
+function ab(x, θ, C::LocalBound, ∇ϕx::AbstractVector, v, B::BouncyParticle)
     (C.c + dot(θ, ∇ϕx), v, 2.0/C.c/norm(θ, Inf))
+end
+function ab(x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
+    @assert vdϕ isa Number
+    (C.c + vdϕ, v, 2.0/C.c/norm(θ, Inf))
 end
 
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
@@ -83,6 +87,7 @@ function pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew)
                 end
                 θ = reflect!(∇ϕx, x, θ, Flow)
                 ∇ϕx, v = ∇ϕ!(∇ϕx, t, x, θ, args...)
+                ∇ϕx = grad_correct!(∇ϕx, x, Flow)
                 abc = ab(x, θ, c, ∇ϕx, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
                 !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
@@ -133,6 +138,144 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
     t′, renew = next_time(t, abc, rand(rng))
     while t < T
         t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; subsample=subsample, factor=factor, adapt=adapt)
+        push!(Ξ, event(t, x, θ, Flow))
+
+        if t > tstop
+            tstop += T/stops
+            next!(prg) 
+        end 
+    end
+    ismissing(prg) || ProgressMeter.finish!(prg)
+    return Ξ, (t, x, θ), (acc, num), c
+end
+
+
+function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
+    Flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false)
+    while true
+        if τref < t′
+            t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
+            refresh!(rng, θ, Flow)
+            θdϕ, v = dϕ(t, x, θ, args...) 
+            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+            l = λ(θdϕ, Flow) 
+            τref = t + waiting_time_ref(rng, Flow)
+            abc = ab(x, θ, c, θdϕ, v, Flow)
+            t′, renew = next_time(t, abc, rand(rng))
+            return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+        elseif renew
+            τ = t′ - t
+            t, x, θ = move_forward!(τ, t, x, θ, Flow) 
+            θdϕ, v = dϕ(t, x, θ, args...) 
+            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+            abc = ab(x, θ, c, θdϕ, v, Flow)
+            t′, renew = next_time(t, abc, rand(rng))
+        else
+            τ = t′ - t
+            t, x, θ = move_forward!(τ, t, x, θ, Flow)
+            θdϕ, v = dϕ(t, x, θ, args...) 
+            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+            l, lb = λ(θdϕ, Flow), pos(abc[1] + abc[2]*τ)
+            num += 1
+            if rand(rng)*lb <= l
+                acc += 1
+                if l > lb
+                    !adapt && error("Tuning parameter `c` too small.")
+                    c *= factor
+                end
+                ∇ϕ!(∇ϕx, t, x, args...)
+                @assert dot(θ, ∇ϕx) ≈ θdϕ
+                if oscn
+                    @assert Flow.L == I
+                    oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
+                else
+                    θ = reflect!(∇ϕx, x, θ, Flow)
+                end
+                θdϕ, v = dϕ(t, x, θ, args...) 
+                #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+                abc = ab(x, θ, c, θdϕ, v, Flow)
+                t′, renew = next_time(t, abc, rand(rng))
+                !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+            else
+                abc = ab(x, θ, c, θdϕ, v, Flow)
+                t′, renew = next_time(t, abc, rand(rng))
+            end
+        end
+    end
+end
+"""
+
+    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+
+The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes. The gradient `∇ϕ!` tells me the surface I want to reflect on.
+
+     dϕ = function (t, x, v, args...) # two directional derivatives
+         u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
+         u.value, u.partials[]
+     end
+     ∇ϕ! = function (y, t, x, args...)
+         ForwardDiff.gradient!(y, ℓ, x)
+         y .= -y
+         y
+     end
+
+The remaining arguments:
+     
+    d = 25 # number of parameters 
+    t0 = 0.0
+    x0 = zeros(d) # starting point sampler
+    θ0 = randn(d) # starting direction sampler
+    T = 200. # end time (similar to number of samples in MCMC)
+    c = 50.0 # initial guess for the bound
+
+    # define BouncyParticle sampler (has two relevant parameters) 
+    Z = BouncyParticle(∅, ∅, # ignored
+        10.0, # momentum refreshment rate 
+        0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
+        0.0, # ignored
+        I # left cholesky factor of momentum precision
+    ) 
+
+    trace, final, (acc, num), cs = @time pdmp(
+            dneglogp, # return first two directional derivatives of negative target log-likelihood in direction v
+            ∇neglogp!, # return gradient of negative target log-likelihood
+            t0, x0, θ0, T, # initial state and duration
+            ZZB.LocalBound(c), # use Hessian information 
+            Z; # sampler
+            oscn=false, # no orthogonal subspace pCR
+            adapt=true, # adapt bound c
+            progress=true, # show progress bar
+            subsample=true # keep only samples at refreshment times
+    )
+
+    # to obtain direction change times and points of piecewise linear trace
+    t, x = ZigZagBoomerang.sep(trace)
+
+"""
+function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    rng = Rng(seed)
+    Ξ = Trace(t0, x0, θ0, Flow)
+    τref = waiting_time_ref(rng, Flow)
+    θdϕ, v = dϕ(t, x, θ, args...) 
+    #@assert v2 ≈ v
+    #@assert θdϕ ≈ dot(∇ϕx, θ)
+    
+    #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+    num = acc = 0
+    #l = 0.0
+    abc = ab(x, θ, c, θdϕ, v, Flow)
+    if progress
+        prg = Progress(progress_stops, 1)
+    else
+        prg = missing
+    end
+    stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
+    tstop = T/stops
+
+    t′, renew = next_time(t, abc, rand(rng))
+    while t < T
+        t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, Flow))
 
         if t > tstop

@@ -1,7 +1,7 @@
 name = "ZigZagBoomerang"
 uuid = "36347407-b186-4a6a-8c98-4f4567861712"
 authors = ["Sebastiano Grazzi and Moritz Schauer"]
-version = "0.11.0"
+version = "0.11.1"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"

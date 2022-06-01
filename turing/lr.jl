@@ -2,6 +2,7 @@
 # (The approach taken here is retrieving the likelihood function from Turing and sampling
 # directly with ZigZagBoomerang and not using Turings `AbstractMCMC` )
 
+using Revise
 using Turing
 using ZigZagBoomerang 
 const ZZB = ZigZagBoomerang 
@@ -41,9 +42,10 @@ model = lr_nuts(x, y, 100.0)
 
 # sample First with Turing and Nuts
 
+
 n_samples = 1_000 # Sampling parameter settings
-nuts_chain = @time sample(model, NUTS(0.65), n_samples) # (a bit frickle, sometimes adapts wrong)
-# sampling took 383 s 
+nuts_chain = @time sample(model, NUTS(0.62), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
+# sampling took 383 s (ϵ = 0.1) or 768 s (ϵ = 0.05)
 
 # plot NUTS
 fig2 = plot_chain(1:n_samples, collect(eachrow(dropdims(nuts_chain[nuts_chain.name_map.parameters].value.data, dims=3)) ))
@@ -61,7 +63,7 @@ Gradient of negative log-likelihood and second derivative in direction of moveme
 
 Following https://github.com/TuringLang/Turing.jl/blob/master/src/core/ad.jl
 """
-function make_gradient_and_dhessian_neglogp(
+function make_derivatives_neglogp(
     model::Turing.Model,
     sampler=Turing.SampleFromPrior(),
     ctx::Turing.DynamicPPL.AbstractContext = DynamicPPL.DefaultContext()
@@ -75,17 +77,20 @@ function make_gradient_and_dhessian_neglogp(
         logp = Turing.getlogp(new_vi)
         return logp
     end
-
-    return function (y, t, x, θ, args...)
-        x_ = x + Dual{:hSrkahPmmC}(0.0, 1.0)*θ
-        y_ = ForwardDiff.gradient(x->-ℓ(x), x_)
-        y .= value.(y_)
-        y, dot(θ, y_).partials[]
+    f1 = function (t, x, v, args...) # two directional derivatives
+        u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
+        u.value, u.partials[]
     end
+    f2 = function (y, t, x, args...)
+        ForwardDiff.gradient!(y, ℓ, x)
+        y .= -y
+        y
+    end
+    return f1, f2
 end
 
 
-∇neglogp! = make_gradient_and_dhessian_neglogp(model)
+dneglogp, ∇neglogp! = make_derivatives_neglogp(model)
 
 d = 1 + 24 # number of parameters 
 t0 = 0.0
@@ -102,15 +107,18 @@ Z = BouncyParticle(∅, ∅, # ignored
     I # cholesky of momentum precision
 ) 
 
-trace, final, (acc, num), cs = @time pdmp(∇neglogp!, # problem
+trace, final, (acc, num), cs = @time pdmp(
+        dneglogp, # return first two directional derivatives of negative target log-likelihood in direction v
+        ∇neglogp!, # return gradient of negative target log-likelihood
         t0, x0, θ0, T, # initial state and duration
         ZZB.LocalBound(c), # use Hessian information 
         Z; # sampler
+        oscn=false, # no orthogonal subspace pCR
         adapt=true, # adapt bound c
         progress=true, # show progress bar
         subsample=true # keep only samples at refreshment times
 )
-# took 272 s
+# took 101 s
 
 # obtain direction change times and points of piecewise linear trace
 t, x = ZigZagBoomerang.sep(trace)
