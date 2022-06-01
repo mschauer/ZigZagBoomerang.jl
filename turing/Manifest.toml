@@ -1537,7 +1537,7 @@ version = "1.4.0+3"
 
 [[ZigZagBoomerang]]
 deps = ["DataStructures", "Dictionaries", "Graphs", "LinearAlgebra", "ProgressMeter", "Random", "RandomNumbers", "Requires", "SparseArrays", "StaticArrays", "Statistics", "Test", "Trajectories"]
-path = "C:\\Users\\smoritz\\.julia\\dev\\ZigZagBoomerang"
+git-tree-sha1 = "91f11180a895a8af113e28845e52dedfc10a7d2c"
 uuid = "36347407-b186-4a6a-8c98-4f4567861712"
 version = "0.11.0"
 
