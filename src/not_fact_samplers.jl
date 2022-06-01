@@ -203,6 +203,55 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
         end
     end
 end
+"""
+
+    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+
+The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes. The gradient `∇ϕ!` tells me the surface I want to reflect on.
+
+     dϕ = function (t, x, v, args...) # two directional derivatives
+         u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
+         u.value, u.partials[]
+     end
+     ∇ϕ! = function (y, t, x, args...)
+         ForwardDiff.gradient!(y, ℓ, x)
+         y .= -y
+         y
+     end
+
+The remaining arguments:
+     
+    d = 25 # number of parameters 
+    t0 = 0.0
+    x0 = zeros(d) # starting point sampler
+    θ0 = randn(d) # starting direction sampler
+    T = 200. # end time (similar to number of samples in MCMC)
+    c = 50.0 # initial guess for the bound
+
+    # define BouncyParticle sampler (has two relevant parameters) 
+    Z = BouncyParticle(∅, ∅, # ignored
+        10.0, # momentum refreshment rate 
+        0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
+        0.0, # ignored
+        I # left cholesky factor of momentum precision
+    ) 
+
+    trace, final, (acc, num), cs = @time pdmp(
+            dneglogp, # return first two directional derivatives of negative target log-likelihood in direction v
+            ∇neglogp!, # return gradient of negative target log-likelihood
+            t0, x0, θ0, T, # initial state and duration
+            ZZB.LocalBound(c), # use Hessian information 
+            Z; # sampler
+            oscn=false, # no orthogonal subspace pCR
+            adapt=true, # adapt bound c
+            progress=true, # show progress bar
+            subsample=true # keep only samples at refreshment times
+    )
+
+    # to obtain direction change times and points of piecewise linear trace
+    t, x = ZigZagBoomerang.sep(trace)
+
+"""
 function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     rng = Rng(seed)
