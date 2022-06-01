@@ -117,6 +117,7 @@ function refresh!(rng, θ, F::BouncyParticle)
     θ .+= u
     θ
 end
+
 function refresh!(rng, θ, F::Boomerang)
     ρ̄ = sqrt(1-F.ρ^2)
     θ .*= F.ρ
