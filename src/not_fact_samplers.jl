@@ -151,17 +151,11 @@ end
 
 
 function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
-    Flow::BouncyParticle, args...; subsample=false, oscn=true, factor=1.5, adapt=false)
+    Flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false)
     while true
         if τref < t′
             t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
-            if oscn
-                @assert Flow.L == I
-                ∇ϕ!(∇ϕx, t, x, args...)
-                oscn!(rng, θ, ∇ϕx, F.ρ; normalize=true)
-            else
-                refresh!(rng, θ, Flow)
-            end
+            refresh!(rng, θ, Flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l = λ(θdϕ, Flow) 
@@ -191,7 +185,12 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
                 end
                 ∇ϕ!(∇ϕx, t, x, args...)
                 @assert dot(θ, ∇ϕx) ≈ θdϕ
-                θ = reflect!(∇ϕx, x, θ, Flow)
+                if oscn
+                    @assert Flow.L == I
+                    oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
+                else
+                    θ = reflect!(∇ϕx, x, θ, Flow)
+                end
                 θdϕ, v = dϕ(t, x, θ, args...) 
                 #∇ϕx = grad_correct!(∇ϕx, x, Flow)
                 abc = ab(x, θ, c, θdϕ, v, Flow)
@@ -204,7 +203,7 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
         end
     end
 end
-function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=true, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, Flow)
