@@ -1,6 +1,3 @@
-# Using the ZigZagBoomerang with Turing with the BouncyParticle sampler
-# (The approach taken here is retrieving the likelihood function from Turing and sampling
-# directly with ZigZagBoomerang and not using Turings `AbstractMCMC` )
 
 using Revise
 using Soss
@@ -70,16 +67,15 @@ end
 
 
 
-dneglogp, ∇neglogp!, init, trans = make_derivatives_neglogp(model);
+dneglogp, ∇neglogp!, init, trans = make_derivatives_neglogp(model, x, y, σ);
 
 d = 1 + 24 # number of parameters 
 t0 = 0.0
 x0 = zeros(d) # starting point sampler
-T1 = 100.0 # adapt mass matrix after 100
 T = 500. # end time (similar to number of samples in MCMC)
 c = 5.0 # initial guess for the bound
-M = I
-#M = Diagonal(1 ./ [1.7, 0.08, 0.01, 0.09, 0.01, 0.06, 0.08, 0.12, 0.09, 0.11, 0.01, 0.11, 0.18, 0.29, 0.21, 0.88, 0.21, 0.39, 0.44, 0.65, 0.4, 0.35, 0.6, 0.31, 0.3])
+#M = I
+M = Diagonal(1 ./ [1.7, 0.08, 0.01, 0.09, 0.01, 0.06, 0.08, 0.12, 0.09, 0.11, 0.01, 0.11, 0.18, 0.29, 0.21, 0.88, 0.21, 0.39, 0.44, 0.65, 0.4, 0.35, 0.6, 0.31, 0.3])
 θ0 = M\randn(d) # starting direction sampler
 
 # define BouncyParticle sampler (has two relevant parameters) 
