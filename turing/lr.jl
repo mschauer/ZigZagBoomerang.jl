@@ -5,10 +5,14 @@
 using Revise
 using Turing
 using ZigZagBoomerang 
+using Pathfinder
 const ZZB = ZigZagBoomerang 
 using LinearAlgebra
 const ∅ = nothing
 using DelimitedFiles
+using Random
+using MCMCChains
+Random.seed!(1)
 
 include("plot_chain.jl") # simple visualization of chains with GLMakie
 
@@ -41,16 +45,15 @@ model = lr_nuts(x, y, 100.0)
 
 
 # sample First with Turing and Nuts
-
-
+if true
 n_samples = 1_000 # Sampling parameter settings
-nuts_chain = @time sample(model, NUTS(0.62), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
+nuts_chain = @time sample(model, NUTS(0.65), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
 # sampling took 383 s (ϵ = 0.1) or 768 s (ϵ = 0.05)
 
 # plot NUTS
 fig2 = plot_chain(1:n_samples, collect(eachrow(dropdims(nuts_chain[nuts_chain.name_map.parameters].value.data, dims=3)) ))
 save("lrnuts.png", fig2)
-
+end
 
 # sample with ZigZagBoomerang
 
@@ -82,35 +85,46 @@ function make_derivatives_neglogp(
         logp = Turing.getlogp(new_vi)
         return logp
     end
+    obj_, init, trans = optim_objective(model, MAP(); constrained=false)
+    obj = obj_ # ∘trans
+#    @show obj(x0) ℓ(x0)
+
     f1 = function (t, x, v, args...) # two directional derivatives
-        u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
+        u = ForwardDiff.derivative(t -> obj(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
         u.value, u.partials[]
     end
     f2 = function (y, t, x, args...)
-        ForwardDiff.gradient!(y, ℓ, x)
-        y .= -y
+        ForwardDiff.gradient!(y, obj, x)
         y
     end
-    return f1, f2
+    return obj, f1, f2, init, trans
 end
 
 
-dneglogp, ∇neglogp! = make_derivatives_neglogp(model)
+
+neglogp, dneglogp, ∇neglogp!, init, trans = make_derivatives_neglogp(model);
 
 d = 1 + 24 # number of parameters 
+init_scale = 4.0
+@time result = pathfinder(x->-neglogp(x); dim=d, init_scale)
+
 t0 = 0.0
 x0 = zeros(d) # starting point sampler
-θ0 = randn(d) # starting direction sampler
-T = 200. # end time (similar to number of samples in MCMC)
-c = 50.0 # initial guess for the bound
+T = 600. # end time (similar to number of samples in MCMC)
+c = 5.0 # initial guess for the bound
+M = Diagonal(1 ./ sqrt.(diag(result.fit_distribution.Σ)))
+#M = Diagonal(1 ./ [1.7, 0.08, 0.01, 0.09, 0.01, 0.06, 0.08, 0.12, 0.09, 0.11, 0.01, 0.11, 0.18, 0.29, 0.21, 0.88, 0.21, 0.39, 0.44, 0.65, 0.4, 0.35, 0.6, 0.31, 0.3])
+θ0 = M\randn(d) # starting direction sampler
 
 # define BouncyParticle sampler (has two relevant parameters) 
 Z = BouncyParticle(∅, ∅, # ignored
-    10.0, # momentum refreshment rate 
+    2.0, # momentum refreshment rate 
     0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
     0.0, # ignored
-    I # cholesky of momentum precision
+    M # cholesky of momentum precision
 ) 
+
+el = @elapsed begin
 
 trace, final, (acc, num), cs = @time pdmp(
         dneglogp, # return first two directional derivatives of negative target log-likelihood in direction v
@@ -118,17 +132,19 @@ trace, final, (acc, num), cs = @time pdmp(
         t0, x0, θ0, T, # initial state and duration
         ZZB.LocalBound(c), # use Hessian information 
         Z; # sampler
-        oscn=false, # no orthogonal subspace pCR
         adapt=true, # adapt bound c
         progress=true, # show progress bar
         subsample=true # keep only samples at refreshment times
 )
-# took 101 s
+end
+
 
 # obtain direction change times and points of piecewise linear trace
 t, x = ZigZagBoomerang.sep(trace)
 
-
+#x = trans.(x)
+bps_chain = MCMCChains.Chains([xj[i] for xj in x, i in 1:d])
+bps_chain = setinfo(bps_chain,  (;start_time=0.0, stop_time = el))
 # plot bouncy particle sampler
 fig3 = plot_chain(t, x, false)
 save("lrbouncy.png", fig3)
