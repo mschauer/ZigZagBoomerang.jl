@@ -45,7 +45,7 @@ model = lr_nuts(x, y, 100.0)
 
 
 # sample First with Turing and Nuts
-if true
+if false
 n_samples = 1_000 # Sampling parameter settings
 nuts_chain = @time sample(model, NUTS(0.65), n_samples) # (a bit frickle, sometimes adapts wrong, ϵ = 0.1 seems good)
 # sampling took 383 s (ϵ = 0.1) or 768 s (ϵ = 0.05)
@@ -104,17 +104,18 @@ init_scale = 4.0
 @time result = pathfinder(x->-neglogp(x); dim=d, init_scale)
 
 t0 = 0.0
-x0 = zeros(d) # starting point sampler
 T = 600. # end time (similar to number of samples in MCMC)
 c = 5.0 # initial guess for the bound
 M = Diagonal(1 ./ sqrt.(diag(result.fit_distribution.Σ)))
 #M = Diagonal(1 ./ [1.7, 0.08, 0.01, 0.09, 0.01, 0.06, 0.08, 0.12, 0.09, 0.11, 0.01, 0.11, 0.18, 0.29, 0.21, 0.88, 0.21, 0.39, 0.44, 0.65, 0.4, 0.35, 0.6, 0.31, 0.3])
+#x0 = zeros(d) # starting point sampler
+x0 = result.fit_distribution.μ
 θ0 = M\randn(d) # starting direction sampler
 
 # define BouncyParticle sampler (has two relevant parameters) 
 Z = BouncyParticle(∅, ∅, # ignored
     2.0, # momentum refreshment rate 
-    0.95, # momentum correlation / only gradually change momentum in refreshment/momentum update
+    0.97, # momentum correlation / only gradually change momentum in refreshment/momentum update
     0.0, # ignored
     M # cholesky of momentum precision
 ) 
@@ -138,7 +139,7 @@ end
 t, x = ZigZagBoomerang.sep(trace)
 
 #x = trans.(x)
-bps_chain = MCMCChains.Chains([xj[i] for xj in x, i in 1:d])
+bps_chain = MCMCChains.Chains([xj[i] for xj in x[end÷4:end], i in 1:d])
 bps_chain = setinfo(bps_chain,  (;start_time=0.0, stop_time = el))
 # plot bouncy particle sampler
 fig3 = plot_chain(t, x, false)
