@@ -30,7 +30,6 @@ function iterate(FS::NotFactSampler)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     c = FS.c
     rng = FS.rng
-    Ξ = Trace(t0, x0, θ0, Flow)
     τref = waiting_time_ref(rng, Flow)
     ∇ϕx, v = FS.∇ϕ!(∇ϕx, t, x, θ, FS.args...)
     ∇ϕx = grad_correct!(∇ϕx, x, Flow)
@@ -47,6 +46,41 @@ function iterate(FS::NotFactSampler,  (u, ∇ϕx, (acc, num), c, abc, (t′, ren
     t, (x, θ) = u
     t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(FS.rng, FS.∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), FS.F, FS.args...; FS.kargs...)
     ev = event(t, x, θ, FS.F)
+    u = t => (x, θ)
+    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v)
+end
+
+function rawevent(t, x, θ, Z::Union{BouncyParticle,Boomerang})
+    t, x, θ, nothing
+end
+
+
+function iterate(FS::NotFactSampler{<:Any, <:Tuple})
+    t0, (x0, θ0) = FS.u0
+    Flow = FS.F
+    n = length(x0)
+    t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    c = FS.c
+    rng = FS.rng
+    τref = waiting_time_ref(rng, Flow)
+
+
+    dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
+    θdϕ, v = dϕ(t, x, θ, FS.args...) 
+    num = acc = 0
+    abc = ab(x, θ, c, θdϕ, v, Flow)
+
+    t′, renew = next_time(t, abc, rand(rng))
+    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v))
+end
+
+
+function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v))
+    t, (x, θ) = u
+    dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
+    t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), FS.F, FS.args...; FS.kargs...)
+   
+    ev = rawevent(t, x, θ, FS.F)
     u = t => (x, θ)
     return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v)
 end
