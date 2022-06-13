@@ -150,11 +150,13 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
 end
 
 
-function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, v, (acc, num),
-    Flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false)
+##################################
+
+function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, (acc, num),
+    Flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false) where {F1, F2}
     while true
         if τref < t′
-            t, x, θ = move_forward!(τref - t, t, x, θ, Flow)
+            t, _ = move_forward!(τref - t, t, x, θ, Flow)
             refresh!(rng, θ, Flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, Flow)
@@ -162,17 +164,17 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
             τref = t + waiting_time_ref(rng, Flow)
             abc = ab(x, θ, c, θdϕ, v, Flow)
             t′, renew = next_time(t, abc, rand(rng))
-            return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+            return t, (acc, num), c, abc, (t′, renew), τref
         elseif renew
             τ = t′ - t
-            t, x, θ = move_forward!(τ, t, x, θ, Flow) 
+            t, _ = move_forward!(τ, t, x, θ, Flow) 
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, Flow)
             abc = ab(x, θ, c, θdϕ, v, Flow)
             t′, renew = next_time(t, abc, rand(rng))
         else
             τ = t′ - t
-            t, x, θ = move_forward!(τ, t, x, θ, Flow)
+            t, _ = move_forward!(τ, t, x, θ, Flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, Flow)
             l, lb = λ(θdϕ, Flow), pos(abc[1] + abc[2]*τ)
@@ -189,13 +191,13 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
                     @assert Flow.L == I
                     oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
                 else
-                    θ = reflect!(∇ϕx, x, θ, Flow)
+                    reflect!(∇ϕx, x, θ, Flow)
                 end
                 θdϕ, v = dϕ(t, x, θ, args...) 
                 #∇ϕx = grad_correct!(∇ϕx, x, Flow)
                 abc = ab(x, θ, c, θdϕ, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
-                !subsample && return t, x, θ, (acc, num), c, abc, (t′, renew), τref, v
+                !subsample && return t, (acc, num), c, abc, (t′, renew), τref
             else
                 abc = ab(x, θ, c, θdϕ, v, Flow)
                 t′, renew = next_time(t, abc, rand(rng))
@@ -204,7 +206,6 @@ function pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c::Bound, abc, (t′, r
     end
 end
 """
-
     pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
 
 The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes. The gradient `∇ϕ!` tells me the surface I want to reflect on.
@@ -275,7 +276,7 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args.
 
     t′, renew = next_time(t, abc, rand(rng))
     while t < T
-        t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
+        t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, Flow))
 
         if t > tstop

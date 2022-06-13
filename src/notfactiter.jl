@@ -54,6 +54,7 @@ function rawevent(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, x, θ, nothing
 end
 
+######
 
 function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     t0, (x0, θ0) = FS.u0
@@ -71,16 +72,17 @@ function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     abc = ab(x, θ, c, θdϕ, v, Flow)
 
     t′, renew = next_time(t, abc, rand(rng))
-    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v))
+    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
 end
+using Test
 
 
-function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v))
+function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
     t, (x, θ) = u
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
-    t, x, θ, (acc, num), c, abc, (t′, renew), τref, v = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, v, (acc, num), FS.F, FS.args...; FS.kargs...)
+    t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), FS.F, FS.args...; FS.kargs...)
    
     ev = rawevent(t, x, θ, FS.F)
     u = t => (x, θ)
-    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref, v)
+    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref)
 end
