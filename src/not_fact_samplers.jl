@@ -276,7 +276,7 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args.
 
     t′, renew = next_time(t, abc, rand(rng))
     while t < T
-        t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, c, abc, (t′, renew), τref, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
+        t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, Flow))
 
         if t > tstop
