@@ -60,10 +60,15 @@ end
 using ForwardDiff
 using ForwardDiff: Dual, value
 """
-    make_gradient_and_dhessian_logp(turingmodel) -> ∇nlogp!
+    make_derivatives_neglogp(turingmodel) -> dneglogp, ∇neglogp!
 
-Gradient of negative log-likelihood and second derivative in direction of movement 
+Make two functions `dneglogp`, `∇neglogp!` which compute
 
+1.) `dneglogp(_, x, v)` computes for `f(t) = -log(p(x + t*v))` the first directional derivative `f'(0)` of negative target log-likelihood `p` at `x` 
+in direction `v` and the corresponding second derivative `f''(0)`.
+
+2.) `∇neglogp!(y, _, x)` computes the gradient of negative target log-likelihood `log(p(x))` at `x` inplace.
+            
 Following https://github.com/TuringLang/Turing.jl/blob/master/src/core/ad.jl
 """
 function make_derivatives_neglogp(
