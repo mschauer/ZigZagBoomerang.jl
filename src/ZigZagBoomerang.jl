@@ -5,6 +5,7 @@ using Statistics
 using ProgressMeter
 using RandomNumbers.Xorshifts
 using RandomNumbers: gen_seed
+using PDMats
 const Rng = Xoroshiro128Plus 
 Seed() = gen_seed(UInt64, 2)
 
