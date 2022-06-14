@@ -93,7 +93,6 @@ function reflect!(∇ϕx, x, θ, F::BouncyParticle)
 end
 function reflect!(∇ϕx, x, θ, F::Boomerang)
     θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
-#    θ .-= (2*dot(∇ϕx, θ)/normsq(∇ϕx))*∇ϕx 
     θ
 end
 
@@ -124,4 +123,18 @@ function refresh!(rng, θ, F::Boomerang)
     u = ρ̄*(F.L'\randn(rng, length(θ)))
     θ .+= u
     θ
+end
+
+# Use Geometry and pdmats if L is not provided
+function ZigZagBoomerang.reflect!(∇ϕx, x, v, F::BouncyParticle{<:Any, <:Any, <:Any, AbstractPDMat}) # Seth's version
+    z = F.U * ∇ϕx
+    v .-= (2*dot(∇ϕx, v)/dot(∇ϕx, z)) * z
+    v
+end
+function ZigZagBoomerang.refresh!(rng, v, F::BouncyParticle{<:Any, <:Any, <:Any, AbstractPDMat})
+    ρ̄ = sqrt(1-F.ρ^2)
+    v .*= F.ρ
+    u = ρ̄*PDMats.unwhiten(F.U, randn(rng, length(v)))
+    v .+= u
+    v
 end
