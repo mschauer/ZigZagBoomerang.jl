@@ -186,10 +186,6 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, 
                     c *= factor
                 end
                 ∇ϕ!(∇ϕx, t, x, args...)
-                if !(dot(θ, ∇ϕx) ≈ θdϕ)
-                    #@show  dot(θ, ∇ϕx) θdϕ
-                    #error("subsampling needs to be seeded by time")
-                end
                 if oscn
                     @assert Flow.L == I
                     oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
