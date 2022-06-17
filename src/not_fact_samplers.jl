@@ -27,11 +27,11 @@ function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::BouncyParticle)
     (C.c + θ'*(B.Γ*(x-B.μ)), θ'*(B.Γ*θ), Inf)
 end
 function ab(x, θ, C::LocalBound, ∇ϕx::AbstractVector, v, B::BouncyParticle)
-    (C.c + dot(θ, ∇ϕx), v, 2.0/C.c/norm(θ, Inf))
+    (C.c + dot(θ, ∇ϕx), v, 2sqrt(length(θ))/C.c/norm(θ, 2))
 end
 function ab(x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
     @assert vdϕ isa Number
-    (C.c + vdϕ, v, 2.0/C.c/norm(θ, Inf))
+    (C.c + vdϕ, v, 2sqrt(length(θ))/C.c/norm(θ, 2))
 end
 
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
@@ -186,7 +186,6 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, 
                     c *= factor
                 end
                 ∇ϕ!(∇ϕx, t, x, args...)
-                @assert dot(θ, ∇ϕx) ≈ θdϕ
                 if oscn
                     @assert Flow.L == I
                     oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
