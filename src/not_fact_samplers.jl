@@ -154,33 +154,42 @@ function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
 end
 
 function next_event1(rng, u::Tuple, abc, flow)
-    t, x, v = u
+    t, x, v, V = u
     a, b, Δ = abc
     τ = t + poisson_time(a, b, rand(rng))
-    τrefresh = t + waiting_time_ref(rng, flow)
+    τrefresh = t + waiting_time_ref(rng, flow)/V
     when, what = findmin((τ, Δ, τrefresh))
     return when, (:bounce, :expire, :refresh)[what]
 end
 
-function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, (t′, action), τref, (acc, num),
+function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, abc, (t′, action), Δrec, (acc, num),
     flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false) where {F1, F2}
     while true
+        if t + Δrec/V <= t′ # record! (large speed, more records)
+            t, _ = move_forward!(V\Δrec, t, x, θ, flow) 
+            Δrec = 1/flow.λref
+            return t, V, (acc, num), c, abc, (t′, action), Δrec
+        end
+        Δrec = Δrec - (t′ - t)*V # coming closer to rec
+        @assert Δrec > 0.0
         if action == :refresh
+            @assert Δrec >= 0
             t, _ = move_forward!(t′ - t, t, x, θ, flow)
             refresh!(rng, θ, flow)
+            V = norm(θ, 2)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
             l = λ(θdϕ, flow) 
             abc = ab(t, x, θ, c, θdϕ, v, flow)
-            t′, action = next_event1(rng, (t, x, θ), abc, flow)
-            return t, (acc, num), c, abc, (t′, action), τref
+            t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
+            #return t, V, (acc, num), c, abc, (t′, action), Δrec
         elseif action == :expire
             τ = t′ - t
             t, _ = move_forward!(τ, t, x, θ, flow) 
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
             abc = ab(t, x, θ, c, θdϕ, v, flow)
-            t′, action = next_event1(rng, (t, x, θ), abc, flow)
+            t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
         else # action == :reflect
             τ = t′ - t
             t, _ = move_forward!(τ, t, x, θ, flow)
@@ -208,11 +217,11 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, 
                 θdϕ, v = dϕ(t, x, θ, args...) 
                 #∇ϕx = grad_correct!(∇ϕx, x, flow)
                 abc = ab(t, x, θ, c, θdϕ, v, flow)
-                t′, action = next_event1(rng, (t, x, θ), abc, flow)
-                !subsample && return t, (acc, num), c, abc, (t′, action), τref
+                t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
+                #!subsample && return t, V, (acc, num), c, abc, (t′, action), Δrec
             else
                 abc = ab(t, x, θ, c, θdϕ, v, flow)
-                t′, action = next_event1(rng, (t, x, θ), abc, flow)
+                t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
             end
         end
     end
@@ -267,6 +276,7 @@ The remaining arguments:
 """
 function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    V = norm(θ, 2)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, flow)
     θdϕ, v = dϕ(t, x, θ, args...) 
@@ -284,10 +294,10 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args.
     end
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = T/stops
-    tref = nothing
-    t′, action = next_event1(rng, (t, x, θ), abc, flow)
+    Δrec = 1/flow.λref
+    t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
     while t < T
-        t, (acc, num), c, abc, (t′, action), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, action), τref, (acc, num), flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
+        t, V, (acc, num), c, abc, (t′, action), Δrec = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, V, c, abc, (t′, action), Δrec, (acc, num), flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, flow))
 
         if t > tstop
