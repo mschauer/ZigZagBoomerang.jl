@@ -29,15 +29,15 @@ end
 function ab(x, θ, C::LocalBound, ∇ϕx::AbstractVector, v, B::BouncyParticle)
     (C.c + dot(θ, ∇ϕx), v, 2sqrt(length(θ))/C.c/norm(θ, 2))
 end
-function ab(x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
+function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
     @assert vdϕ isa Number
-    (C.c + vdϕ, v, 2sqrt(length(θ))/C.c/norm(θ, 2))
+    (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/norm(θ, 2))
 end
 
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
     (sqrt(normsq(θ) + normsq((x - B.μ)))*C.c, 0.0, Inf)
 end
-ab(x, θ, c, Flow) =  ab(x, θ, GlobalBound(c), nothing, nothing, Flow)
+ab(x, θ, c, flow) =  ab(x, θ, GlobalBound(c), nothing, nothing, flow)
 
 function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ), nothing
@@ -150,34 +150,41 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
 end
 
 
-##################################
+##################################    ##################################
+function next_event1(rng, u::Tuple, abc, flow)
+    t, x, v = u
+    a, b, Δ = abc
+    τ = t + poisson_time(a, b, rand(rng))
+    τrefresh = t + waiting_time_ref(rng, flow)
+    when, what = findmin((τ, Δ, τrefresh))
+    return when, (:bounce, :expire, :refresh)[what]
+end
 
-function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, (t′, renew), τref, (acc, num),
-    Flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false) where {F1, F2}
+function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, (t′, action), τref, (acc, num),
+    flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false) where {F1, F2}
     while true
-        if τref < t′
-            t, _ = move_forward!(τref - t, t, x, θ, Flow)
-            refresh!(rng, θ, Flow)
+        if action == :refresh
+            t, _ = move_forward!(t′ - t, t, x, θ, flow)
+            refresh!(rng, θ, flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
-            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
-            l = λ(θdϕ, Flow) 
-            τref = t + waiting_time_ref(rng, Flow)
-            abc = ab(x, θ, c, θdϕ, v, Flow)
-            t′, renew = next_time(t, abc, rand(rng))
-            return t, (acc, num), c, abc, (t′, renew), τref
-        elseif renew
+            #∇ϕx = grad_correct!(∇ϕx, x, flow)
+            l = λ(θdϕ, flow) 
+            abc = ab(t, x, θ, c, θdϕ, v, flow)
+            t′, action = next_event1(rng, (t, x, θ), abc, flow)
+            return t, (acc, num), c, abc, (t′, action), τref
+        elseif action == :expire
             τ = t′ - t
-            t, _ = move_forward!(τ, t, x, θ, Flow) 
+            t, _ = move_forward!(τ, t, x, θ, flow) 
             θdϕ, v = dϕ(t, x, θ, args...) 
-            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
-            abc = ab(x, θ, c, θdϕ, v, Flow)
-            t′, renew = next_time(t, abc, rand(rng))
-        else
+            #∇ϕx = grad_correct!(∇ϕx, x, flow)
+            abc = ab(t, x, θ, c, θdϕ, v, flow)
+            t′, action = next_event1(rng, (t, x, θ), abc, flow)
+        else # action == :reflect
             τ = t′ - t
-            t, _ = move_forward!(τ, t, x, θ, Flow)
+            t, _ = move_forward!(τ, t, x, θ, flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
-            #∇ϕx = grad_correct!(∇ϕx, x, Flow)
-            l, lb = λ(θdϕ, Flow), pos(abc[1] + abc[2]*τ)
+            #∇ϕx = grad_correct!(∇ϕx, x, flow)
+            l, lb = λ(θdϕ, flow), pos(abc[1] + abc[2]*τ)
             num += 1
             if rand(rng)*lb <= l
                 acc += 1
@@ -191,25 +198,25 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, c::Bound, abc, 
                     #error("subsampling needs to be seeded by time")
                 end
                 if oscn
-                    @assert Flow.L == I
-                    oscn!(rng, θ, ∇ϕx, Flow.ρ; normalize=false)
+                    @assert flow.L == I
+                    oscn!(rng, θ, ∇ϕx, flow.ρ; normalize=false)
                 else
-                    reflect!(∇ϕx, x, θ, Flow)
+                    reflect!(∇ϕx, x, θ, flow)
                 end
                 θdϕ, v = dϕ(t, x, θ, args...) 
-                #∇ϕx = grad_correct!(∇ϕx, x, Flow)
-                abc = ab(x, θ, c, θdϕ, v, Flow)
-                t′, renew = next_time(t, abc, rand(rng))
-                !subsample && return t, (acc, num), c, abc, (t′, renew), τref
+                #∇ϕx = grad_correct!(∇ϕx, x, flow)
+                abc = ab(t, x, θ, c, θdϕ, v, flow)
+                t′, action = next_event1(rng, (t, x, θ), abc, flow)
+                !subsample && return t, (acc, num), c, abc, (t′, action), τref
             else
-                abc = ab(x, θ, c, θdϕ, v, Flow)
-                t′, renew = next_time(t, abc, rand(rng))
+                abc = ab(t, x, θ, c, θdϕ, v, flow)
+                t′, action = next_event1(rng, (t, x, θ), abc, flow)
             end
         end
     end
 end
 """
-    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
 
 The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes. The gradient `∇ϕ!` tells me the surface I want to reflect on.
 
@@ -256,19 +263,18 @@ The remaining arguments:
     t, x = ZigZagBoomerang.sep(trace)
 
 """
-function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     rng = Rng(seed)
-    Ξ = Trace(t0, x0, θ0, Flow)
-    τref = waiting_time_ref(rng, Flow)
+    Ξ = Trace(t0, x0, θ0, flow)
     θdϕ, v = dϕ(t, x, θ, args...) 
     #@assert v2 ≈ v
     #@assert θdϕ ≈ dot(∇ϕx, θ)
     
-    #∇ϕx = grad_correct!(∇ϕx, x, Flow)
+    #∇ϕx = grad_correct!(∇ϕx, x, flow)
     num = acc = 0
     #l = 0.0
-    abc = ab(x, θ, c, θdϕ, v, Flow)
+    abc = ab(t, x, θ, c, θdϕ, v, flow)
     if progress
         prg = Progress(progress_stops, 1)
     else
@@ -276,11 +282,11 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::BouncyParticle, args.
     end
     stops = ismissing(prg) ? 0 : max(prg.n - 1, 0) # allow one stop for cleanup
     tstop = T/stops
-
-    t′, renew = next_time(t, abc, rand(rng))
+    tref = nothing
+    t′, action = next_event1(rng, (t, x, θ), abc, flow)
     while t < T
-        t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), Flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
-        push!(Ξ, event(t, x, θ, Flow))
+        t, (acc, num), c, abc, (t′, action), τref = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, action), τref, (acc, num), flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
+        push!(Ξ, event(t, x, θ, flow))
 
         if t > tstop
             tstop += T/stops
@@ -299,5 +305,5 @@ struct Wrapper{F}
 end
 (F::Wrapper)(y, t, x, θ, args...) = F.f(y, x, args...), nothing
 
-pdmp(∇ϕ!, t0, x0, θ0, T, c, Flow::Union{BouncyParticle, Boomerang}, args...; nargs...) = 
-pdmp(Wrapper(∇ϕ!), t0, x0, θ0, T, GlobalBound(c), Flow, args...; nargs...)
+pdmp(∇ϕ!, t0, x0, θ0, T, c, flow::Union{BouncyParticle, Boomerang}, args...; nargs...) = 
+pdmp(Wrapper(∇ϕ!), t0, x0, θ0, T, GlobalBound(c), flow, args...; nargs...)

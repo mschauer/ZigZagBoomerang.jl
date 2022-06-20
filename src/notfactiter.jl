@@ -58,31 +58,30 @@ end
 
 function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     t0, (x0, θ0) = FS.u0
-    Flow = FS.F
+    flow = FS.F
     n = length(x0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     c = FS.c
     rng = FS.rng
-    τref = waiting_time_ref(rng, Flow)
+    τref = NaN
 
 
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
     θdϕ, v = dϕ(t, x, θ, FS.args...) 
     num = acc = 0
-    abc = ab(x, θ, c, θdϕ, v, Flow)
-
-    t′, renew = next_time(t, abc, rand(rng))
-    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
+    abc = ab(t, x, θ, c, θdϕ, v, flow)
+    t′, action = next_event1(rng, (t, x, θ), abc, flow)
+    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, action), τref))
 end
 using Test
 
 
-function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
+function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, action), τref))
     t, (x, θ) = u
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
-    t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), FS.F, FS.args...; FS.kargs...)
+    t, (acc, num), c, abc, (t′, action), τref = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, action), τref, (acc, num), FS.F, FS.args...; FS.kargs...)
    
     ev = rawevent(t, x, θ, FS.F)
     u = t => (x, θ)
-    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref)
+    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, action), τref)
 end
