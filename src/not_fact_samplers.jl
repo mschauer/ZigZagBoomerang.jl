@@ -29,10 +29,7 @@ end
 function ab(x, θ, C::LocalBound, ∇ϕx::AbstractVector, v, B::BouncyParticle)
     (C.c + dot(θ, ∇ϕx), v, 2sqrt(length(θ))/C.c/norm(θ, 2))
 end
-function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
-    @assert vdϕ isa Number
-    (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/norm(θ, 2))
-end
+
 
 function ab(x, θ, C::GlobalBound, ∇ϕx, v, B::Boomerang)
     (sqrt(normsq(θ) + normsq((x - B.μ)))*C.c, 0.0, Inf)
@@ -151,6 +148,11 @@ end
 
 
 ##################################    ##################################
+function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
+    @assert vdϕ isa Number
+    (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/norm(θ, 2))
+end
+
 function next_event1(rng, u::Tuple, abc, flow)
     t, x, v = u
     a, b, Δ = abc
