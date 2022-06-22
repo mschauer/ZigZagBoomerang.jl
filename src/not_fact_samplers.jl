@@ -148,6 +148,20 @@ end
 
 
 ################################## ModernBPS ##################################
+# Use Geometry and pdmats if L is not provided
+function ZigZagBoomerang.reflect!(∇ϕx, x, v, F::BouncyParticle{<:Any, <:Any, <:Any, <:AbstractPDMat}) # Seth's version
+    z = F.U * ∇ϕx
+    v .-= (2*dot(∇ϕx, v)/dot(∇ϕx, z)) * z
+    v
+end
+function ZigZagBoomerang.refresh!(rng, v, F::BouncyParticle{<:Any, <:Any, <:Any, <:AbstractPDMat})
+    ρ̄ = sqrt(1-F.ρ^2)
+    v .*= F.ρ
+    u = ρ̄*PDMats.unwhiten(F.U, randn(rng, length(v)))
+    v .+= u
+    speed(v, F)
+end
+
 function mass_adapt_init(M)
     M.diag
 end
@@ -155,10 +169,11 @@ end
 function mass_adapt!(M, m)
      @. M.diag = 1/m
 end
+_working = 4
+speed(θ, F) = norm(whiten(F.U, θ), 2)    
 
-function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
-    @assert vdϕ isa Number
-    (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/norm(θ, 2))
+function ab(t, x, θ, V, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
+    (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/V)
 end
 
 function next_event1(rng, u::Tuple, abc, flow)
@@ -175,7 +190,7 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
     if action == :invalid # invalidated event
         θdϕ, v = dϕ(t, x, θ, args...) 
         #∇ϕx = grad_correct!(∇ϕx, x, flow)
-        abc = ab(t, x, θ, c, θdϕ, v, flow)
+        abc = ab(t, x, θ, V, c, θdϕ, v, flow)
         t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
     end
 
@@ -183,8 +198,10 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
         if t + Δrec/V <= t′ # record! (large speed, more records)
             t, _ = move_forward!(V\Δrec, t, x, θ, flow) 
             Δrec = 1/flow.λref
+            θdϕ, v = dϕ(t, x, θ, args...) 
             ∇ϕ!(∇ϕx, t, x, args...)
-
+            abc = ab(t, x, θ, V, c, θdϕ, v, flow)
+            t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
             return t, V, (acc, num), c, abc, (t′, action), Δrec
         end
         Δrec = Δrec - (t′ - t)*V # coming closer to rec
@@ -192,11 +209,10 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
         if action == :refresh
             @assert Δrec >= 0
             t, _ = move_forward!(t′ - t, t, x, θ, flow)
-            refresh!(rng, θ, flow)
-            V = norm(θ, 2)
+            V = refresh!(rng, θ, flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
-            abc = ab(t, x, θ, c, θdϕ, v, flow)
+            abc = ab(t, x, θ, V, c, θdϕ, v, flow)
             t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
             #return t, V, (acc, num), c, abc, (t′, action), Δrec
         elseif action == :expire
@@ -204,14 +220,14 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
             t, _ = move_forward!(τ, t, x, θ, flow) 
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
-            abc = ab(t, x, θ, c, θdϕ, v, flow)
+            abc = ab(t, x, θ, V, c, θdϕ, v, flow)
             t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
         else # action == :reflect
             τ = t′ - t
             t, _ = move_forward!(τ, t, x, θ, flow)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
-            l, lb = λ(θdϕ, flow), pos(abc[1] + abc[2]*τ)
+            l, lb = θdϕ, pos(abc[1] + abc[2]*τ)
             num += 1
             if rand(rng)*lb <= l
                 acc += 1
@@ -228,15 +244,17 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
                     @assert flow.L == I
                     oscn!(rng, θ, ∇ϕx, flow.ρ; normalize=false)
                 else
+                    Vold = V
                     reflect!(∇ϕx, x, θ, flow)
+                    V = speed(θ, flow)
+                    @assert Vold ≈ V
                 end
                 θdϕ, v = dϕ(t, x, θ, args...) 
                 #∇ϕx = grad_correct!(∇ϕx, x, flow)
-                abc = ab(t, x, θ, c, θdϕ, v, flow)
+                abc = ab(t, x, θ, V, c, θdϕ, v, flow)
                 t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
-                #!subsample && return t, V, (acc, num), c, abc, (t′, action), Δrec
             else
-                abc = ab(t, x, θ, c, θdϕ, v, flow)
+                abc = ab(t, x, θ, V, c, θdϕ, v, flow)
                 t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
             end
         end
@@ -297,7 +315,7 @@ The remaining arguments:
 function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; adapt_mass=false, oscn=false, adapt=false, subsample=true, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
     subsample==true || throw(ArgumentError("`subsample=true` required."))
-    V = norm(θ, 2)
+    V = speed(θ, flow)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, flow)
     θdϕ, v = dϕ(t, x, θ, args...) 
@@ -307,7 +325,7 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args.
     #∇ϕx = grad_correct!(∇ϕx, x, flow)
     num = acc = 0
     #l = 0.0
-    abc = ab(t, x, θ, c, θdϕ, v, flow)
+    abc = ab(t, x, θ, V, c, θdϕ, v, flow)
     if progress
         prg = Progress(progress_stops, 1)
     else
@@ -343,6 +361,7 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args.
     return Ξ, (t, x, θ), (acc, num), c
 end
 
+##########
 wrap(f) = wrap_(f,  methods(f)...)
 wrap_(f, args...) = f
 @inline wrap_(f, m) = m.nargs <= 4 ? Wrapper(f) : f
