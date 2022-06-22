@@ -55,6 +55,11 @@ function rawevent(t, x, θ, Z::Union{BouncyParticle,Boomerang})
 end
 
 ######
+function set_action(state, action)
+    u, ∇ϕx, (acc, num), c, abc, (t′, _action), Δrec = state
+    state = u, ∇ϕx, (acc, num), c, abc, (t′, action), Δrec 
+    state
+end
 
 function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     t0, (x0, θ0) = FS.u0

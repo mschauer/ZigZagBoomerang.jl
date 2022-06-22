@@ -147,7 +147,15 @@ function pdmp(∇ϕ!, t0, x0, θ0, T, c::Bound, Flow::Union{BouncyParticle, Boom
 end
 
 
-##################################    ##################################
+################################## ModernBPS ##################################
+function mass_adapt_init(M)
+    M.diag
+end
+
+function mass_adapt!(M, m)
+     @. M.diag = 1/m
+end
+
 function ab(t, x, θ, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
     @assert vdϕ isa Number
     (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/norm(θ, 2))
@@ -164,10 +172,19 @@ end
 
 function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, abc, (t′, action), Δrec, (acc, num),
     flow::BouncyParticle, args...; subsample=false, oscn=false, factor=1.5, adapt=false) where {F1, F2}
+    if action == :invalid # invalidated event
+        θdϕ, v = dϕ(t, x, θ, args...) 
+        #∇ϕx = grad_correct!(∇ϕx, x, flow)
+        abc = ab(t, x, θ, c, θdϕ, v, flow)
+        t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
+    end
+
     while true
         if t + Δrec/V <= t′ # record! (large speed, more records)
             t, _ = move_forward!(V\Δrec, t, x, θ, flow) 
             Δrec = 1/flow.λref
+            ∇ϕ!(∇ϕx, t, x, args...)
+
             return t, V, (acc, num), c, abc, (t′, action), Δrec
         end
         Δrec = Δrec - (t′ - t)*V # coming closer to rec
@@ -179,7 +196,6 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
             V = norm(θ, 2)
             θdϕ, v = dϕ(t, x, θ, args...) 
             #∇ϕx = grad_correct!(∇ϕx, x, flow)
-            l = λ(θdϕ, flow) 
             abc = ab(t, x, θ, c, θdϕ, v, flow)
             t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
             #return t, V, (acc, num), c, abc, (t′, action), Δrec
@@ -227,9 +243,12 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
     end
 end
 """
-    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+    pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
 
-The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes. The gradient `∇ϕ!` tells me the surface I want to reflect on.
+The first directional derivative `dϕ[1]` tells me if I move up or down the potential. The second directional derivative `dϕ[2]` tells me how fast the first changes.
+The gradient `∇ϕ!` tells me the surface I want to reflect on. Refreshes proportional to speed. 
+Keeps only samples at intervals proportional to those times.
+
 
      dϕ = function (t, x, v, args...) # two directional derivatives
          u = ForwardDiff.derivative(t -> -ℓ(x + t*v), Dual{:hSrkahPmmC}(0.0, 1.0))
@@ -261,28 +280,30 @@ The remaining arguments:
     trace, final, (acc, num), cs = @time pdmp(
             dneglogp, # return first two directional derivatives of negative target log-likelihood in direction v
             ∇neglogp!, # return gradient of negative target log-likelihood
-            t0, x0, θ0, T, # initial state and duration
+            t0, x0, θ0, #initial state 
+            T, # duration (Real) or number of samples (Int)
             ZZB.LocalBound(c), # use Hessian information 
             Z; # sampler
             oscn=false, # no orthogonal subspace pCR
             adapt=true, # adapt bound c
+            adapt_mass=false # adapt PDiag U matrix to fisher information estimate
             progress=true, # show progress bar
-            subsample=true # keep only samples at refreshment times
     )
 
     # to obtain direction change times and points of piecewise linear trace
     t, x = ZigZagBoomerang.sep(trace)
 
 """
-function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; oscn=false, adapt=false, subsample=false, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
+function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args...; adapt_mass=false, oscn=false, adapt=false, subsample=true, progress=false, progress_stops = 20, islocal = false, seed=Seed(), factor=2.0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    subsample==true || throw(ArgumentError("`subsample=true` required."))
     V = norm(θ, 2)
     rng = Rng(seed)
     Ξ = Trace(t0, x0, θ0, flow)
     θdϕ, v = dϕ(t, x, θ, args...) 
     #@assert v2 ≈ v
     #@assert θdϕ ≈ dot(∇ϕx, θ)
-    
+   
     #∇ϕx = grad_correct!(∇ϕx, x, flow)
     num = acc = 0
     #l = 0.0
@@ -296,9 +317,22 @@ function pdmp(dϕ, ∇ϕ!, t0, x0, θ0, T, c::Bound, flow::BouncyParticle, args.
     tstop = T/stops
     Δrec = 1/flow.λref
     t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
-    while t < T
+    m = ones(length(θ))
+    if adapt_mass 
+        m .= mass_adapt_init(flow.U)
+    end
+    iter = 1
+    while T isa Int ? iter < T : t < T
         t, V, (acc, num), c, abc, (t′, action), Δrec = pdmp_inner!(rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, V, c, abc, (t′, action), Δrec, (acc, num), flow, args...; oscn=oscn, subsample=subsample, factor=factor, adapt=adapt)
         push!(Ξ, event(t, x, θ, flow))
+        iter += 1
+        if adapt_mass
+            @. m =  m + (∇ϕx^2 - m)/iter # running average
+            action = :invalid
+            PDMats.whiten!(flow.U, θ)
+            mass_adapt!(flow.U, m)
+            PDMats.unwhiten!(flow.U, θ)
+        end
 
         if t > tstop
             tstop += T/stops
