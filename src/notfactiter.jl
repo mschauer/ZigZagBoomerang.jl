@@ -17,9 +17,8 @@ struct NotFactSampler{TF,T∇ϕ!,Tc,Tu0,Trng,Targs,Tkargs} <: PDMPSampler
     kargs::Tkargs
 end
 
-# FIXME: `subsample` is not defined
 function NotFactSampler(∇ϕ!, u0, c, F::Union{BouncyParticle,Boomerang}, args...;
-    factor=1.8, subsample=subsample, adapt=false, seed=Seed())
+    factor=1.8, subsample=true, adapt=false, seed=Seed())
     kargs = (factor=factor, adapt=adapt, subsample=subsample)
     return NotFactSampler(F, ∇ϕ!, c, u0, Rng(seed), args, kargs)
 end
