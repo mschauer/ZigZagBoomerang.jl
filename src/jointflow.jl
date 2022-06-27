@@ -10,6 +10,7 @@ waiting_time_ref(F::JointFlow) = poisson_time(F.λref)/length(F.f)
 
 function grad_correct!(y, x, F::JointFlow)
     for i in eachindex(y)
+        # FIXME: `grad_correct` is not defined
         y[i] += grad_correct(x[i], F[i])
     end
     y
