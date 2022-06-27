@@ -72,7 +72,9 @@ function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     Δrec = 1/flow.λref
 
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
-    θdϕ, v = dϕ(t, x, θ, FS.args...) 
+    θdϕ, v = dϕ(t, x, θ, flow, FS.args...) 
+    ∇ϕ!(∇ϕx, t, x, θ, flow, FS.args...)
+   
     num = acc = 0
     abc = ab(t, x, θ, V, c, θdϕ, v, flow)
     t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
