@@ -66,7 +66,7 @@ function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     flow = FS.F
     n = length(x0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
-    V = speed(θ, flow)
+    V = record_rate(θ, flow)
     c = FS.c
     rng = FS.rng
     Δrec = 1/flow.λref
