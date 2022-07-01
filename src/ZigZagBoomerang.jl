@@ -52,7 +52,6 @@ include("sparsestickyzz.jl")
 export sparsestickyzz
 
 include("ss_not_fact.jl")
-export sticky_pdmp
 
 include("trace.jl")
 include("condition.jl")

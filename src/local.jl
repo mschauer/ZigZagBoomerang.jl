@@ -20,6 +20,7 @@ function spdmp_inner!(rng, G, G2, ∇ϕ, t, x, θ, Q, c::LocalBound, (b, renew),
         if refresh && F isa JointFlow
             t, x, θ = smove_forward!(G, i, t, x, θ, t′, F)
             t, x, θ = smove_forward!(G2, i, t, x, θ, t′, F)
+            # FIXME: `refresh` is not defined
             x[i], θ[i] = ZigZagBoomerang.refresh(rng, x[i], θ[i], F[i])
             Q[(n + 1)] = t′ + waiting_time_ref(rng, F) #renew refreshment time
             for j in neighbours(G, i)

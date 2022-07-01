@@ -40,7 +40,7 @@ function event(t, x, θ, Z::Union{BouncyParticle,Boomerang})
     t, copy(x), copy(θ), nothing
 end
 
-function next_time(t, abc, z = rand(rng))
+function next_time(t, abc, z = rand())
     Δt = poisson_time(abc[1], abc[2], z)
     if Δt > abc[3]
         return t + abc[3], true
