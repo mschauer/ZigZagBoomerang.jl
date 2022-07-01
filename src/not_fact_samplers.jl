@@ -207,9 +207,15 @@ function pdmp_inner!(rng, dϕ::F1, ∇ϕ!::F2, ∇ϕx, t, x, θ, V, c::Bound, ab
 
     while true
         if t + Δrec/V <= t′ # record! (large V, more records)
-            t, _ = move_forward!(V\Δrec, t, x, θ, flow) 
+            τ = V\Δrec
+            t, _ = move_forward!(τ, t, x, θ, flow) 
             Δrec = 1/flow.λref
             θdϕ, v = dϕ(t, x, θ, flow, args...) 
+            l, lb = θdϕ, pos(abc[1] + abc[2]*τ)
+            if l > lb # check bounds on recordings
+                !adapt && error("Tuning parameter `c` too small.")
+                c *= factor
+            end
             ∇ϕ!(∇ϕx, t, x, θ, flow, args...)
             abc = ab(t, x, θ, V, c, θdϕ, v, flow)
             t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
