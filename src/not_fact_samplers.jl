@@ -158,14 +158,27 @@ function ZigZagBoomerang.reflect!(∇ϕx, t, x, v, F::BouncyParticle{<:Any, <:An
     v .-= (2*dot(∇ϕx, v)/dot(∇ϕx, z)) * z
     v
 end
+function reflect!(∇ϕx, t, x, θ, F::BouncyParticle)
+    θ .-= (2*dot(∇ϕx, θ)/normsq(F.L\∇ϕx))*(F.L'\(F.L\∇ϕx))
+    θ
+end
 function ZigZagBoomerang.refresh!(rng, t, x, v, F::BouncyParticle{<:Any, <:Any, <:Any, <:AbstractPDMat})
-    ρ̄ = sqrt(1-F.ρ^2)
+    ρ̄ = sqrt(1 - F.ρ^2)
     v .*= F.ρ
     s = local_speed(t, x, v, F)
     u = (s*ρ̄)*PDMats.unwhiten(F.U, randn(rng, length(v)))
     v .+= u
     record_rate(v, F)
 end
+function ZigZagBoomerang.refresh!(rng, t, x, v, F::BouncyParticle)
+    ρ̄ = sqrt(1 - F.ρ^2)
+    v .*= F.ρ
+    s = local_speed(t, x, v, F)
+    u = (s*ρ̄)*(F.L'\randn(rng, length(v)))
+    v .+= u
+    record_rate(v, F)
+end
+
 function mass_adapt_init(M::InvChol)
     Cholesky(M.R)
 end
