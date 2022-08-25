@@ -171,7 +171,7 @@ function mass_adapt_init(M::InvChol)
 end
 
 function mass_adapt_init(M)
-    M.diag
+    @. 1/M.diag
 end
 
 function mass_adapt!(M, m)
