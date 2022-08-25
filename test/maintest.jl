@@ -176,13 +176,13 @@ end
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    M = LowerTriangular(I + 0.4randn(d,d))
+    M = UpperTriangular(I + 0.4randn(d,d))
     c = 20.0
     B = BouncyParticle(missing, missing, # ignored
         1.0, # momentum refreshment rate 
         0.9, # momentum correlation / only gradually change momentum in refreshment/momentum update
-        missing, # metric
-        M # cholesky of momentum precision
+        ZigZagBoomerang.InvChol(M), # metric
+        missing
     ) 
 
     ∇ϕ!(y, t, x, args...) = mul!(y, Γ, x)
