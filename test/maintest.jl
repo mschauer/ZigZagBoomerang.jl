@@ -171,40 +171,75 @@ end
     @test mean(abs.(cov(xs) - inv(Matrix(Γ0)))) < 2/sqrt(T)
 end
 
-@testset "Bouncy Particle Sampler (mass matrix)" begin
+@testset "Bouncy Particle Sampler (arbitrary mass matrix)" begin
     Random.seed!(2)
     t0 = 0.0
     θ0 = randn(d)
     x0 = randn(d)
-    M = LowerTriangular(I + randn(d,d))
-    c = 1.1
-    B = BouncyParticle(nothing, nothing, # ignored
+    M = LowerTriangular(I + 0.4randn(d,d))
+    c = 20.0
+    B = BouncyParticle(missing, missing, # ignored
         1.0, # momentum refreshment rate 
-        0.0, # momentum correlation / only gradually change momentum in refreshment/momentum update
-        0.0, # ignored
+        0.9, # momentum correlation / only gradually change momentum in refreshment/momentum update
+        missing, # metric
         M # cholesky of momentum precision
     ) 
 
     ∇ϕ!(y, t, x, args...) = mul!(y, Γ, x)
     dϕ(t, x, v, args...) =  dot(v, Γ, x), dot(v, Γ, v)
-    T = 500.0
+    n = 800
     trace, _, acc, more = @time pdmp(
         dϕ, # return first two directional derivatives of negative target log-likelihood in direction v
         ∇ϕ!, # return gradient of negative target log-likelihood
-        t0, x0, θ0, T, # initial state and duration
+        t0, x0, θ0, # initial state and duration
+        n, # number of samples
         ZigZagBoomerang.LocalBound(c), # use Hessian information 
         B; # sampler
         adapt=false, # adapt bound c
         progress=true, # show progress bar
-        subsample=false # keep only samples at refreshment times
     )
-    #pdmp(∇ϕ!, t0, x0, θ0, T, c, B, progress=true)
     @show more
     @show acc[1]/acc[2]
-    dt = 0.1
-    ts, xs = sep(collect(discretize(trace, dt)))
-    @test mean(abs.(mean(xs))) < 2/sqrt(T)
-    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(T)
+    ts, xs = sep(trace)
+    @show length(ts)
+    @test mean(abs.(mean(xs))) < 3/sqrt(length(ts))
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 3/sqrt(length(ts))
+end
+
+@testset "Bouncy Particle Sampler (adapted mass matrix)" begin
+    Random.seed!(2)
+    t0 = 0.0
+    θ0 = randn(d)
+    x0 = randn(d)
+    M = ZigZagBoomerang.PDMats.PDiagMat(ones(d))
+    c = 1.1
+    B = BouncyParticle(missing, missing, # ignored
+        1.0, # momentum refreshment rate 
+        0.9, # momentum correlation / only gradually change momentum in refreshment/momentum update
+        M, # metric
+        missing # cholesky of momentum precision
+    ) 
+
+    ∇ϕ!(y, t, x, args...) = mul!(y, Γ, x)
+    dϕ(t, x, v, args...) =  dot(v, Γ, x), dot(v, Γ, v)
+    n = 800
+    trace, _, acc, more = @time pdmp(
+        dϕ, # return first two directional derivatives of negative target log-likelihood in direction v
+        ∇ϕ!, # return gradient of negative target log-likelihood
+        t0, x0, θ0, # initial state and duration
+        n, # number of samples
+        ZigZagBoomerang.LocalBound(c), # use Hessian information 
+        B; # sampler
+        adapt=false, # adapt bound c
+        adapt_mass=true,
+        progress=true, # show progress bar
+    )
+    @show more
+    @show acc[1]/acc[2]
+    ts, xs = sep(trace)
+    @show length(ts)
+    @test mean(abs.(mean(xs))) < 2/sqrt(length(ts))
+    @test mean(abs.(cov(xs) - inv(Matrix(Γ)))) < 2/sqrt(length(ts))
 end
 
 @testset "ZigZag (independent)" begin

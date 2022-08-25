@@ -55,34 +55,40 @@ function rawevent(t, x, θ, Z::Union{BouncyParticle,Boomerang})
 end
 
 ######
+function set_action(state, action)
+    u, ∇ϕx, (acc, num), c, abc, (t′, _action), Δrec = state
+    state = u, ∇ϕx, (acc, num), c, abc, (t′, action), Δrec 
+    state
+end
 
 function iterate(FS::NotFactSampler{<:Any, <:Tuple})
     t0, (x0, θ0) = FS.u0
-    Flow = FS.F
+    flow = FS.F
     n = length(x0)
     t, x, θ, ∇ϕx = t0, copy(x0), copy(θ0), copy(θ0)
+    V = record_rate(θ, flow)
     c = FS.c
     rng = FS.rng
-    τref = waiting_time_ref(rng, Flow)
-
+    Δrec = 1/flow.λref
 
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
-    θdϕ, v = dϕ(t, x, θ, FS.args...) 
+    θdϕ, v = dϕ(t, x, θ, flow, FS.args...) 
+    ∇ϕ!(∇ϕx, t, x, θ, flow, FS.args...)
+   
     num = acc = 0
-    abc = ab(x, θ, c, θdϕ, v, Flow)
-
-    t′, renew = next_time(t, abc, rand(rng))
-    iterate(FS, ((t => (x, θ)), ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
+    abc = ab(t, x, θ, V, c, θdϕ, v, flow)
+    t′, action = next_event1(rng, (t, x, θ, V), abc, flow)
+    iterate(FS, ((t => (x, θ, V)), ∇ϕx, (acc, num), c, abc, (t′, action), Δrec))
 end
 using Test
 
 
-function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref))
-    t, (x, θ) = u
+function iterate(FS::NotFactSampler{<:Any, <:Tuple},  (u, ∇ϕx, (acc, num), c, abc, (t′, action), Δrec))
+    t, (x, θ, V) = u
     dϕ, ∇ϕ! = FS.∇ϕ![1], FS.∇ϕ![2]  
-    t, (acc, num), c, abc, (t′, renew), τref = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, c, abc, (t′, renew), τref, (acc, num), FS.F, FS.args...; FS.kargs...)
+    t, V, (acc, num), c, abc, (t′, action), Δrec = pdmp_inner!(FS.rng, dϕ, ∇ϕ!, ∇ϕx, t, x, θ, V, c, abc, (t′, action), Δrec, (acc, num), FS.F, FS.args...; FS.kargs...)
    
     ev = rawevent(t, x, θ, FS.F)
-    u = t => (x, θ)
-    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, renew), τref)
+    u = t => (x, θ, V)
+    return ev, (u, ∇ϕx, (acc, num), c, abc, (t′, action), Δrec)
 end
