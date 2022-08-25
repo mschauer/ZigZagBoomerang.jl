@@ -182,6 +182,7 @@ function mass_adapt!(M::InvChol, m)
 end
 
 record_rate(θ, F) = norm(whiten(F.U, θ))    
+record_rate(θ, F::BouncyParticle{Missing, Missing, Float64, Missing}) = 1.0
 
 function ab(t, x, θ, V, C::LocalBound, vdϕ::Number, v, B::BouncyParticle)
     (C.c + vdϕ, v, t + 2sqrt(length(θ))/C.c/V)
