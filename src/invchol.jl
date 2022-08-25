@@ -4,6 +4,7 @@ struct InvChol{T} <: AbstractPDMat{Float64}
     InvChol(R::S) where {S<:UpperTriangular} = new{S}(R)
 end
 PDMats.dim(M::InvChol) = size(M.R,1)
+Base.size(M::InvChol) = size(M.R)
 function PDMats.unwhiten!(r::Vector{Float64}, M::InvChol{UpperTriangular{Float64, Matrix{Float64}}}, z::Vector{Float64})
     r .= z
     LinearAlgebra.naivesub!(M.R, r)
