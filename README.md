@@ -84,6 +84,7 @@ Piecewise deterministic Markov processes for scalable Monte Carlo on restricted 
 [https://doi.org/10.1016/j.spl.2018.02.021].
 6. Joris Bierkens, Andrea Bertazzi: Adaptive Schemes for Piecewise Deterministic Monte Carlo Algorithms, 2020. [https://arxiv.org/abs/arXiv:2012.13924].
 7. Werner Krauth: Event-chain Monte Carlo: foundations, applications, and prospects, 2021. [https://arxiv.org/abs/2102.07217].
+8. Alexandre Bouchard-Côté, Sebastian J. Vollmer, Arnaud Doucet: The Bouncy Particle Sampler: A Nonreversible Rejection-Free Markov Chain Monte Carlo Method, *Journal of the American Statistical Association*, 113:522, 855-867, DOI: 10.1080/01621459.2017.1294075.
 
 
 * [https://github.com/jbierkens/ICML-boomerang/] (code accompanying the paper "The Boomerang Sampler")
