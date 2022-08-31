@@ -58,7 +58,9 @@ struct PartialQueue{U,T,S,R}
     minima::R
     nregions::Int
 end
-nv_(G) = length(G)
+nv_(G::Vector) = length(G)
+nv_(G::AbstractGraph) = nv(G)
+
 div1(a,b) = (a-1)÷b + 1
 rkey(q, key) = div1(q.nregions*key, nv_(q.G))
 rkey((nregions, nv)::Tuple, key) = div1(nregions*key, nv)
@@ -85,21 +87,23 @@ function check(q::PartialQueue)
     end
 end
 
-function checkqueue(q::PartialQueue)
+function checkqueue(q::PartialQueue; fullcheck=false)
     minima = [Pair{Int64, Float64}[] for _ in 1:q.nregions]
     for i in 1:length(q.vals)
         q.ripes[i] == localmin(q, i) || error("Internal error")   
         q.ripes[i] && push!(minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
     end
-    CHECKPQ && for i in 1:q.nregions
+    (CHECKPQ || fullcheck) && for i in 1:q.nregions
         if Set(first.(q.minima[i])) != Set(first.(minima[i]))
             println(setdiff(minima[i], q.minima[i]))
             println(setdiff(q.minima[i], minima[i]))
-            
             error("corrupted")
         end
     end
+    return 
 end
+
+
 
 
 

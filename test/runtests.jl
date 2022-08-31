@@ -18,4 +18,5 @@ include("staticarrays.jl")
 include("sticky.jl")
 include("sticky_test.jl")
 
+include("priority.jl")
 #include("forwarddiff.jl")
