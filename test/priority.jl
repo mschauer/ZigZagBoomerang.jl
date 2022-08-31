@@ -69,7 +69,7 @@ using Test
     @test peek(Q) == [[],[]] # currently all local minima are removed from the queue to be worked on
 
     # update/increment local time, (in parallel thanks to the threads makro)
-    for r in 1:nregions
+    @threads for r in 1:nregions
         for (i,t) in minima[r]
             println("work with $i, $t on $(Threads.threadid())")
             Q[i] = t + rand()
