@@ -15,6 +15,7 @@ Seed() = gen_seed(UInt64, 2)
 include("types.jl")
 include("common.jl")
 include("oscn.jl")
+include("invchol.jl")
 include("dynamics.jl")
 export ZigZag1d, Boomerang1d, ZigZag, FactBoomerang
 const LocalZigZag = ZigZag
@@ -51,7 +52,6 @@ include("sparsestickyzz.jl")
 export sparsestickyzz
 
 include("ss_not_fact.jl")
-export sticky_pdmp
 
 include("trace.jl")
 include("condition.jl")
