@@ -58,7 +58,9 @@ struct PartialQueue{U,T,S,R}
     minima::R
     nregions::Int
 end
-nv_(G) = length(G)
+nv_(G::Vector) = length(G)
+nv_(G::AbstractGraph) = nv(G)
+
 div1(a,b) = (a-1)÷b + 1
 rkey(q, key) = div1(q.nregions*key, nv_(q.G))
 rkey((nregions, nv)::Tuple, key) = div1(nregions*key, nv)
