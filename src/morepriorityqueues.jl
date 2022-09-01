@@ -159,3 +159,11 @@ function Base.setindex!(q::PartialQueue, value, key)
     #check(q)
     value
 end
+
+function is_proper_coloring(g, colors)
+    length(unique(colors)) <= maximum(degree(g)) + 1 || return false  
+    for e in edges(g)
+        colors[src(e)] == colors[dst(e)] && return false
+    end
+    return true
+end

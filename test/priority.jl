@@ -65,6 +65,9 @@ using Test
 
     ncols = 2 # use a black and white coloring 
 
+    @test is_proper_coloring(Q.G, [mod1(i, 2) for i in 1:d])
+    @test !is_proper_coloring(Q.G, ones(Int, d))
+
     # dequeue! some local minima to work with
     minima = dequeue!(Q) 
 
