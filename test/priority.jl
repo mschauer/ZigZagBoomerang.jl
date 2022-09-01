@@ -6,6 +6,7 @@ using Graphs: Edge
 using Random
 using Base.Threads
 using Test
+using ZigZagBoomerang: is_proper_coloring
 
 @testset "Queues" begin
     L = LinearQueue(0:2, [3.0, 1.0, 0.5])
