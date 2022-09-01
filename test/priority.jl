@@ -5,6 +5,7 @@ using ZigZagBoomerang: PartialQueue, dequeue!, saturate, rkey, div1
 using Graphs: Edge
 using Random
 using Base.Threads
+using Test
 
 @testset "Queues" begin
     L = LinearQueue(0:2, [3.0, 1.0, 0.5])
@@ -43,9 +44,9 @@ using Test
     Random.seed!(1)
 
     # number of regions
-    nregions = 2
+    nregions = 4
     # number of coordinates/keys
-    d = 10
+    d = 12
 
     # time surface
     times = rand(d)
@@ -59,23 +60,26 @@ using Test
 
     # key 1:5 is in region 1, keys 6:10 in region 2
     # we can work on different regions in parallel... see below
-    @test rkey(Q,5) == 1 
-    @test rkey(Q,6) == 2 
+    @test rkey(Q,3) == 1 
+    @test rkey(Q,4) == 2 
 
+    ncols = 2 # use a black and white coloring 
 
     # dequeue! some local minima to work with
     minima = dequeue!(Q) 
 
-    @test peek(Q) == [[],[]] # currently all local minima are removed from the queue to be worked on
+    @test peek(Q) == [[],[],[],[]] # currently all local minima are removed from the queue to be worked on
 
     # update/increment local time, (in parallel thanks to the threads makro)
-    @threads for r in 1:nregions
-        for (i,t) in minima[r]
-            println("work with $i, $t on $(Threads.threadid())")
-            Q[i] = t + rand()
+    for c in 1:ncols
+        for r in c:ncols:nregions # so never working on adjacent regions in parallel
+            for (i,t) in minima[r]
+                println("work with $i, $t on $(Threads.threadid())")
+                Q[i] = Q[i] + rand()
+            end
         end
     end
-    
+
     # internal check
     @test try 
             ZigZagBoomerang.checkqueue(Q, fullcheck=true) == nothing
