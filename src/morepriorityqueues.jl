@@ -51,12 +51,13 @@ function Base.setindex!(q::PriorityQueues, value, key)
 end
 
 
-struct PartialQueue{U,T,S,R}
+struct PartialQueue{U,T,S,R,F}
     G::U
     vals::T
     ripes::S
     minima::R
     nregions::Int
+    rmap::F
 end
 nv_(G::Vector) = length(G)
 nv_(G::AbstractGraph) = nv(G)
@@ -65,14 +66,14 @@ div1(a,b) = (a-1)÷b + 1
 rkey(q, key) = div1(q.nregions*key, nv_(q.G))
 rkey((nregions, nv)::Tuple, key) = div1(nregions*key, nv)
 
-function PartialQueue(G, vals, nregions=1)
+function PartialQueue(G, vals, nregions=1, rmap=let n = length(vals); key->rkey((nregions, n), key) end)
     ripes = falses(length(vals))
     minima = [Pair{Int64, Float64}[] for _ in 1:nregions]
     for i in 1:length(vals)
         ripes[i] = localmin(G, vals, i)
-        ripes[i] && push!(minima[div1(nregions*i, nv_(G))], i=>vals[i])
+        ripes[i] && push!(minima[rmap(i)], i=>vals[i])
     end
-    PartialQueue(G, vals, ripes, minima, nregions)
+    PartialQueue(G, vals, ripes, minima, nregions, rmap)
 end
 #=function build!(q::PartialQueue)
     resize!(q.minima)
@@ -91,7 +92,7 @@ function checkqueue(q::PartialQueue; fullcheck=false)
     minima = [Pair{Int64, Float64}[] for _ in 1:q.nregions]
     for i in 1:length(q.vals)
         q.ripes[i] == localmin(q, i) || error("Internal error")   
-        q.ripes[i] && push!(minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
+        q.ripes[i] && push!(minima[q.rmap(i)], i=>q.vals[i])
     end
     (CHECKPQ || fullcheck) && for i in 1:q.nregions
         if Set(first.(q.minima[i])) != Set(first.(minima[i]))
@@ -111,7 +112,7 @@ end
 function collectmin(q::PartialQueue)
     all(isempty.(q.minima)) || error("Full queue")
     for i in findall(q.ripes)
-        push!(q.minima[div1(q.nregions*i, nv_(q.G))], i=>q.vals[i])
+        push!(q.minima[q.rmap(i)], i=>q.vals[i])
     end
     if all(isempty.(q.minima))
         error("No minimum in queue")
@@ -145,16 +146,24 @@ Base.getindex(q::PartialQueue, key) = q.vals[key]
 function Base.setindex!(q::PartialQueue, value, key) 
     q.vals[key] < value || throw(ArgumentError("Can't decrease key $(q.vals[key]) to $value"))
     q.vals[key] = value
-    rkey = div1(q.nregions*key, nv_(q.G))
+    rkey = q.rmap(key)
     (q.ripes[key] = localmin(q, key)) && push!(q.minima[rkey], key => value)
     for i in neighbours(q.G, key)
         i == key && continue
         ripe = localmin(q, i)
-        ri = div1(q.nregions*i, nv_(q.G))
+        ri = q.rmap(i)
         (!q.ripes[i] && ripe) && push!(q.minima[ri], i => q.vals[i])
         q.ripes[i] = ripe
         (q.ripes[i] && !ripe) && i != key && error("lost minimum")
     end
     #check(q)
     value
+end
+
+function is_proper_coloring(g, colors)
+    length(unique(colors)) <= maximum(degree(g)) + 1 || return false  
+    for e in edges(g)
+        colors[src(e)] == colors[dst(e)] && return false
+    end
+    return true
 end
